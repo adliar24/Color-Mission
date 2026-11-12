@@ -1,0 +1,6 @@
+{
+  "name": "COLOR MISSION // Kuasai Warna. Selesaikan Misi.",
+  "description": "Game web 3D FPS edukatif teori warna pigmen RYB untuk Desktop, Mobile, dan VR Meta Quest 3S (WebXR) lengkap dengan GDD Workbench.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

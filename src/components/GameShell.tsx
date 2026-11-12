@@ -1,0 +1,1734 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import * as THREE from 'three';
+import { CyberArena, JumpPad, HazardNode } from '../game/engine/cyberScene';
+import { WeaponRig } from '../game/engine/weapons';
+import { EnemyManager, EnemyInstance } from '../game/engine/enemies';
+import { ParticleSystem } from '../game/engine/particles';
+import { VisualShotSystem } from '../game/engine/tracers';
+import { InputManager } from '../game/input/InputManager';
+import { VRManager } from '../game/xr/VRManager';
+import { VRWorldHUD } from '../game/xr/VRWorldHUD';
+import { PlayingHUD } from './PlayingHUD';
+import { MobileTouchControls } from './MobileTouchControls';
+import { TutorialModal } from './TutorialModal';
+import { SettingsModal } from './SettingsModal';
+import { StageTransitionModal } from './StageTransitionModal';
+import { GameOverModal } from './GameOverModal';
+import { VictoryModal } from './VictoryModal';
+import { PauseModal } from './PauseModal';
+import {
+  PlayerStats,
+  WeaponType,
+  GameState,
+  RunSummary,
+  EnemyType,
+  RYBColorId,
+  ShotFeedback,
+  GameSettings,
+  PlatformMode,
+} from '../game/types';
+import {
+  STAGE_DEFINITIONS,
+  BOSS_PHASES,
+  getBossPhaseForHp,
+  validateColorShot,
+  validateBossCrystalShot,
+  calculateEliminationScore,
+  calculatePlayerDamage,
+  calculateRunSummary,
+  WEAPON_REGISTRY,
+  getColorDef,
+  selectNextTargetColor,
+  buildColorInstructionClue,
+} from '../game/rules';
+import { sound } from '../game/audio';
+import {
+  Play,
+  BookOpen,
+  Sliders,
+} from 'lucide-react';
+
+interface GameShellProps {
+  autostart?: boolean;
+}
+
+const INITIAL_PLAYER_STATS: PlayerStats = {
+  hp: 100,
+  maxHp: 100,
+  shield: 50,
+  maxShield: 50,
+  dataCores: 0,
+  totalDataCoresCollected: 0,
+  score: 0,
+  combo: 0,
+  bestCombo: 0,
+  kills: 0,
+  stageKills: 0,
+  headshots: 0,
+  shotsFired: 0,
+  correctHits: 0,
+  wrongHits: 0,
+  stage: 1,
+  lifestealPercent: 0,
+  damageMult: 1.0,
+  fireRateMult: 1.0,
+  reloadTimeMult: 1.0,
+  magSizeBonus: 0,
+  moveSpeedMult: 1.0,
+  dashCooldownMult: 1.0,
+  overdriveDuration: 6.0,
+  headshotBonusMult: 0,
+};
+
+const DEFAULT_SETTINGS: GameSettings = {
+  mouseSensitivity: 1.0,
+  touchSensitivity: 1.0,
+  mobileGyroEnabled: false,
+  hapticsEnabled: true,
+  graphicsQuality: 'high',
+  vrTurnMode: 'snap',
+  vrSnapAngle: 45,
+  vrSmoothTurnSpeed: 2.0,
+  vrMovementMode: 'smooth',
+  vrComfortVignette: true,
+};
+
+export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
+  const mountRef = useRef<HTMLDivElement>(null);
+
+  // State utama permainan
+  const [gameState, setGameState] = useState<GameState>(autostart ? 'playing' : 'title');
+  const [player, setPlayer] = useState<PlayerStats>(INITIAL_PLAYER_STATS);
+  const [targetColorId, setTargetColorId] = useState<RYBColorId>('red');
+  const [showHint, setShowHint] = useState<boolean>(false);
+  const [wrongStreakOnTarget, setWrongStreakOnTarget] = useState<number>(0);
+  const [currentWeapon, setCurrentWeapon] = useState<WeaponType>('laser_rifle');
+  const [ammo, setAmmo] = useState<number>(WEAPON_REGISTRY.laser_rifle.magSize);
+  const [maxAmmo, setMaxAmmo] = useState<number>(WEAPON_REGISTRY.laser_rifle.magSize);
+  const [isReloading, setIsReloading] = useState<boolean>(false);
+  const [reloadProgress, setReloadProgress] = useState<number>(0);
+  const [bossHp, setBossHp] = useState<number | undefined>(undefined);
+  const [bossMaxHp, setBossMaxHp] = useState<number>(1500);
+  const [activeCrystalColorId, setActiveCrystalColorId] = useState<RYBColorId | null>(null);
+  const activeCrystalColorIdRef = useRef<RYBColorId | null>(null);
+
+  // Cooldown kemampuan
+  const [dashCd, setDashCd] = useState<number>(0);
+  const [empCd, setEmpCd] = useState<number>(0);
+  const [overdriveCd, setOverdriveCd] = useState<number>(0);
+  const [overdriveActive, setOverdriveActive] = useState<boolean>(false);
+  const [overdriveRemaining, setOverdriveRemaining] = useState<number>(0);
+
+  // Umpan balik & Modal
+  const [shotFeedback, setShotFeedback] = useState<ShotFeedback | null>(null);
+  const [clearedStageForModal, setClearedStageForModal] = useState<1 | 2>(1);
+  const [runSummary, setRunSummary] = useState<RunSummary | null>(null);
+  const [finalScore, setFinalScore] = useState<number>(0);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [showTutorial, setShowTutorial] = useState<boolean>(false);
+  const [hitmarkerActive, setHitmarkerActive] = useState<boolean>(false);
+  const [hitmarkerCrit, setHitmarkerCrit] = useState<boolean>(false);
+  const [hitmarkerWrong, setHitmarkerWrong] = useState<boolean>(false);
+  const [playerDamageFlash, setPlayerDamageFlash] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(sound.isMuted);
+  const damageFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Mode Platform Otomatis (Desktop, Mobile, VR)
+  const [platformMode, setPlatformMode] = useState<PlatformMode>('desktop');
+  const [vrComfortVignetteActive, setVrComfortVignetteActive] = useState<boolean>(false);
+
+  // Pengaturan yang disimpan di localStorage
+  const [settings, setSettings] = useState<GameSettings>(() => {
+    try {
+      const saved = localStorage.getItem('color_mission_settings');
+      if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+    } catch {}
+    return DEFAULT_SETTINGS;
+  });
+
+  // Refs untuk Engine 3D dan Input Terpusat
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const playerRigRef = useRef<THREE.Group | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const arenaRef = useRef<THREE.Scene | null | CyberArena>(null);
+  const weaponsRef = useRef<WeaponRig | null>(null);
+  const enemiesRef = useRef<EnemyManager | null>(null);
+  const particlesRef = useRef<ParticleSystem | null>(null);
+  const tracersRef = useRef<VisualShotSystem | null>(null);
+  const inputManagerRef = useRef<InputManager>(new InputManager());
+  const vrManagerRef = useRef<VRManager | null>(null);
+  const vrHudRef = useRef<VRWorldHUD | null>(null);
+
+  // Refs simulasi fisika & progres (pitch & yaw 0 agar kamera 100% lurus sejajar horison)
+  const playerPos = useRef<THREE.Vector3>(new THREE.Vector3(0, 1.7, 0));
+  const playerVel = useRef<THREE.Vector3>(new THREE.Vector3());
+  const cameraRot = useRef<{ pitch: number; yaw: number }>({ pitch: 0, yaw: 0 });
+  const isGrounded = useRef<boolean>(true);
+  const dashTimer = useRef<number>(0);
+  const empTimer = useRef<number>(0);
+  const overdriveTimer = useRef<number>(0);
+  const overdriveRemainRef = useRef<number>(0);
+  const isOverdriveRunning = useRef<boolean>(false);
+  const spawnTimer = useRef<number>(0);
+  const runStartTime = useRef<number>(Date.now());
+  const bossInstanceRef = useRef<EnemyInstance | null>(null);
+  const bossDamageSinceSwitch = useRef<number>(0);
+  const stageTransitionLock = useRef<boolean>(false);
+
+  // Sinkronisasi state ke dalam ref untuk loop animasi
+  const stateRef = useRef({
+    gameState,
+    player,
+    targetColorId,
+    currentWeapon,
+    settings,
+    platformMode,
+    shotFeedback,
+    bossHp,
+    bossMaxHp,
+  });
+
+  useEffect(() => {
+    stateRef.current = {
+      gameState,
+      player,
+      targetColorId,
+      currentWeapon,
+      settings,
+      platformMode,
+      shotFeedback,
+      bossHp,
+      bossMaxHp,
+    };
+    document.body.dataset.state = gameState;
+  }, [
+    gameState,
+    player,
+    targetColorId,
+    currentWeapon,
+    settings,
+    platformMode,
+    shotFeedback,
+    bossHp,
+    bossMaxHp,
+  ]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('color_mission_settings', JSON.stringify(settings));
+    } catch {}
+    if (rendererRef.current) {
+      const pixelRatio =
+        settings.graphicsQuality === 'low'
+          ? 1
+          : settings.graphicsQuality === 'medium'
+          ? Math.min(window.devicePixelRatio, 1.5)
+          : Math.min(window.devicePixelRatio, 2);
+      rendererRef.current.setPixelRatio(pixelRatio);
+      rendererRef.current.shadowMap.enabled = settings.graphicsQuality !== 'low';
+    }
+  }, [settings]);
+
+  const triggerShotBanner = useCallback((fb: ShotFeedback) => {
+    setShotFeedback(fb);
+  }, []);
+
+  // Kemampuan Aktif Pemain
+  const triggerDash = useCallback(() => {
+    if (dashTimer.current > 0) return;
+    const cdMult = stateRef.current.player.dashCooldownMult;
+    dashTimer.current = 2.2 * cdMult;
+    sound.playDash();
+    inputManagerRef.current.triggerHaptic(
+      'dash',
+      stateRef.current.settings,
+      vrManagerRef.current?.currentSession || null
+    );
+
+    const forward = new THREE.Vector3(
+      -Math.sin(cameraRot.current.yaw),
+      0,
+      -Math.cos(cameraRot.current.yaw)
+    );
+    playerVel.current.addScaledVector(forward, 24);
+
+    if (particlesRef.current) {
+      particlesRef.current.emit(playerPos.current, 24, '#22d3ee', 1.8);
+    }
+  }, []);
+
+  const triggerEmp = useCallback(() => {
+    if (empTimer.current > 0 || !enemiesRef.current) return;
+    empTimer.current = 11.0;
+    sound.playEmp();
+    inputManagerRef.current.triggerHaptic(
+      'emp',
+      stateRef.current.settings,
+      vrManagerRef.current?.currentSession || null
+    );
+
+    enemiesRef.current.stunAllInRadius(playerPos.current, 18.0, 4.0);
+
+    if (particlesRef.current) {
+      particlesRef.current.emit(playerPos.current, 55, '#38bdf8', 2.4);
+    }
+  }, []);
+
+  const triggerOverdrive = useCallback(() => {
+    if (overdriveTimer.current > 0 || isOverdriveRunning.current) return;
+    isOverdriveRunning.current = true;
+    overdriveRemainRef.current = stateRef.current.player.overdriveDuration;
+    overdriveTimer.current = 15.0;
+    setOverdriveActive(true);
+    sound.playOverdrive();
+  }, []);
+
+  // Pastikan di arena selalu ada minimal 1 Chromabot dengan warna target aktif
+  const ensureTargetColorPresentInArena = useCallback(
+    (desiredTarget: RYBColorId, stageNum: 1 | 2 | 3) => {
+      const enemies = enemiesRef.current;
+      if (!enemies) return;
+
+      if (bossInstanceRef.current && bossInstanceRef.current.state !== 'dead') {
+        if (bossInstanceRef.current.colorId !== desiredTarget) {
+          enemies.setEnemyColor(bossInstanceRef.current, desiredTarget);
+        }
+        return;
+      }
+
+      const activeBots = enemies.enemies.filter(
+        (e) => e.state !== 'dead' && e.type !== 'chroma_titan'
+      );
+      const hasMatchingBot = activeBots.some((e) => e.colorId === desiredTarget);
+
+      if (!hasMatchingBot) {
+        if (activeBots.length > 0) {
+          enemies.setEnemyColor(activeBots[0], desiredTarget);
+        } else {
+          const stageDef = STAGE_DEFINITIONS[stageNum];
+          const angle = Math.random() * Math.PI * 2;
+          const radius = 20 + Math.random() * 4;
+          const pos = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+          const type: EnemyType =
+            Math.random() < stageDef.eliteChance ? 'chromabot_elite' : 'chromabot_normal';
+          enemies.spawnEnemy(
+            type,
+            desiredTarget,
+            pos,
+            stageDef.enemyHpMult,
+            stageDef.enemySpeedMult
+          );
+        }
+      }
+    },
+    []
+  );
+
+  // Pemrosesan hasil mengenai musuh (dengan dukungan penuh Color Mixing Challenge)
+  const processEnemyHit = useCallback(
+    (
+      enemy: EnemyInstance,
+      hitPoint: THREE.Vector3,
+      baseDamage: number,
+      isHeadshot: boolean,
+      shotDir: THREE.Vector3
+    ) => {
+      const enemies = enemiesRef.current;
+      const particles = particlesRef.current;
+      if (!enemies || !particles) return;
+
+      const currentTarget = stateRef.current.targetColorId;
+      const pStats = stateRef.current.player;
+
+      // === PENANGANAN KHUSUS BOSS CHROMA TITAN (WAJIB MENGGUNAKAN KRISTAL WARNA YANG SESUAI) ===
+      if (enemy.type === 'chroma_titan') {
+        const bossVal = validateBossCrystalShot(
+          enemy.colorId,
+          activeCrystalColorIdRef.current,
+          baseDamage,
+          isHeadshot,
+          pStats.damageMult,
+          pStats.headshotBonusMult
+        );
+
+        if (!bossVal.isCorrectCrystal) {
+          // Tembakan tanpa kristal atau kristal salah warna -> TIDAK mengurangi darah Boss!
+          enemies.triggerWrongColorFeedback(enemy);
+          sound.playWrongColorHit();
+          particles.emit(hitPoint, 12, '#f43f5e', 1.25);
+          tracersRef.current?.addHitImpactEffect(hitPoint, '#f43f5e', false, true);
+          inputManagerRef.current.triggerHaptic(
+            'wrong',
+            stateRef.current.settings,
+            vrManagerRef.current?.currentSession || null
+          );
+
+          setHitmarkerActive(true);
+          setHitmarkerWrong(true);
+          setHitmarkerCrit(false);
+          setTimeout(() => setHitmarkerActive(false), 120);
+
+          if (bossVal.reason === 'no_crystal') {
+            triggerShotBanner({
+              type: 'wrong',
+              title: 'AMBIL KRISTAL!',
+              subtitle: 'Ambil kristal warna yang sesuai di arena untuk melukai Boss',
+              colorHex: '#f43f5e',
+              timestamp: performance.now(),
+            });
+          } else {
+            triggerShotBanner({
+              type: 'wrong',
+              title: 'KRISTAL SALAH!',
+              subtitle: 'Warna laser tidak sesuai dengan warna Boss · Kombo Terputus',
+              colorHex: '#f43f5e',
+              timestamp: performance.now(),
+            });
+            setPlayer((prev) => ({
+              ...prev,
+              combo: 0,
+              wrongHits: prev.wrongHits + 1,
+            }));
+          }
+          return;
+        }
+
+        // Kristal warna sesuai dengan warna Boss -> kurangi darah Boss!
+        const hitColorDef = getColorDef(enemy.colorId);
+        const clue = buildColorInstructionClue(currentTarget, pStats.stage);
+        const res = enemies.damageEnemy(enemy, bossVal.damage, shotDir);
+
+        particles.emit(hitPoint, 18, hitColorDef.hex, 1.6);
+        particles.emit(hitPoint, 10, '#ffffff', 1.2);
+        tracersRef.current?.addHitImpactEffect(
+          hitPoint,
+          hitColorDef.hex,
+          bossVal.isCrit,
+          false
+        );
+        sound.playHitmarker(bossVal.isCrit);
+        inputManagerRef.current.triggerHaptic(
+          res.killed ? 'kill' : 'enemyHit',
+          stateRef.current.settings,
+          vrManagerRef.current?.currentSession || null
+        );
+
+        setHitmarkerActive(true);
+        setHitmarkerWrong(false);
+        setHitmarkerCrit(bossVal.isCrit);
+        setTimeout(() => setHitmarkerActive(false), 100);
+
+        setBossHp(Math.max(0, enemy.hp));
+        bossDamageSinceSwitch.current += bossVal.damage;
+
+        const newPhaseDef = getBossPhaseForHp(enemy.hp, enemy.maxHp);
+        const phaseChanged = enemy.bossPhase !== newPhaseDef.phase;
+
+        if (res.killed && res.firstKillAward) {
+          sound.playWaveFanfare();
+          particles.emitSpectrumExplosion(enemy.position.clone().setY(3.2), 16);
+
+          enemies.clearAll();
+          if (arenaRef.current && 'clearBossCrystals' in arenaRef.current) {
+            arenaRef.current.clearBossCrystals();
+          }
+          tracersRef.current?.clearAll();
+          bossInstanceRef.current = null;
+          setBossHp(undefined);
+          activeCrystalColorIdRef.current = null;
+          setActiveCrystalColorId(null);
+          weaponsRef.current?.setCrystalTint(null);
+
+          const newCombo = pStats.combo + 1;
+          const elimScore = calculateEliminationScore(newCombo);
+
+          setPlayer((prev) => {
+            const updated: PlayerStats = {
+              ...prev,
+              correctHits: prev.correctHits + 1,
+              headshots: bossVal.isCrit ? prev.headshots + 1 : prev.headshots,
+              kills: prev.kills + 1,
+              combo: newCombo,
+              bestCombo: Math.max(prev.bestCombo, newCombo),
+              score: prev.score + elimScore.pointsAwarded + STAGE_DEFINITIONS[3].stageClearBonus,
+              dataCores: prev.dataCores + 35,
+              totalDataCoresCollected: prev.totalDataCoresCollected + 35,
+            };
+
+            const elapsed = (Date.now() - runStartTime.current) / 1000;
+            const summary = calculateRunSummary(updated, elapsed, true);
+            setRunSummary(summary);
+            setFinalScore(summary.score);
+            return updated;
+          });
+
+          inputManagerRef.current.desktop.releasePointerLock();
+          setGameState('victory');
+          return;
+        }
+
+        if (phaseChanged || bossDamageSinceSwitch.current >= 200) {
+          bossDamageSinceSwitch.current = 0;
+          enemy.bossPhase = newPhaseDef.phase;
+          if (phaseChanged) {
+            sound.playBossPhaseShift();
+          }
+          const nextBossColor = selectNextTargetColor(
+            newPhaseDef.colorPool,
+            [],
+            currentTarget
+          );
+          enemies.setEnemyColor(enemy, nextBossColor);
+          enemies.triggerTargetGracePeriod(2.5);
+          setTargetColorId(nextBossColor);
+          setWrongStreakOnTarget(0);
+          setShowHint(false);
+
+          // Reset kristal senjata pemain & munculkan kristal warna baru di arena!
+          activeCrystalColorIdRef.current = null;
+          setActiveCrystalColorId(null);
+          weaponsRef.current?.setCrystalTint(null);
+          if (arenaRef.current && 'spawnBossCrystals' in arenaRef.current) {
+            arenaRef.current.spawnBossCrystals(nextBossColor, newPhaseDef.colorPool);
+          }
+
+          triggerShotBanner({
+            type: 'correct',
+            title: 'WARNA BOSS BERUBAH!',
+            subtitle: 'Ambil kristal warna baru yang sesuai di arena!',
+            colorHex: hitColorDef.hex,
+            timestamp: performance.now(),
+          });
+        } else {
+          triggerShotBanner({
+            type: 'correct',
+            title: 'TEPAT!',
+            subtitle: `-${bossVal.damage} HP pada COLOR CORE`,
+            colorHex: hitColorDef.hex,
+            timestamp: performance.now(),
+          });
+        }
+
+        setPlayer((prev) => ({
+          ...prev,
+          correctHits: prev.correctHits + 1,
+          headshots: bossVal.isCrit ? prev.headshots + 1 : prev.headshots,
+        }));
+        return;
+      }
+
+      const validation = validateColorShot(
+        currentTarget,
+        enemy.colorId,
+        baseDamage,
+        isHeadshot,
+        pStats.damageMult,
+        pStats.headshotBonusMult
+      );
+
+      if (!validation.isCorrectColor) {
+        // === TEMBAKAN SALAH WARNA ===
+        // Damage nol, combo kembali nol, tidak mengurangi HP pemain, dan TIDAK membocorkan jawaban!
+        enemies.triggerWrongColorFeedback(enemy);
+        sound.playWrongColorHit();
+        particles.emit(hitPoint, 12, '#f43f5e', 1.25);
+        tracersRef.current?.addHitImpactEffect(hitPoint, '#f43f5e', false, true);
+        inputManagerRef.current.triggerHaptic(
+          'wrong',
+          stateRef.current.settings,
+          vrManagerRef.current?.currentSession || null
+        );
+
+        const wrongDef = getColorDef(enemy.colorId);
+
+        setHitmarkerActive(true);
+        setHitmarkerWrong(true);
+        setHitmarkerCrit(false);
+        setTimeout(() => setHitmarkerActive(false), 120);
+
+        setWrongStreakOnTarget((prev) => prev + 1);
+
+        triggerShotBanner({
+          type: 'wrong',
+          title: 'WARNA SALAH!',
+          subtitle: `Mengenai ${wrongDef.nameId} · Kombo Terputus`,
+          colorHex: '#f43f5e',
+          timestamp: performance.now(),
+        });
+
+        setPlayer((prev) => ({
+          ...prev,
+          combo: 0,
+          wrongHits: prev.wrongHits + 1,
+        }));
+        return;
+      }
+
+      // === TEMBAKAN WARNA BENAR (CHROMABOT NORMAL & ELITE) ===
+      const hitColorDef = getColorDef(enemy.colorId);
+      const clue = buildColorInstructionClue(currentTarget, pStats.stage);
+      const res = enemies.damageEnemy(enemy, validation.damage, shotDir);
+
+      particles.emit(hitPoint, 18, hitColorDef.hex, 1.6);
+      particles.emit(hitPoint, 10, '#ffffff', 1.2);
+      tracersRef.current?.addHitImpactEffect(
+        hitPoint,
+        hitColorDef.hex,
+        validation.isCrit,
+        false
+      );
+      sound.playHitmarker(validation.isCrit);
+      inputManagerRef.current.triggerHaptic(
+        res.killed ? 'kill' : 'enemyHit',
+        stateRef.current.settings,
+        vrManagerRef.current?.currentSession || null
+      );
+
+      setHitmarkerActive(true);
+      setHitmarkerWrong(false);
+      setHitmarkerCrit(validation.isCrit);
+      setTimeout(() => setHitmarkerActive(false), 100);
+
+      // Penanganan Chromabot Normal & Elite
+      if (res.killed && res.firstKillAward) {
+        const newCombo = pStats.combo + 1;
+        const elim = calculateEliminationScore(newCombo);
+        sound.playCorrectTargetKill(newCombo);
+        particles.emit(enemy.position.clone().setY(1.2), 26, hitColorDef.hex, 2.0);
+
+        const coreDrop = enemy.type === 'chromabot_elite' ? 5 : 2;
+        const currentStageDef = STAGE_DEFINITIONS[pStats.stage];
+        const newStageKills = pStats.stageKills + 1;
+
+        // Setelah target berhasil dieliminasi, tampilkan penjelasan pencampuran warna!
+        triggerShotBanner({
+          type: elim.streakLabel ? 'streak' : 'correct',
+          title: clue.solvedFormulaTextId,
+          subtitle: `+${elim.pointsAwarded} Poin · Kombo ${newCombo}x`,
+          colorHex: hitColorDef.hex,
+          points: elim.pointsAwarded,
+          timestamp: performance.now(),
+        });
+
+        setPlayer((prev) => {
+          let nextHp = prev.hp;
+          if (prev.lifestealPercent > 0 && validation.isCrit) {
+            nextHp = Math.min(
+              prev.maxHp,
+              prev.hp + Math.round(prev.maxHp * prev.lifestealPercent)
+            );
+          }
+          return {
+            ...prev,
+            hp: nextHp,
+            correctHits: prev.correctHits + 1,
+            headshots: validation.isCrit ? prev.headshots + 1 : prev.headshots,
+            kills: prev.kills + 1,
+            stageKills: prev.stageKills + 1,
+            combo: newCombo,
+            bestCombo: Math.max(prev.bestCombo, newCombo),
+            score: prev.score + elim.pointsAwarded,
+            dataCores: prev.dataCores + coreDrop,
+            totalDataCoresCollected: prev.totalDataCoresCollected + coreDrop,
+          };
+        });
+
+        setWrongStreakOnTarget(0);
+        setShowHint(false);
+
+        // Pilih target warna berikutnya dan berikan jeda adaptasi (grace period)
+        if (newStageKills < currentStageDef.targetEliminations) {
+          const remainingBotColors = enemies.enemies
+            .filter((e) => e.state !== 'dead' && e.id !== enemy.id && e.type !== 'chroma_titan')
+            .map((e) => e.colorId);
+
+          const nextTarget = selectNextTargetColor(
+            currentStageDef.colorPool,
+            remainingBotColors,
+            currentTarget
+          );
+          setTargetColorId(nextTarget);
+          ensureTargetColorPresentInArena(nextTarget, pStats.stage);
+          enemies.triggerTargetGracePeriod(currentStageDef.targetGracePeriodSeconds);
+        }
+      } else {
+        triggerShotBanner({
+          type: 'correct',
+          title: 'WARNA BENAR!',
+          subtitle: `-${validation.damage} HP · Lanjutkan tembakan!`,
+          colorHex: hitColorDef.hex,
+          timestamp: performance.now(),
+        });
+
+        setPlayer((prev) => ({
+          ...prev,
+          correctHits: prev.correctHits + 1,
+          headshots: validation.isCrit ? prev.headshots + 1 : prev.headshots,
+        }));
+      }
+    },
+    [ensureTargetColorPresentInArena, triggerShotBanner]
+  );
+
+  // Inisialisasi Engine Three.js, InputManager, dan WebXR
+  useEffect(() => {
+    const container = mountRef.current;
+    if (!container) return;
+
+    const initialPlatform = inputManagerRef.current.detectInitialMode();
+    setPlatformMode(initialPlatform);
+    inputManagerRef.current.attachAutoDetection((detectedMode) => {
+      setPlatformMode(detectedMode);
+    });
+
+    const scene = new THREE.Scene();
+    sceneRef.current = scene;
+
+    const playerRig = new THREE.Group();
+    scene.add(playerRig);
+    playerRigRef.current = playerRig;
+
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      150
+    );
+    camera.position.set(0, 1.7, 0);
+    cameraRef.current = camera;
+    playerRig.add(camera);
+
+    const vrHud = new VRWorldHUD();
+    camera.add(vrHud.mesh);
+    vrHudRef.current = vrHud;
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance',
+    });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    rendererRef.current = renderer;
+    container.appendChild(renderer.domElement);
+
+    const arena = new CyberArena(scene);
+    arenaRef.current = arena;
+
+    const weapons = new WeaponRig(camera);
+    weaponsRef.current = weapons;
+
+    const enemies = new EnemyManager(scene);
+    enemiesRef.current = enemies;
+
+    const particles = new ParticleSystem(scene);
+    particlesRef.current = particles;
+
+    const tracers = new VisualShotSystem(scene);
+    tracersRef.current = tracers;
+
+    const vrManager = new VRManager(renderer, playerRig, (isVRActive) => {
+      if (isVRActive) {
+        inputManagerRef.current.setMode('vr');
+        setPlatformMode('vr');
+      } else {
+        const fallback = inputManagerRef.current.detectInitialMode();
+        inputManagerRef.current.setMode(fallback);
+        setPlatformMode(fallback);
+      }
+    });
+    vrManagerRef.current = vrManager;
+
+    inputManagerRef.current.desktop.attach(renderer.domElement);
+
+    const handleCanvasClick = () => {
+      if (
+        stateRef.current.gameState === 'playing' &&
+        inputManagerRef.current.mode === 'desktop'
+      ) {
+        inputManagerRef.current.desktop.requestPointerLock();
+      }
+    };
+    renderer.domElement.addEventListener('click', handleCanvasClick);
+
+    const handleResize = () => {
+      if (!container || !renderer || !camera) return;
+      if (renderer.xr.isPresenting) return;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+      if (inputManagerRef.current.mode !== 'vr') {
+        const redetected = inputManagerRef.current.detectInitialMode();
+        setPlatformMode(redetected);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
+    let lastTime = performance.now();
+
+    renderer.setAnimationLoop((now: number) => {
+      const rawDt = (now - lastTime) / 1000;
+      lastTime = now;
+      const dt = Math.min(Math.max(rawDt, 0.001), 0.05);
+
+      const currentState = stateRef.current.gameState;
+      const curSettings = stateRef.current.settings;
+      const isPresentingVR = renderer.xr.isPresenting;
+
+      if (inputManagerRef.current.desktop.consumeMuteRequest()) {
+        const muted = sound.toggleMute();
+        setIsMuted(muted);
+      }
+
+      const cmd = inputManagerRef.current.poll(
+        curSettings,
+        dt,
+        vrManager.currentSession,
+        vrManager.rightController
+      );
+
+      if (cmd.pause) {
+        if (currentState === 'playing') {
+          inputManagerRef.current.desktop.releasePointerLock();
+          setGameState('paused');
+        } else if (currentState === 'paused') {
+          setGameState('playing');
+        }
+      }
+
+      if (cmd.toggleHint && currentState === 'playing') {
+        setShowHint((prev) => !prev);
+      }
+
+      if (
+        currentState === 'title' ||
+        currentState === 'gameover' ||
+        currentState === 'victory' ||
+        currentState === 'stage_transition'
+      ) {
+        // Background 3D ruangan arena yang kosong & bergerak halus saat di Menu maupun saat Game Selesai
+        arena.update(now / 1000, dt);
+        particles.update(dt);
+        weapons.gunGroup.visible = false;
+        if (!isPresentingVR) {
+          const orbitAngle = now * 0.00014;
+          camera.position.set(
+            Math.sin(orbitAngle) * 18,
+            6.2 + Math.sin(now * 0.0005) * 0.4,
+            Math.cos(orbitAngle) * 18
+          );
+          camera.rotation.set(-0.22, orbitAngle, 0, 'YXZ');
+        }
+      } else if (currentState === 'playing') {
+        weapons.gunGroup.visible = true;
+        const pStats = stateRef.current.player;
+        weapons.setModifiers(
+          pStats.fireRateMult,
+          pStats.reloadTimeMult,
+          pStats.magSizeBonus
+        );
+
+        // --- 1. Pergerakan & Fisika Pemain ---
+        cameraRot.current.yaw += cmd.lookDeltaX;
+        cameraRot.current.pitch = Math.max(
+          -Math.PI / 2.2,
+          Math.min(Math.PI / 2.2, cameraRot.current.pitch + cmd.lookDeltaY)
+        );
+
+        const moveSpeed =
+          12.0 * pStats.moveSpeedMult * (isOverdriveRunning.current ? 1.3 : 1.0);
+        const wishDir = new THREE.Vector3(cmd.moveX, 0, cmd.moveZ);
+
+        if (wishDir.lengthSq() > 0.001) {
+          if (wishDir.lengthSq() > 1) wishDir.normalize();
+          const forward = new THREE.Vector3(
+            -Math.sin(cameraRot.current.yaw),
+            0,
+            -Math.cos(cameraRot.current.yaw)
+          );
+          const right = new THREE.Vector3(
+            Math.cos(cameraRot.current.yaw),
+            0,
+            -Math.sin(cameraRot.current.yaw)
+          );
+          const worldWish = forward
+            .multiplyScalar(-wishDir.z)
+            .add(right.multiplyScalar(wishDir.x));
+
+          playerVel.current.x = THREE.MathUtils.lerp(
+            playerVel.current.x,
+            worldWish.x * moveSpeed,
+            dt * 10
+          );
+          playerVel.current.z = THREE.MathUtils.lerp(
+            playerVel.current.z,
+            worldWish.z * moveSpeed,
+            dt * 10
+          );
+        } else {
+          playerVel.current.x = THREE.MathUtils.lerp(playerVel.current.x, 0, dt * 12);
+          playerVel.current.z = THREE.MathUtils.lerp(playerVel.current.z, 0, dt * 12);
+        }
+
+        if (cmd.vrTeleportRequest) {
+          const forward = new THREE.Vector3(
+            -Math.sin(cameraRot.current.yaw),
+            0,
+            -Math.cos(cameraRot.current.yaw)
+          );
+          playerPos.current.addScaledVector(forward, 6.5);
+          sound.playDash();
+        }
+
+        if (cmd.jump && isGrounded.current) {
+          playerVel.current.y = 8.5;
+          isGrounded.current = false;
+        }
+
+        if (cmd.dash) triggerDash();
+        if (cmd.emp) triggerEmp();
+        if (cmd.overdrive) triggerOverdrive();
+        if (cmd.reload) weapons.startReload();
+        if (cmd.weaponSwitch) {
+          weapons.switchWeapon(cmd.weaponSwitch);
+          setCurrentWeapon(cmd.weaponSwitch);
+        }
+
+        playerVel.current.y -= 22.0 * dt;
+        playerPos.current.addScaledVector(playerVel.current, dt);
+
+        if (playerPos.current.y <= 1.7) {
+          playerPos.current.y = 1.7;
+          playerVel.current.y = 0;
+          isGrounded.current = true;
+        }
+
+        playerPos.current.x = Math.max(-29, Math.min(29, playerPos.current.x));
+        playerPos.current.z = Math.max(-29, Math.min(29, playerPos.current.z));
+
+        arena.jumpPads.forEach((jp: JumpPad) => {
+          if (
+            playerPos.current.distanceTo(jp.position) < jp.radius &&
+            playerPos.current.y <= 2.2
+          ) {
+            playerVel.current.y = jp.boostVelocity;
+            isGrounded.current = false;
+            sound.playDash();
+            particles.emit(jp.position, 20, '#22d3ee', 1.5);
+          }
+        });
+
+        // Pengambilan Kristal Warna saat melawan Boss CHROMA TITAN
+        if (bossInstanceRef.current && bossInstanceRef.current.state !== 'dead') {
+          arena.bossCrystals.forEach((c) => {
+            if (!c.isCollected) {
+              const distHoriz = Math.hypot(
+                playerPos.current.x - c.position.x,
+                playerPos.current.z - c.position.z
+              );
+              if (distHoriz <= c.pickupRadius) {
+                c.isCollected = true;
+                c.group.visible = false;
+                c.respawnTimer = 3.5;
+
+                activeCrystalColorIdRef.current = c.colorId;
+                setActiveCrystalColorId(c.colorId);
+                weapons.setCrystalTint(c.colorHex);
+
+                sound.playOverdrive();
+                inputManagerRef.current.triggerHaptic(
+                  'dash',
+                  curSettings,
+                  vrManager.currentSession
+                );
+                particles.emit(c.position.clone().setY(1.6), 28, c.colorHex, 2.0);
+                triggerShotBanner({
+                  type: 'correct',
+                  title: 'KRISTAL AKTIF!',
+                  subtitle: 'Senjata mengeluarkan laser kristal warna',
+                  colorHex: c.colorHex,
+                  timestamp: performance.now(),
+                });
+              }
+            }
+          });
+        }
+
+        if (isPresentingVR) {
+          playerRig.position.set(
+            playerPos.current.x,
+            playerPos.current.y - 1.7,
+            playerPos.current.z
+          );
+          playerRig.rotation.y = cameraRot.current.yaw;
+        } else {
+          playerRig.position.set(0, 0, 0);
+          playerRig.rotation.set(0, 0, 0);
+          camera.position.copy(playerPos.current);
+          // Pastikan roll (z) SELALU 0.0 agar kamera tidak pernah miring di Desktop maupun Mobile
+          camera.rotation.set(cameraRot.current.pitch, cameraRot.current.yaw, 0, 'YXZ');
+        }
+
+        const speedHoriz = Math.hypot(playerVel.current.x, playerVel.current.z);
+        setVrComfortVignetteActive(
+          isPresentingVR && curSettings.vrComfortVignette && speedHoriz > 3.5
+        );
+
+        // --- 2. Menembak & Validasi Target Warna ---
+        const isMoving = wishDir.lengthSq() > 0.01;
+        weapons.update(dt, isMoving, now / 1000);
+
+        if (cmd.shoot) {
+          const fired = weapons.fire(isOverdriveRunning.current);
+          if (fired) {
+            inputManagerRef.current.triggerHaptic(
+              'shoot',
+              curSettings,
+              vrManager.currentSession
+            );
+            const raycaster = new THREE.Raycaster();
+            const muzzlePos = new THREE.Vector3();
+
+            if (isPresentingVR && cmd.vrAimRay) {
+              const origin = new THREE.Vector3(...cmd.vrAimRay.origin);
+              const dir = new THREE.Vector3(...cmd.vrAimRay.direction).normalize();
+              raycaster.set(origin, dir);
+              muzzlePos.copy(origin);
+            } else {
+              raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+              weapons.gunGroup.getWorldPosition(muzzlePos);
+              muzzlePos.y -= 0.05;
+            }
+
+            const wDef = WEAPON_REGISTRY[weapons.currentWeapon];
+            const isBossFightActive =
+              bossInstanceRef.current !== null && bossInstanceRef.current.state !== 'dead';
+            const activeShotColor = isBossFightActive
+              ? activeCrystalColorIdRef.current
+                ? getColorDef(activeCrystalColorIdRef.current).hex
+                : '#94a3b8'
+              : wDef.color;
+
+            particles.emit(muzzlePos, 5, activeShotColor, 0.8);
+
+            enemies.checkProjectileInterception(muzzlePos, raycaster.ray.direction);
+
+            let targetPoint = muzzlePos
+              .clone()
+              .add(raycaster.ray.direction.clone().multiplyScalar(50));
+
+            if (weapons.currentWeapon === 'plasma_smg') {
+              tracers.addPlasmaProjectile(
+                muzzlePos,
+                raycaster.ray.direction,
+                wDef.damage,
+                wDef.projectileSpeed || 58,
+                activeShotColor
+              );
+              tracers.addLaserBeam(
+                muzzlePos,
+                muzzlePos.clone().add(raycaster.ray.direction.clone().multiplyScalar(8)),
+                activeShotColor,
+                0.05,
+                0.07
+              );
+            } else {
+              const activeEnemies = enemies.enemies
+                .filter((e) => e.state !== 'dead')
+                .sort(
+                  (a, b) =>
+                    a.position.distanceToSquared(playerPos.current) -
+                    b.position.distanceToSquared(playerPos.current)
+                );
+
+              for (const enemy of activeEnemies) {
+                const enemyBox = new THREE.Box3().setFromObject(enemy.mesh);
+                if (raycaster.ray.intersectsBox(enemyBox)) {
+                  const hitPoint = new THREE.Vector3();
+                  raycaster.ray.intersectBox(enemyBox, hitPoint);
+                  targetPoint.copy(hitPoint);
+
+                  const isHeadshot =
+                    hitPoint.y >
+                    enemy.position.y + (enemyBox.max.y - enemyBox.min.y) * 0.68;
+
+                  const shootDir = new THREE.Vector3()
+                    .subVectors(enemy.position, playerPos.current)
+                    .normalize();
+
+                  const baseHitDmg =
+                    weapons.currentWeapon === 'cyber_shotgun'
+                      ? wDef.damage * 4
+                      : wDef.damage;
+
+                  processEnemyHit(enemy, hitPoint, baseHitDmg, isHeadshot, shootDir);
+
+                  if (weapons.currentWeapon !== 'railgun') break;
+                }
+              }
+
+              if (weapons.currentWeapon === 'laser_rifle') {
+                tracers.addLaserBeam(muzzlePos, targetPoint, activeShotColor, 0.055, 0.13);
+              } else if (weapons.currentWeapon === 'cyber_shotgun') {
+                for (let p = 0; p < 8; p++) {
+                  const spreadDir = raycaster.ray.direction
+                    .clone()
+                    .add(
+                      new THREE.Vector3(
+                        (Math.random() - 0.5) * 0.13,
+                        (Math.random() - 0.5) * 0.13,
+                        (Math.random() - 0.5) * 0.13
+                      )
+                    )
+                    .normalize();
+                  const pelletEnd = muzzlePos.clone().add(spreadDir.multiplyScalar(32));
+                  tracers.addLaserBeam(muzzlePos, pelletEnd, activeShotColor, 0.034, 0.09);
+                }
+              } else if (weapons.currentWeapon === 'railgun') {
+                tracers.addLaserBeam(muzzlePos, targetPoint, activeShotColor, 0.12, 0.22);
+                tracers.addLaserBeam(muzzlePos, targetPoint, '#ffffff', 0.04, 0.18);
+              }
+            }
+
+            arena.hazardNodes.forEach((node: HazardNode) => {
+              if (!node.isExploded) {
+                const nodeBox = new THREE.Box3().setFromObject(node.mesh);
+                if (raycaster.ray.intersectsBox(nodeBox)) {
+                  node.isExploded = true;
+                  node.mesh.visible = false;
+                  sound.playEmp();
+                  particles.emit(node.position, 65, '#38bdf8', 2.8);
+                  enemies.stunAllInRadius(node.position, node.radius, 3.5);
+                }
+              }
+            });
+
+            setPlayer((prev) => ({ ...prev, shotsFired: prev.shotsFired + 1 }));
+          }
+        }
+
+        // --- 3. Update Cooldown Kemampuan & Amunisi ---
+        if (dashTimer.current > 0) dashTimer.current = Math.max(0, dashTimer.current - dt);
+        if (empTimer.current > 0) empTimer.current = Math.max(0, empTimer.current - dt);
+        if (overdriveTimer.current > 0)
+          overdriveTimer.current = Math.max(0, overdriveTimer.current - dt);
+
+        if (isOverdriveRunning.current) {
+          overdriveRemainRef.current = Math.max(0, overdriveRemainRef.current - dt);
+          setOverdriveRemaining(overdriveRemainRef.current);
+          if (overdriveRemainRef.current <= 0) {
+            isOverdriveRunning.current = false;
+            setOverdriveActive(false);
+          }
+        }
+
+        setDashCd(dashTimer.current);
+        setEmpCd(empTimer.current);
+        setOverdriveCd(overdriveTimer.current);
+        setAmmo(weapons.ammoCount);
+        setMaxAmmo(weapons.getMaxMagSize());
+        setIsReloading(weapons.isReloading);
+        setReloadProgress(weapons.reloadProgress);
+
+        // --- 4. Manajemen 3 Tahap Berurutan, Chromabots, & Boss CHROMA TITAN ---
+        const stageNum = stateRef.current.player.stage;
+        const stageDef = STAGE_DEFINITIONS[stageNum];
+        const stageKills = stateRef.current.player.stageKills;
+
+        if (stageKills < stageDef.targetEliminations) {
+          spawnTimer.current += dt;
+          const activeBots = enemies.enemies.filter(
+            (e) => e.state !== 'dead' && e.type !== 'chroma_titan'
+          );
+
+          if (
+            spawnTimer.current >= stageDef.spawnIntervalSeconds &&
+            activeBots.length < stageDef.maxConcurrentEnemies
+          ) {
+            spawnTimer.current = 0;
+
+            const currentTarget = stateRef.current.targetColorId;
+            const hasTargetBot = activeBots.some((e) => e.colorId === currentTarget);
+
+            const spawnColor: RYBColorId = !hasTargetBot
+              ? currentTarget
+              : stageDef.colorPool[Math.floor(Math.random() * stageDef.colorPool.length)];
+
+            const isElite = Math.random() < stageDef.eliteChance;
+            const botType: EnemyType = isElite ? 'chromabot_elite' : 'chromabot_normal';
+
+            const angle = Math.random() * Math.PI * 2;
+            const spawnRadius = 21 + Math.random() * 5;
+            const spawnPos = new THREE.Vector3(
+              Math.cos(angle) * spawnRadius,
+              0,
+              Math.sin(angle) * spawnRadius
+            );
+
+            enemies.spawnEnemy(
+              botType,
+              spawnColor,
+              spawnPos,
+              stageDef.enemyHpMult,
+              stageDef.enemySpeedMult
+            );
+            particles.emit(spawnPos.clone().setY(1.0), 14, getColorDef(spawnColor).hex, 1.2);
+          }
+        } else if (!stageDef.hasBossAtEnd) {
+          if (!stageTransitionLock.current) {
+            stageTransitionLock.current = true;
+            sound.playWaveFanfare();
+            enemies.clearAll();
+            inputManagerRef.current.desktop.releasePointerLock();
+
+            const clearedNum = stageNum as 1 | 2;
+            setClearedStageForModal(clearedNum);
+
+            setPlayer((prev) => ({
+              ...prev,
+              score: prev.score + stageDef.stageClearBonus,
+            }));
+
+            setGameState('stage_transition');
+          }
+        } else {
+          if (!bossInstanceRef.current) {
+            enemies.clearAll();
+            sound.playBossPhaseShift();
+
+            const initialBossColor = BOSS_PHASES[1].colorPool[0];
+            setTargetColorId(initialBossColor);
+            setWrongStreakOnTarget(0);
+            setShowHint(false);
+
+            const bossPos = new THREE.Vector3(0, 0, -21);
+            const boss = enemies.spawnEnemy('chroma_titan', initialBossColor, bossPos, 1.0, 1.0);
+            enemies.triggerTargetGracePeriod(3.0);
+            bossInstanceRef.current = boss;
+            bossDamageSinceSwitch.current = 0;
+
+            activeCrystalColorIdRef.current = null;
+            setActiveCrystalColorId(null);
+            weapons.setCrystalTint(null);
+            arena.spawnBossCrystals(initialBossColor, BOSS_PHASES[1].colorPool);
+
+            setBossMaxHp(boss.maxHp);
+            setBossHp(boss.hp);
+
+            particles.emitSpectrumExplosion(bossPos.clone().setY(3.0), 10);
+            triggerShotBanner({
+              type: 'streak',
+              title: 'AMBIL KRISTAL WARNA!',
+              subtitle: 'Ambil kristal sesuai warna Boss agar senjata dapat melukainya!',
+              colorHex: '#22d3ee',
+              timestamp: performance.now(),
+            });
+          } else {
+            const boss = bossInstanceRef.current;
+            const phaseDef = getBossPhaseForHp(boss.hp, boss.maxHp);
+            if (phaseDef.phase === 3) {
+              spawnTimer.current += dt;
+              const escortBots = enemies.enemies.filter(
+                (e) => e.state !== 'dead' && e.type !== 'chroma_titan'
+              );
+              if (spawnTimer.current >= 5.2 && escortBots.length < 2) {
+                spawnTimer.current = 0;
+                const escortColor =
+                  phaseDef.colorPool[Math.floor(Math.random() * phaseDef.colorPool.length)];
+                const ang = (Math.random() - 0.5) * Math.PI;
+                const pos = new THREE.Vector3(Math.sin(ang) * 20, 0, -Math.cos(ang) * 20);
+                enemies.spawnEnemy('chromabot_normal', escortColor, pos, 0.85, 0.9);
+              }
+            }
+          }
+        }
+
+        enemies.update(dt, playerPos.current, (dmg: number) => {
+          // Efek flicker merah saat pemain terkena tembakan musuh + Haptic feedback
+          setPlayerDamageFlash(true);
+          if (damageFlashTimerRef.current) {
+            clearTimeout(damageFlashTimerRef.current);
+          }
+          damageFlashTimerRef.current = setTimeout(() => {
+            setPlayerDamageFlash(false);
+          }, 260);
+          inputManagerRef.current.triggerHaptic(
+            'playerDamage',
+            stateRef.current.settings,
+            vrManager.currentSession
+          );
+
+          setPlayer((prev: PlayerStats) => {
+            const res = calculatePlayerDamage(prev.hp, prev.shield, dmg);
+            if (res.isDead) {
+              inputManagerRef.current.desktop.releasePointerLock();
+              enemies.clearAll();
+              arena.clearBossCrystals();
+              tracers.clearAll();
+              bossInstanceRef.current = null;
+              activeCrystalColorIdRef.current = null;
+              setActiveCrystalColorId(null);
+              weapons.setCrystalTint(null);
+              setBossHp(undefined);
+              setPlayerDamageFlash(false);
+              setGameState('gameover');
+              const elapsed = (Date.now() - runStartTime.current) / 1000;
+              const summary = calculateRunSummary({ ...prev, hp: 0 }, elapsed, false);
+              setRunSummary(summary);
+              setFinalScore(summary.score);
+            }
+            return {
+              ...prev,
+              hp: res.newHp,
+              shield: res.newShield,
+            };
+          });
+        });
+
+        arena.update(now / 1000, dt);
+        particles.update(dt);
+        tracers.update(dt);
+
+        for (let i = tracers.activePlasma.length - 1; i >= 0; i--) {
+          const proj = tracers.activePlasma[i];
+          const activeTargets = enemies.enemies.filter((e) => e.state !== 'dead');
+          let hitOccurred = false;
+
+          for (const enemy of activeTargets) {
+            const hitRadius = enemy.type === 'chroma_titan' ? 2.6 : 1.35;
+            const enemyCenter = enemy.position
+              .clone()
+              .setY(enemy.type === 'chroma_titan' ? 3.2 : 1.2);
+
+            if (proj.mesh.position.distanceTo(enemyCenter) <= hitRadius) {
+              processEnemyHit(
+                enemy,
+                proj.mesh.position.clone(),
+                proj.damage,
+                false,
+                proj.velocity.clone().normalize()
+              );
+              scene.remove(proj.mesh);
+              proj.mesh.geometry.dispose();
+              (proj.mesh.material as THREE.Material).dispose();
+              tracers.activePlasma.splice(i, 1);
+              hitOccurred = true;
+              break;
+            }
+          }
+          if (hitOccurred) continue;
+        }
+      }
+
+      if (vrHudRef.current) {
+        vrHudRef.current.update(
+          now,
+          isPresentingVR,
+          stateRef.current.player,
+          stateRef.current.targetColorId,
+          weapons.ammoCount,
+          weapons.getMaxMagSize(),
+          stateRef.current.bossHp,
+          stateRef.current.bossMaxHp,
+          stateRef.current.shotFeedback
+        );
+      }
+
+      renderer.render(scene, camera);
+    });
+
+    return () => {
+      renderer.setAnimationLoop(null);
+      window.removeEventListener('resize', handleResize);
+      renderer.domElement.removeEventListener('click', handleCanvasClick);
+      inputManagerRef.current.dispose();
+      vrManager.dispose();
+      vrHud.dispose();
+      arena.dispose();
+      particles.dispose(scene);
+      renderer.dispose();
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+    };
+  }, [
+    ensureTargetColorPresentInArena,
+    processEnemyHit,
+    triggerDash,
+    triggerEmp,
+    triggerOverdrive,
+    triggerShotBanner,
+  ]);
+
+  // Kembali ke Menu Utama dengan Ruangan 3D Bersih Tanpa Musuh & Tanpa Boss
+  const handleReturnToMenu = () => {
+    enemiesRef.current?.clearAll();
+    if (arenaRef.current && 'clearBossCrystals' in arenaRef.current) {
+      arenaRef.current.clearBossCrystals();
+    }
+    if (arenaRef.current && 'setStageTheme' in arenaRef.current) {
+      arenaRef.current.setStageTheme(1);
+    }
+    tracersRef.current?.clearAll();
+    weaponsRef.current?.setCrystalTint(null);
+    bossInstanceRef.current = null;
+    activeCrystalColorIdRef.current = null;
+    setActiveCrystalColorId(null);
+    setBossHp(undefined);
+    setShotFeedback(null);
+    setPlayerDamageFlash(false);
+    setGameState('title');
+  };
+
+  // Mulai Misi Baru dari Stage 1 (Primer)
+  const handleStartRun = () => {
+    const initialColor = STAGE_DEFINITIONS[1].colorPool[0];
+    setTargetColorId(initialColor);
+    setWrongStreakOnTarget(0);
+    setShowHint(false);
+
+    setPlayer({
+      ...INITIAL_PLAYER_STATS,
+      stage: 1,
+    });
+
+    playerPos.current.set(0, 1.7, 0);
+    playerVel.current.set(0, 0, 0);
+    cameraRot.current = { pitch: 0, yaw: 0 };
+    spawnTimer.current = 0;
+    runStartTime.current = Date.now();
+    bossInstanceRef.current = null;
+    bossDamageSinceSwitch.current = 0;
+    stageTransitionLock.current = false;
+    activeCrystalColorIdRef.current = null;
+    setActiveCrystalColorId(null);
+    setBossHp(undefined);
+    setShotFeedback(null);
+    setPlayerDamageFlash(false);
+
+    if (stateRef.current.platformMode === 'mobile' && settings.mobileGyroEnabled) {
+      inputManagerRef.current.mobile.requestGyroPermission();
+    }
+
+    if (arenaRef.current && 'setStageTheme' in arenaRef.current) {
+      arenaRef.current.setStageTheme(1);
+    }
+    if (enemiesRef.current) {
+      enemiesRef.current.clearAll();
+      STAGE_DEFINITIONS[1].colorPool.forEach((colId, idx) => {
+        const ang = (idx / 3) * Math.PI * 2 - Math.PI / 2;
+        const pos = new THREE.Vector3(Math.cos(ang) * 20, 0, Math.sin(ang) * 20);
+        enemiesRef.current?.spawnEnemy(
+          'chromabot_normal',
+          colId,
+          pos,
+          STAGE_DEFINITIONS[1].enemyHpMult,
+          STAGE_DEFINITIONS[1].enemySpeedMult
+        );
+      });
+      enemiesRef.current.triggerTargetGracePeriod(STAGE_DEFINITIONS[1].targetGracePeriodSeconds);
+    }
+    if (tracersRef.current) {
+      tracersRef.current.clearAll();
+    }
+    if (weaponsRef.current) {
+      weaponsRef.current.setCrystalTint(null);
+      weaponsRef.current.switchWeapon('laser_rifle');
+      setCurrentWeapon('laser_rifle');
+    }
+
+    setGameState('playing');
+    document.body.dataset.state = 'playing';
+
+    if (
+      inputManagerRef.current.mode === 'vr' &&
+      vrManagerRef.current &&
+      !rendererRef.current?.xr.isPresenting
+    ) {
+      vrManagerRef.current.enterVR().catch(() => {});
+    } else if (inputManagerRef.current.mode === 'desktop') {
+      inputManagerRef.current.desktop.requestPointerLock();
+    }
+  };
+
+  const handleContinueFromStageTransition = () => {
+    const nextStage = Math.min(3, player.stage + 1) as 1 | 2 | 3;
+    const nextStageDef = STAGE_DEFINITIONS[nextStage];
+    const firstTarget = nextStageDef.colorPool[0];
+
+    setTargetColorId(firstTarget);
+    setWrongStreakOnTarget(0);
+    setShowHint(false);
+
+    setPlayer((prev) => ({
+      ...prev,
+      stage: nextStage,
+      stageKills: 0,
+    }));
+
+    spawnTimer.current = 0;
+    bossInstanceRef.current = null;
+    bossDamageSinceSwitch.current = 0;
+    stageTransitionLock.current = false;
+    setBossHp(undefined);
+    setShotFeedback(null);
+
+    if (arenaRef.current && 'setStageTheme' in arenaRef.current) {
+      arenaRef.current.setStageTheme(nextStage);
+    }
+
+    if (enemiesRef.current) {
+      enemiesRef.current.clearAll();
+      // Spawn Chromabots awal (pastikan warna target pertama ada di arena)
+      const initialWaveColors = [
+        firstTarget,
+        ...nextStageDef.colorPool.filter((c) => c !== firstTarget).slice(0, 2),
+      ];
+      initialWaveColors.forEach((colId, idx) => {
+        const ang = (idx / initialWaveColors.length) * Math.PI * 2;
+        const pos = new THREE.Vector3(Math.cos(ang) * 21, 0, Math.sin(ang) * 21);
+        enemiesRef.current?.spawnEnemy(
+          'chromabot_normal',
+          colId,
+          pos,
+          nextStageDef.enemyHpMult,
+          nextStageDef.enemySpeedMult
+        );
+      });
+      enemiesRef.current.triggerTargetGracePeriod(nextStageDef.targetGracePeriodSeconds);
+    }
+
+    setGameState('playing');
+    if (inputManagerRef.current.mode === 'desktop') {
+      inputManagerRef.current.desktop.requestPointerLock();
+    }
+  };
+
+  const currentBossPhase =
+    bossHp !== undefined ? getBossPhaseForHp(bossHp, bossMaxHp) : undefined;
+  const activeInstructionClue = buildColorInstructionClue(targetColorId, player.stage);
+
+  useEffect(() => {
+    if (!shotFeedback) return;
+    const t = setTimeout(() => {
+      setShotFeedback(null);
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [shotFeedback]);
+
+  return (
+    <div className="relative w-full h-screen bg-slate-950 overflow-hidden select-none font-sans">
+      {/* Container Kanvas 3D Three.js */}
+      <div ref={mountRef} className="absolute inset-0 w-full h-full cursor-crosshair" />
+
+      {/* ====================================================================
+          MAIN MENU MINIMALIS & KONTRAS TINGGI (BERLATAR ARENA 3D)
+         ==================================================================== */}
+      {gameState === 'title' && (
+        <div className="absolute inset-0 bg-[#050811]/60 backdrop-blur-xs flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
+          {/* Kartu Utama Tengah */}
+          <div className="bg-[#090d18]/92 border border-white/15 px-8 py-10 md:px-12 md:py-12 rounded-3xl shadow-2xl backdrop-blur-md flex flex-col items-center text-center max-w-md w-full">
+            {/* Tiga Kotak Polos Warna Primer RYB */}
+            <div className="flex items-center gap-3 mb-5">
+              <span className="w-5 h-5 rounded-md bg-[#EF233C] border border-white/80 shadow-sm" />
+              <span className="w-5 h-5 rounded-md bg-[#FFD60A] border border-white/80 shadow-sm" />
+              <span className="w-5 h-5 rounded-md bg-[#1D6FFF] border border-white/80 shadow-sm" />
+            </div>
+
+            {/* Logo COLOR MISSION */}
+            <h1 className="text-5xl md:text-6xl font-black tracking-tight text-white uppercase leading-none">
+              COLOR <span className="text-cyan-400">MISSION</span>
+            </h1>
+
+            <p className="text-sm font-semibold text-slate-400 mt-2 mb-8">
+              Kuasai Warna. Selesaikan Misi.
+            </p>
+
+            {/* Tiga Tombol Utama Kontras Tinggi */}
+            <div className="flex flex-col gap-3 w-full">
+              <button
+                type="button"
+                onClick={handleStartRun}
+                data-start="true"
+                className="w-full h-13 bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-base font-black tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-lg"
+              >
+                <Play className="w-5 h-5 fill-current" />
+                <span>MULAI MISI</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setShowTutorial(true)}
+                  className="h-12 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-sm font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4 text-cyan-400" />
+                  <span>CARA MAIN</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(true)}
+                  className="h-12 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-sm font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Sliders className="w-4 h-4 text-cyan-400" />
+                  <span>PENGATURAN</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === HUD PERMAINAN & KONTROL SENTUH MOBILE === */}
+      {gameState === 'playing' && (
+        <>
+          <PlayingHUD
+            player={player}
+            targetColorId={targetColorId}
+            instructionClue={activeInstructionClue}
+            showHint={showHint}
+            wrongStreakOnTarget={wrongStreakOnTarget}
+            onToggleHint={() => setShowHint((prev) => !prev)}
+            currentWeapon={currentWeapon}
+            ammo={ammo}
+            maxAmmo={maxAmmo}
+            isReloading={isReloading}
+            reloadProgress={reloadProgress}
+            bossHp={bossHp}
+            bossMaxHp={bossMaxHp}
+            bossPhase={currentBossPhase}
+            activeCrystalColorId={activeCrystalColorId}
+            dashCooldown={dashCd}
+            dashMaxCooldown={2.2 * player.dashCooldownMult}
+            empCooldown={empCd}
+            empMaxCooldown={11.0}
+            overdriveCooldown={overdriveCd}
+            overdriveMaxCooldown={15.0}
+            overdriveActive={overdriveActive}
+            overdriveRemaining={overdriveRemaining}
+            shotFeedback={shotFeedback}
+            platformMode={platformMode}
+            vrComfortVignetteActive={vrComfortVignetteActive}
+            onSwitchWeapon={(type) => {
+              weaponsRef.current?.switchWeapon(type);
+              setCurrentWeapon(type);
+            }}
+            onPause={() => {
+              inputManagerRef.current.desktop.releasePointerLock();
+              setGameState('paused');
+            }}
+            onToggleMute={() => {
+              const m = sound.toggleMute();
+              setIsMuted(m);
+            }}
+            onExitVR={() => {
+              vrManagerRef.current?.exitVR();
+            }}
+            isMuted={isMuted}
+            hitmarkerActive={hitmarkerActive}
+            hitmarkerCrit={hitmarkerCrit}
+            hitmarkerWrong={hitmarkerWrong}
+            playerDamageFlash={playerDamageFlash}
+          />
+
+          {platformMode === 'mobile' && (
+            <MobileTouchControls
+              mobileInput={inputManagerRef.current.mobile}
+              currentWeapon={currentWeapon}
+              onSwitchWeapon={(type) => {
+                weaponsRef.current?.switchWeapon(type);
+                setCurrentWeapon(type);
+              }}
+              isReloading={isReloading}
+              dashCooldown={dashCd}
+              empCooldown={empCd}
+              overdriveCooldown={overdriveCd}
+            />
+          )}
+        </>
+      )}
+
+      {/* === MODAL TRANSISI EDUKASI ANTARSTAGE === */}
+      {gameState === 'stage_transition' && (
+        <StageTransitionModal
+          clearedStageNumber={clearedStageForModal}
+          stageScoreBonus={STAGE_DEFINITIONS[clearedStageForModal].stageClearBonus}
+          onContinue={handleContinueFromStageTransition}
+        />
+      )}
+
+      {/* === MODAL PERMAINAN BERAKHIR (GAME OVER) === */}
+      {gameState === 'gameover' && runSummary && (
+        <GameOverModal
+          summary={runSummary}
+          score={finalScore}
+          onRestart={handleStartRun}
+          onReturnToMenu={handleReturnToMenu}
+        />
+      )}
+
+      {/* === MODAL KEMENANGAN (VICTORY) === */}
+      {gameState === 'victory' && runSummary && (
+        <VictoryModal
+          summary={runSummary}
+          score={finalScore}
+          onRestart={handleStartRun}
+          onReturnToMenu={handleReturnToMenu}
+        />
+      )}
+
+      {/* === MODAL JEDA (PAUSE) === */}
+      {gameState === 'paused' && (
+        <PauseModal
+          onResume={() => {
+            setGameState('playing');
+            if (inputManagerRef.current.mode === 'desktop') {
+              inputManagerRef.current.desktop.requestPointerLock();
+            }
+          }}
+          onRestart={handleStartRun}
+          onOpenSettings={() => setShowSettings(true)}
+          onReturnToMenu={handleReturnToMenu}
+          onToggleMute={() => {
+            const m = sound.toggleMute();
+            setIsMuted(m);
+          }}
+          isMuted={isMuted}
+        />
+      )}
+
+      {/* === MODAL CARA BERMAIN (TUTORIAL) === */}
+      {showTutorial && (
+        <TutorialModal
+          platformMode={platformMode}
+          onClose={() => setShowTutorial(false)}
+          onStartMission={() => {
+            setShowTutorial(false);
+            handleStartRun();
+          }}
+        />
+      )}
+
+      {/* === MODAL PENGATURAN (SETTINGS) === */}
+      {showSettings && (
+        <SettingsModal
+          settings={settings}
+          onUpdateSettings={setSettings}
+          isMuted={isMuted}
+          onToggleMute={() => {
+            const m = sound.toggleMute();
+            setIsMuted(m);
+          }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+    </div>
+  );
+};
