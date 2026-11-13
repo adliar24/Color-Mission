@@ -87,6 +87,39 @@ canvas {
   animation: uiBannerIn 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes uiBackdropOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes uiPanelOut {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.96);
+  }
+}
+
+.ui-modal-closing {
+  pointer-events: none !important;
+}
+
+.ui-modal-closing .ui-backdrop-enter {
+  animation: uiBackdropOut 180ms cubic-bezier(0.4, 0, 1, 1) forwards !important;
+}
+
+.ui-modal-closing .ui-panel-enter,
+.ui-modal-closing [data-ui-board="true"] {
+  animation: uiPanelOut 180ms cubic-bezier(0.4, 0, 1, 1) forwards !important;
+}
+
 /* Penyesuaian skala otomatis untuk layar mobile landscape agar tata letak sama persis dengan desktop namun diperkecil tanpa perlu scroll */
 @media (max-height: 580px) {
   [data-ui-board="true"] {

@@ -16,6 +16,7 @@ import { StageTransitionModal } from './StageTransitionModal';
 import { GameOverModal } from './GameOverModal';
 import { VictoryModal } from './VictoryModal';
 import { PauseModal } from './PauseModal';
+import { AnimatedPresence } from './AnimatedPresence';
 import { GamepadBadge } from './GamepadBadge';
 import {
   PlayerStats,
@@ -1913,11 +1914,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       {/* ====================================================================
           PEMBERITAHUAN PILIHAN MODE LAYAR PENUH KHUSUS PERANGKAT MOBILE
          ==================================================================== */}
-      {platformMode === 'mobile' && !mobileFullscreenConfirmed && (
-        <div className="fixed inset-0 z-50 bg-[#050811]/96 flex items-center justify-center p-5">
+      <AnimatedPresence show={platformMode === 'mobile' && !mobileFullscreenConfirmed}>
+        <div className="fixed inset-0 z-50 bg-[#050811]/96 flex items-center justify-center p-5 ui-backdrop-enter">
           <div
             data-ui-board="true"
-            className="bg-[#090d18] border border-cyan-400/35 px-7 py-8 rounded-3xl shadow-2xl max-w-sm w-full text-center"
+            className="bg-[#090d18] border border-cyan-400/35 px-7 py-8 rounded-3xl shadow-2xl max-w-sm w-full text-center ui-panel-enter"
           >
             <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-cyan-400/15 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
               <Maximize2 className="w-7 h-7" />
@@ -1987,7 +1988,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             </div>
           </div>
         </div>
-      )}
+      </AnimatedPresence>
 
       {/* Backdrop Transisi Halus (Mencegah kedipan antar Menu Utama, Papan Stage, dan Arena 3D) */}
       <div
@@ -2161,7 +2162,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       )}
 
       {/* === MODAL TRANSISI EDUKASI ANTARSTAGE === */}
-      {gameState === 'stage_transition' && (
+      <AnimatedPresence show={gameState === 'stage_transition'}>
         <StageTransitionModal
           mode={stageModalMode}
           stageNumber={stageModalNumber}
@@ -2170,7 +2171,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           onContinue={handleContinueFromStageTransition}
           isGamepadConnected={isGamepadConnected}
         />
-      )}
+      </AnimatedPresence>
 
       {/* === TRANSISI LAYAR MERAH SAAT PEMAIN KALAH === */}
       {isPlayerDying && (
@@ -2184,29 +2185,33 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       )}
 
       {/* === MODAL PERMAINAN BERAKHIR (GAME OVER) === */}
-      {gameState === 'gameover' && runSummary && (
-        <GameOverModal
-          summary={runSummary}
-          score={finalScore}
-          onRestart={handleStartRun}
-          onReturnToMenu={handleReturnToMenu}
-          isGamepadConnected={isGamepadConnected}
-        />
-      )}
+      <AnimatedPresence show={gameState === 'gameover' && Boolean(runSummary)}>
+        {runSummary && (
+          <GameOverModal
+            summary={runSummary}
+            score={finalScore}
+            onRestart={handleStartRun}
+            onReturnToMenu={handleReturnToMenu}
+            isGamepadConnected={isGamepadConnected}
+          />
+        )}
+      </AnimatedPresence>
 
       {/* === MODAL KEMENANGAN (VICTORY) === */}
-      {gameState === 'victory' && runSummary && (
-        <VictoryModal
-          summary={runSummary}
-          score={finalScore}
-          onRestart={handleStartRun}
-          onReturnToMenu={handleReturnToMenu}
-          isGamepadConnected={isGamepadConnected}
-        />
-      )}
+      <AnimatedPresence show={gameState === 'victory' && Boolean(runSummary)}>
+        {runSummary && (
+          <VictoryModal
+            summary={runSummary}
+            score={finalScore}
+            onRestart={handleStartRun}
+            onReturnToMenu={handleReturnToMenu}
+            isGamepadConnected={isGamepadConnected}
+          />
+        )}
+      </AnimatedPresence>
 
       {/* === MODAL JEDA (PAUSE) === */}
-      {gameState === 'paused' && (
+      <AnimatedPresence show={gameState === 'paused'}>
         <PauseModal
           onResume={() => {
             setGameState('playing');
@@ -2224,10 +2229,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           isMuted={isMuted}
           isGamepadConnected={isGamepadConnected}
         />
-      )}
+      </AnimatedPresence>
 
       {/* === MODAL CARA BERMAIN (TUTORIAL) === */}
-      {showTutorial && (
+      <AnimatedPresence show={showTutorial}>
         <TutorialModal
           platformMode={platformMode}
           isGamepadConnected={isGamepadConnected}
@@ -2237,10 +2242,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             handleStartRun();
           }}
         />
-      )}
+      </AnimatedPresence>
 
       {/* === MODAL PENGATURAN (SETTINGS) === */}
-      {showSettings && (
+      <AnimatedPresence show={showSettings}>
         <SettingsModal
           settings={settings}
           onUpdateSettings={setSettings}
@@ -2252,7 +2257,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           onClose={() => setShowSettings(false)}
           isGamepadConnected={isGamepadConnected}
         />
-      )}
+      </AnimatedPresence>
     </div>
   );
 };
