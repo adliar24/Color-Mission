@@ -1897,13 +1897,24 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         </div>
       )}
 
+      {/* Backdrop Transisi Halus (Mencegah kedipan antar Menu Utama, Papan Stage, dan Arena 3D) */}
+      <div
+        className={`fixed inset-0 z-20 pointer-events-none transition-all duration-300 ease-out ${
+          gameState === 'title'
+            ? 'bg-[#050811]/65 opacity-100'
+            : gameState === 'stage_transition'
+              ? 'bg-[#050811]/92 opacity-100'
+              : 'bg-[#050811]/92 opacity-0'
+        }`}
+      />
+
       {/* ====================================================================
           MAIN MENU MINIMALIS & KONTRAS TINGGI (BERLATAR ARENA 3D)
          ==================================================================== */}
       {gameState === 'title' && (
-        <div className="absolute inset-0 bg-[#050811]/60 backdrop-blur-xs flex flex-col items-center justify-center p-6 z-30 overflow-y-auto ui-backdrop-enter">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
           {/* Kartu Utama Tengah */}
-          <div data-ui-board="true" className="bg-[#090d18]/92 border border-white/15 px-8 py-10 md:px-12 md:py-12 rounded-3xl shadow-2xl backdrop-blur-md flex flex-col items-center text-center max-w-md w-full ui-panel-enter">
+          <div data-ui-board="true" className="bg-[#090d18]/96 border border-white/15 px-8 py-10 md:px-12 md:py-12 rounded-3xl shadow-2xl flex flex-col items-center text-center max-w-md w-full ui-panel-enter">
             {/* Tiga Kotak Polos Warna Primer RYB */}
             <div className="flex items-center gap-3 mb-5">
               <span className="w-5 h-5 rounded-md bg-[#EF233C] border border-white/80 shadow-sm" />

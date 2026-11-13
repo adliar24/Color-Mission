@@ -34,11 +34,9 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
     const unlockedWeapon = WEAPON_REGISTRY[unlockedWeaponId];
 
     return (
-      <div
-        key={`${mode}-${stageNumber}`}
-        className="fixed inset-0 bg-[#050811]/92 flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter"
-      >
+      <div className="fixed inset-0 flex items-center justify-center p-4 z-50 font-sans text-white">
         <div
+          key={`${mode}-${stageNumber}`}
           data-ui-board="true"
           className="max-w-md w-full bg-[#090d18] border border-emerald-400/30 rounded-3xl p-7 md:p-8 shadow-2xl flex flex-col items-center text-center ui-panel-enter"
         >
@@ -109,11 +107,9 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
   }
 
   return (
-    <div
-      key={`${mode}-${stageNumber}`}
-      className="fixed inset-0 bg-[#050811]/92 flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter"
-    >
+    <div className="fixed inset-0 flex items-center justify-center p-4 z-50 font-sans text-white">
       <div
+        key={`${mode}-${stageNumber}`}
         data-ui-board="true"
         className="max-w-lg w-full bg-[#090d18] border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col items-center text-center ui-panel-enter"
       >
