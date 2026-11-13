@@ -382,19 +382,21 @@ export class VRManager {
       this.teleportGroup.visible = true;
       this.teleportRing.position.copy(teleportPreview.target);
 
-      const g = 9.8;
-      const y0 = teleportPreview.origin.y;
-      const vy = teleportPreview.velocity.y;
-      const totalT = (vy + Math.sqrt(Math.max(0, vy * vy + 2 * g * (y0 - 0.04)))) / g;
+      const ox = teleportPreview.origin.x;
+      const oy = teleportPreview.origin.y;
+      const oz = teleportPreview.origin.z;
+      const tx = teleportPreview.target.x;
+      const ty = teleportPreview.target.y;
+      const tz = teleportPreview.target.z;
+      const horizDist = Math.hypot(tx - ox, tz - oz);
+      const arcHeight = THREE.MathUtils.clamp(horizDist * 0.16, 0.35, 1.8);
       const segs = 24;
       for (let i = 0; i <= segs; i++) {
-        const t = (i / segs) * totalT;
-        const px = THREE.MathUtils.clamp(teleportPreview.origin.x + teleportPreview.velocity.x * t, -28, 28);
-        const py = Math.max(0.04, y0 + vy * t - 0.5 * g * t * t);
-        const pz = THREE.MathUtils.clamp(teleportPreview.origin.z + teleportPreview.velocity.z * t, -28, 28);
-        this.teleportArcPositions[i * 3] = px;
-        this.teleportArcPositions[i * 3 + 1] = py;
-        this.teleportArcPositions[i * 3 + 2] = pz;
+        const t = i / segs;
+        this.teleportArcPositions[i * 3] = THREE.MathUtils.lerp(ox, tx, t);
+        this.teleportArcPositions[i * 3 + 1] =
+          THREE.MathUtils.lerp(oy, ty, t) + 4 * t * (1 - t) * arcHeight;
+        this.teleportArcPositions[i * 3 + 2] = THREE.MathUtils.lerp(oz, tz, t);
       }
       this.teleportArcLine.geometry.attributes.position.needsUpdate = true;
     } else {

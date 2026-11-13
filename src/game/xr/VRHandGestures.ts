@@ -39,18 +39,16 @@ const _vCamFwd = new THREE.Vector3();
 const _vCamRight = new THREE.Vector3();
 const _vToCam = new THREE.Vector3();
 const _vPalmNormal = new THREE.Vector3();
-const _vHandFwd = new THREE.Vector3();
-const _vRayOrigin = new THREE.Vector3();
-const _vRayDir = new THREE.Vector3();
-const _qRay = new THREE.Quaternion();
+const _vRingOffset = new THREE.Vector3();
+const _vRingTarget = new THREE.Vector3();
 const _qWrist = new THREE.Quaternion();
 
 /**
- * Pengenal gestur WebXR Hand Tracking Native (Anti-Jitter):
- * - Tangan Kiri Tunjuk Lantai + Cubit: Teleport Arc ke target lantai
- * - Sentuh Jam Tangan Kiri dengan Telunjuk Kanan: Ganti Senjata
- * - Tangan Kiri Menghadap Wajah + Tahan Cubit (0.55s): Pause Menu
- * - Tangan Kanan Cubit (telunjuk + ibu jari): Menembak / Klik Menu
+ * Pengenal gestur WebXR Hand Tracking (mengadopsi Pinch-to-Teleport KRONIKA 3D):
+ * - Tangan Kiri Tahan Cubit + Geser Pergelangan -> Arahkan Ring Teleport, Lepas -> Teleport!
+ * - Sentuh Jam Tangan Kiri dengan Telunjuk Kanan -> Ganti Senjata
+ * - Tangan Kiri Menghadap Wajah + Tahan Cubit (0.55s) -> Pause Menu
+ * - Tangan Kanan Cubit (telunjuk + ibu jari) -> Menembak / Klik Menu
  */
 export class VRHandGestures {
   private isRightPinching = false;
@@ -61,14 +59,16 @@ export class VRHandGestures {
   private leftPinchFacingFace = false;
   private watchTapCooldown = 0;
 
+  private pinchOriginWorld = new THREE.Vector3();
+  private pinchCamWorld = new THREE.Vector3();
+  private pinchCamQuat = new THREE.Quaternion();
+  private teleportActive = false;
+
   private aimOriginOut = new THREE.Vector3();
   private aimDirOut = new THREE.Vector3();
   private teleportOriginOut = new THREE.Vector3();
   private teleportVelOut = new THREE.Vector3();
   private teleportTargetOut = new THREE.Vector3();
-  private hasSmoothedTeleport = false;
-  private smoothTpOrigin = new THREE.Vector3();
-  private smoothTpDir = new THREE.Vector3();
 
   private static getJoint(hand: XRHandWithJoints | null, name: string): THREE.Object3D | null {
     if (!hand || !hand.joints) return null;
@@ -83,7 +83,7 @@ export class VRHandGestures {
     camera: THREE.Camera | null,
     dt: number,
     _settings: GameSettings,
-    leftController: THREE.Object3D | null = null
+    _leftController: THREE.Object3D | null = null
   ): VRHandGestureResult {
     this.watchTapCooldown = Math.max(0, this.watchTapCooldown - dt);
 
@@ -184,72 +184,83 @@ export class VRHandGestures {
         lIndex.getWorldPosition(_vIndex);
       }
 
-      // 2B. Point-to-Teleport (Tunjuk lantai dengan tangan kiri + cubit untuk pindah)
-      if (!isFacingFace) {
-        if (leftController) {
-          leftController.getWorldPosition(_vRayOrigin);
-          leftController.getWorldQuaternion(_qRay);
-          _vRayDir.set(0, 0, -1).applyQuaternion(_qRay).normalize();
-        } else {
-          _vRayOrigin.copy(_vIndexMcp);
-          _vRayDir.subVectors(_vIndexMcp, _vWrist).normalize();
-        }
-
-        if (_vRayDir.y < 0.28 && _vRayDir.y > -0.92) {
-          // Bekukan target saat jari mulai mendekat untuk mencubit agar ring tidak lompat/glitch
-          const freezeAim = leftPinchDist < 0.048 && this.hasSmoothedTeleport;
-          if (!this.hasSmoothedTeleport) {
-            this.smoothTpOrigin.copy(_vRayOrigin);
-            this.smoothTpDir.copy(_vRayDir);
-            this.hasSmoothedTeleport = true;
-          } else if (!freezeAim) {
-            this.smoothTpOrigin.lerp(_vRayOrigin, 0.42);
-            this.smoothTpDir.lerp(_vRayDir, 0.42).normalize();
-          }
-
-          this.teleportOriginOut.copy(this.smoothTpOrigin);
-          this.teleportOriginOut.y = Math.max(0.25, this.teleportOriginOut.y);
-          const speed = 9.5;
-          this.teleportVelOut.copy(this.smoothTpDir).multiplyScalar(speed);
-          this.teleportVelOut.y = Math.max(-2.0, this.teleportVelOut.y + 2.2);
-
-          const g = 9.8;
-          const y0 = this.teleportOriginOut.y;
-          const vy = this.teleportVelOut.y;
-          const disc = Math.max(0, vy * vy + 2 * g * (y0 - 0.04));
-          const tHit = (vy + Math.sqrt(disc)) / g;
-
-          this.teleportTargetOut
-            .copy(this.teleportOriginOut)
-            .addScaledVector(this.teleportVelOut, tHit);
-          this.teleportTargetOut.x = THREE.MathUtils.clamp(this.teleportTargetOut.x, -28, 28);
-          this.teleportTargetOut.z = THREE.MathUtils.clamp(this.teleportTargetOut.z, -28, 28);
-          this.teleportTargetOut.y = 0.04;
-
-          teleportPreview.active = true;
-          teleportPreview.valid = true;
-        } else {
-          this.hasSmoothedTeleport = false;
-        }
-      } else {
-        this.hasSmoothedTeleport = false;
-      }
-
-      // 2C. Cubit Tangan Kiri:
-      // - Jika menghadap wajah & ditahan 0.55s -> Pause Menu
-      // - Jika sedang membidik lantai (teleportPreview.active) -> langsung Teleport!
+      // 2B. Pinch-Hold-Move-Release Teleport (Adopsi langsung dari KRONIKA 3D)
       if (this.isLeftPinching) {
         if (leftPinchDist > 0.048) {
+          if (
+            this.teleportActive &&
+            !this.leftPinchFacingFace &&
+            !this.leftPauseFired &&
+            this.leftPinchDuration >= 0.14
+          ) {
+            teleportCommit = this.teleportTargetOut.clone();
+          }
           this.isLeftPinching = false;
+          this.teleportActive = false;
           this.leftPinchDuration = 0;
           this.leftPauseFired = false;
           this.leftPinchFacingFace = false;
         } else {
           this.leftPinchDuration += dt;
-          if (isFacingFace) this.leftPinchFacingFace = true;
+          if (isFacingFace) {
+            this.leftPinchFacingFace = true;
+            this.teleportActive = false;
+          }
           if (this.leftPinchFacingFace && this.leftPinchDuration >= 0.55 && !this.leftPauseFired) {
             pause = true;
             this.leftPauseFired = true;
+          } else if (!this.leftPinchFacingFace && camera && this.leftPinchDuration >= 0.06) {
+            // Gunakan orientasi kamera yang dibekukan saat awal cubit agar menoleh tidak menggeser ring
+            _vCamFwd.set(0, 0, -1).applyQuaternion(this.pinchCamQuat);
+            _vCamFwd.y = 0;
+            if (_vCamFwd.lengthSq() < 0.0001) _vCamFwd.set(0, 0, -1);
+            _vCamFwd.normalize();
+            _vCamRight.crossVectors(_vCamFwd, THREE.Object3D.DEFAULT_UP).normalize();
+
+            _vRingOffset.copy(_vWrist).sub(this.pinchOriginWorld);
+            const rightOff = _vRingOffset.dot(_vCamRight);
+            const fwdOff = _vRingOffset.dot(_vCamFwd);
+            const amp = 55;
+            const baseDist = 4.0;
+
+            let tx =
+              this.pinchCamWorld.x +
+              _vCamFwd.x * baseDist +
+              _vCamRight.x * rightOff * amp +
+              _vCamFwd.x * fwdOff * amp;
+            let tz =
+              this.pinchCamWorld.z +
+              _vCamFwd.z * baseDist +
+              _vCamRight.z * rightOff * amp +
+              _vCamFwd.z * fwdOff * amp;
+
+            const dx = tx - _vCamPos.x;
+            const dz = tz - _vCamPos.z;
+            const dist = Math.hypot(dx, dz);
+            if (dist > 0.001 && dist < 0.5) {
+              const s = 0.5 / dist;
+              tx = _vCamPos.x + dx * s;
+              tz = _vCamPos.z + dz * s;
+            } else if (dist > 28) {
+              const s = 28 / dist;
+              tx = _vCamPos.x + dx * s;
+              tz = _vCamPos.z + dz * s;
+            }
+
+            tx = THREE.MathUtils.clamp(tx, -28, 28);
+            tz = THREE.MathUtils.clamp(tz, -28, 28);
+
+            _vRingTarget.set(tx, 0.04, tz);
+            if (!this.teleportActive) {
+              this.teleportTargetOut.copy(_vRingTarget);
+              this.teleportActive = true;
+            } else {
+              this.teleportTargetOut.lerp(_vRingTarget, 0.5);
+            }
+
+            this.teleportOriginOut.copy(_vWrist);
+            teleportPreview.active = true;
+            teleportPreview.valid = true;
           }
         }
       } else if (leftPinchDist < 0.034) {
@@ -257,17 +268,19 @@ export class VRHandGestures {
         this.leftPinchDuration = 0;
         this.leftPauseFired = false;
         this.leftPinchFacingFace = isFacingFace;
-        if (!isFacingFace && teleportPreview.active && teleportPreview.valid) {
-          teleportCommit = this.teleportTargetOut.clone();
-          this.hasSmoothedTeleport = false;
+        this.teleportActive = false;
+        this.pinchOriginWorld.copy(_vWrist);
+        if (camera) {
+          camera.getWorldPosition(this.pinchCamWorld);
+          camera.getWorldQuaternion(this.pinchCamQuat);
         }
       }
     } else {
       this.isLeftPinching = false;
+      this.teleportActive = false;
       this.leftPinchDuration = 0;
       this.leftPauseFired = false;
       this.leftPinchFacingFace = false;
-      this.hasSmoothedTeleport = false;
     }
 
     return {
