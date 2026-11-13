@@ -657,18 +657,25 @@ export class CyberArena {
     });
   }
 
-  public spawnArenaPickups() {
+  public spawnArenaPickups(stage: 1 | 2 | 3 = 1) {
     this.arenaPickups.forEach((p) => {
       this.scene.remove(p.group);
     });
     this.arenaPickups = [];
 
-    const pickupSpecs: { type: ArenaPickupType; colorHex: string }[] = [
-      { type: 'health', colorHex: '#22c55e' },
-      { type: 'shield', colorHex: '#3b82f6' },
-      { type: 'ammo', colorHex: '#94a3b8' },
-      { type: 'ammo', colorHex: '#94a3b8' },
-    ];
+    const pickupSpecs: { type: ArenaPickupType; colorHex: string }[] =
+      stage === 1
+        ? [
+            { type: 'health', colorHex: '#22c55e' },
+            { type: 'shield', colorHex: '#3b82f6' },
+            { type: 'ammo', colorHex: '#94a3b8' },
+            { type: 'ammo', colorHex: '#94a3b8' },
+          ]
+        : [
+            { type: 'health', colorHex: '#22c55e' },
+            { type: 'shield', colorHex: '#3b82f6' },
+            { type: 'ammo', colorHex: '#94a3b8' },
+          ];
 
     const usedPositions: THREE.Vector3[] = [];
     pickupSpecs.forEach((spec, idx) => {
@@ -754,17 +761,8 @@ export class CyberArena {
     });
   }
 
-  public resetArenaPickups() {
-    const usedPositions: THREE.Vector3[] = [];
-    this.arenaPickups.forEach((p) => {
-      const nextPos = this.generateSpreadCrystalPosition(usedPositions);
-      usedPositions.push(nextPos.clone());
-      p.position.copy(nextPos);
-      p.group.position.copy(nextPos);
-      p.isCollected = false;
-      p.respawnTimer = 0;
-      p.group.visible = true;
-    });
+  public resetArenaPickups(stage: 1 | 2 | 3 = 1) {
+    this.spawnArenaPickups(stage);
   }
 
   public update(time: number, dt: number) {

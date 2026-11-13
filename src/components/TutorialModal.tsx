@@ -114,24 +114,23 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
         <div className="bg-white/4 border border-white/10 px-4 py-3.5 rounded-2xl text-xs font-bold text-slate-200 text-center mb-6">
           {isGamepadConnected ? (
             <span>
-              Analog Kiri Gerak · Analog Kanan Bidik · RT Tembak · A Lompat · X Reload · LB Dash · RB EMP · Y Senjata
+              Analog Kiri Gerak · Analog Kanan Bidik · RT Tembak · A Lompat · Y Ganti Senjata
             </span>
           ) : (
             <>
               {platformMode === 'desktop' && (
                 <span>
-                  WASD / Stik Kiri Gerak · Mouse / Stik Kanan Bidik · Klik Kiri / RT Tembak · R / X
-                  Reload · Shift / B Dash
+                  WASD Gerak · Mouse / Panah Bidik · Klik Kiri / Enter Tembak · Spasi Lompat · 1-3 Senjata
                 </span>
               )}
               {platformMode === 'mobile' && (
                 <span>
-                  Joystick Kiri Gerak · Geser Layar Kanan Bidik · Tombol Kanan Tembak & Skill
+                  Joystick Kiri Gerak · Geser Layar Bidik · Ikon Kanan Lompat &amp; Tembak
                 </span>
               )}
               {platformMode === 'vr' && (
                 <span>
-                  Analog Kiri Gerak · Trigger Kanan Tembak · Grip Kanan Reload · Grip Kiri Dash
+                  Analog Kiri Gerak · Trigger Kanan Tembak · Tombol A Lompat · Y Senjata
                 </span>
               )}
             </>

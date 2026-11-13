@@ -43,12 +43,14 @@ import {
   getColorDef,
   selectNextTargetColor,
   buildColorInstructionClue,
+  getUnlockedWeaponsForStage,
 } from '../game/rules';
 import { sound } from '../game/audio';
 import {
   Play,
   BookOpen,
   Sliders,
+  Maximize2,
 } from 'lucide-react';
 
 interface GameShellProps {
@@ -133,21 +135,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const [wrongStreakOnTarget, setWrongStreakOnTarget] = useState<number>(0);
   const [currentWeapon, setCurrentWeapon] = useState<WeaponType>('laser_rifle');
   const [ammo, setAmmo] = useState<number>(WEAPON_REGISTRY.laser_rifle.magSize);
-  const [maxAmmo, setMaxAmmo] = useState<number>(WEAPON_REGISTRY.laser_rifle.magSize);
-  const [reserveAmmo, setReserveAmmo] = useState<number>(WEAPON_REGISTRY.laser_rifle.magSize * 3);
-  const [isReloading, setIsReloading] = useState<boolean>(false);
-  const [reloadProgress, setReloadProgress] = useState<number>(0);
   const [bossHp, setBossHp] = useState<number | undefined>(undefined);
   const [bossMaxHp, setBossMaxHp] = useState<number>(1500);
   const [activeCrystalColorId, setActiveCrystalColorId] = useState<GameColorId | null>(null);
   const activeCrystalColorIdRef = useRef<GameColorId | null>(null);
-
-  // Cooldown kemampuan
-  const [dashCd, setDashCd] = useState<number>(0);
-  const [empCd, setEmpCd] = useState<number>(0);
-  const [overdriveCd, setOverdriveCd] = useState<number>(0);
-  const [overdriveActive, setOverdriveActive] = useState<boolean>(false);
-  const [overdriveRemaining, setOverdriveRemaining] = useState<number>(0);
+  const [mobileFullscreenConfirmed, setMobileFullscreenConfirmed] = useState<boolean>(false);
 
   // Umpan balik & Modal
   const [shotFeedback, setShotFeedback] = useState<ShotFeedback | null>(null);
@@ -202,15 +194,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const playerVel = useRef<THREE.Vector3>(new THREE.Vector3());
   const cameraRot = useRef<{ pitch: number; yaw: number }>({ pitch: 0, yaw: 0 });
   const isGrounded = useRef<boolean>(true);
-  const dashTimer = useRef<number>(0);
-  const empTimer = useRef<number>(0);
-  const overdriveTimer = useRef<number>(0);
-  const overdriveRemainRef = useRef<number>(0);
-  const isOverdriveRunning = useRef<boolean>(false);
   const spawnTimer = useRef<number>(0);
-  const lastHudTimer = useRef<number>(0);
   const ammoRef = useRef<number>(WEAPON_REGISTRY.laser_rifle.magSize);
-  const isReloadingRef = useRef<boolean>(false);
   const runStartTime = useRef<number>(Date.now());
   const bossInstanceRef = useRef<EnemyInstance | null>(null);
   const bossDamageSinceSwitch = useRef<number>(0);
@@ -291,56 +276,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
   const triggerShotBanner = useCallback((fb: ShotFeedback) => {
     setShotFeedback(fb);
-  }, []);
-
-  // Kemampuan Aktif Pemain
-  const triggerDash = useCallback(() => {
-    if (dashTimer.current > 0) return;
-    const cdMult = stateRef.current.player.dashCooldownMult;
-    dashTimer.current = 2.2 * cdMult;
-    sound.playDash();
-    inputManagerRef.current.triggerHaptic(
-      'dash',
-      stateRef.current.settings,
-      vrManagerRef.current?.currentSession || null
-    );
-
-    const forward = new THREE.Vector3(
-      -Math.sin(cameraRot.current.yaw),
-      0,
-      -Math.cos(cameraRot.current.yaw)
-    );
-    playerVel.current.addScaledVector(forward, 24);
-
-    if (particlesRef.current) {
-      particlesRef.current.emit(playerPos.current, 24, '#22d3ee', 1.8);
-    }
-  }, []);
-
-  const triggerEmp = useCallback(() => {
-    if (empTimer.current > 0 || !enemiesRef.current) return;
-    empTimer.current = 11.0;
-    sound.playEmp();
-    inputManagerRef.current.triggerHaptic(
-      'emp',
-      stateRef.current.settings,
-      vrManagerRef.current?.currentSession || null
-    );
-
-    enemiesRef.current.stunAllInRadius(playerPos.current, 18.0, 4.0);
-
-    if (particlesRef.current) {
-      particlesRef.current.emit(playerPos.current, 55, '#38bdf8', 2.4);
-    }
-  }, []);
-
-  const triggerOverdrive = useCallback(() => {
-    if (overdriveTimer.current > 0 || isOverdriveRunning.current) return;
-    isOverdriveRunning.current = true;
-    overdriveRemainRef.current = stateRef.current.player.overdriveDuration;
-    overdriveTimer.current = 15.0;
-    setOverdriveActive(true);
-    sound.playOverdrive();
   }, []);
 
   // Pastikan di arena selalu ada minimal 1 Chromabot dengan warna target aktif
@@ -970,8 +905,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           Math.min(Math.PI / 2.2, cameraRot.current.pitch + cmd.lookDeltaY)
         );
 
-        const moveSpeed =
-          12.0 * pStats.moveSpeedMult * (isOverdriveRunning.current ? 1.3 : 1.0);
+        const moveSpeed = 12.0 * pStats.moveSpeedMult;
         _scratchWishDir.set(cmd.moveX, 0, cmd.moveZ);
 
         if (_scratchWishDir.lengthSq() > 0.001) {
@@ -1021,11 +955,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           isGrounded.current = false;
         }
 
-        if (cmd.dash) triggerDash();
-        if (cmd.emp) triggerEmp();
-        if (cmd.overdrive) triggerOverdrive();
-        if (cmd.reload) weapons.startReload();
-        if (cmd.weaponSwitch) {
+        if (
+          cmd.weaponSwitch &&
+          getUnlockedWeaponsForStage(pStats.stage).includes(cmd.weaponSwitch)
+        ) {
           weapons.switchWeapon(cmd.weaponSwitch);
           setCurrentWeapon(cmd.weaponSwitch);
         }
@@ -1106,7 +1039,14 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
           p.isCollected = true;
           p.group.visible = false;
-          p.respawnTimer = 11.0;
+          p.respawnTimer =
+            p.type === 'ammo'
+              ? curP.stage === 1
+                ? 10.0
+                : curP.stage === 2
+                  ? 16.0
+                  : 22.0
+              : 11.0;
 
           sound.playOverdrive();
           particles.emit(p.position.clone().setY(1.2), 20, p.colorHex, 1.6);
@@ -1130,12 +1070,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               timestamp: performance.now(),
             });
           } else {
-            weapons.addAmmoSupply();
-            setReserveAmmo(weapons.reserveAmmo);
+            weapons.addAmmoSupply(curP.stage);
+            ammoRef.current = weapons.ammoCount;
+            setAmmo(weapons.ammoCount);
             triggerShotBanner({
               type: 'correct',
               title: 'PELURU TERISI!',
-              subtitle: 'Cadangan amunisi senjata bertambah',
+              subtitle: 'Peluru senjata bertambah',
               colorHex: p.colorHex,
               timestamp: performance.now(),
             });
@@ -1167,7 +1108,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         weapons.update(dt, isMoving, now / 1000);
 
         if (cmd.shoot) {
-          const fired = weapons.fire(isOverdriveRunning.current);
+          const fired = weapons.fire();
           if (fired) {
             inputManagerRef.current.triggerHaptic(
               'shoot',
@@ -1303,50 +1244,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           }
         }
 
-        // --- 3. Update Cooldown Kemampuan & Amunisi ---
-        if (dashTimer.current > 0) dashTimer.current = Math.max(0, dashTimer.current - dt);
-        if (empTimer.current > 0) empTimer.current = Math.max(0, empTimer.current - dt);
-        if (overdriveTimer.current > 0)
-          overdriveTimer.current = Math.max(0, overdriveTimer.current - dt);
-
-        if (isOverdriveRunning.current) {
-          overdriveRemainRef.current = Math.max(0, overdriveRemainRef.current - dt);
-          setOverdriveRemaining(overdriveRemainRef.current);
-          if (overdriveRemainRef.current <= 0) {
-            isOverdriveRunning.current = false;
-            setOverdriveActive(false);
-          }
-        }
-
-        // Throttle pembaruan state HUD (cooldowns & reload) ke ~20fps agar tidak memicu re-render React 60fps
-        lastHudTimer.current += dt;
-        const anyCooldownActive =
-          dashTimer.current > 0 ||
-          empTimer.current > 0 ||
-          overdriveTimer.current > 0 ||
-          weapons.isReloading;
-
-        if (lastHudTimer.current >= 0.05 || !anyCooldownActive) {
-          lastHudTimer.current = 0;
-          setDashCd(dashTimer.current);
-          setEmpCd(empTimer.current);
-          setOverdriveCd(overdriveTimer.current);
-          if (weapons.isReloading) {
-            setReloadProgress(weapons.reloadProgress);
-          }
-        }
-
-        if (weapons.isReloading !== isReloadingRef.current) {
-          isReloadingRef.current = weapons.isReloading;
-          setIsReloading(weapons.isReloading);
-          if (!weapons.isReloading) setReloadProgress(0);
-        }
-
+        // --- 3. Update Amunisi ---
         if (weapons.ammoCount !== ammoRef.current) {
           ammoRef.current = weapons.ammoCount;
           setAmmo(weapons.ammoCount);
-          setMaxAmmo(weapons.getMaxMagSize());
-          setReserveAmmo(weapons.reserveAmmo);
         }
 
         // --- 4. Manajemen 3 Tahap Berurutan, Chromabots, & Boss CHROMA TITAN ---
@@ -1624,9 +1525,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   }, [
     ensureTargetColorPresentInArena,
     processEnemyHit,
-    triggerDash,
-    triggerEmp,
-    triggerOverdrive,
     triggerShotBanner,
   ]);
 
@@ -1712,7 +1610,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       arenaRef.current.setStageTheme(1);
     }
     if (arenaRef.current && 'resetArenaPickups' in arenaRef.current) {
-      arenaRef.current.resetArenaPickups();
+      arenaRef.current.resetArenaPickups(1);
     }
     if (enemiesRef.current) {
       enemiesRef.current.clearAll();
@@ -1725,9 +1623,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       weaponsRef.current.switchWeapon('laser_rifle');
       weaponsRef.current.resetAllAmmo();
       setCurrentWeapon('laser_rifle');
+      ammoRef.current = weaponsRef.current.ammoCount;
       setAmmo(weaponsRef.current.ammoCount);
-      setMaxAmmo(weaponsRef.current.getMaxMagSize());
-      setReserveAmmo(weaponsRef.current.reserveAmmo);
     }
 
     // Tampilkan papan Stage 1 (Hint Warna Primer & Petunjuk Item) sebelum pertempuran dimulai
@@ -1778,7 +1675,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     setShowHint(false);
 
     if (arenaRef.current && 'resetArenaPickups' in arenaRef.current) {
-      arenaRef.current.resetArenaPickups();
+      arenaRef.current.resetArenaPickups(activeStage);
     }
 
     if (enemiesRef.current) {
@@ -1943,6 +1840,48 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       <div ref={mountRef} className="absolute inset-0 w-full h-full cursor-crosshair" />
 
       {/* ====================================================================
+          PEMBERITAHUAN FULLSCREEN & LANDSCAPE KHUSUS PERANGKAT MOBILE
+         ==================================================================== */}
+      {platformMode === 'mobile' && !mobileFullscreenConfirmed && (
+        <div className="fixed inset-0 z-50 bg-[#050811]/95 backdrop-blur-md flex items-center justify-center p-5">
+          <div className="bg-[#090d18] border border-cyan-400/35 px-7 py-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-cyan-400/15 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+              <Maximize2 className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-black text-white uppercase tracking-tight">
+              Mode Layar Penuh &amp; Landscape
+            </h2>
+            <p className="text-xs font-semibold text-slate-300 mt-2.5 leading-relaxed">
+              Game ini dirancang khusus untuk tampilan horizontal (landscape) di ponsel. Tekan tombol di bawah untuk mengaktifkan layar penuh.
+            </p>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                  }
+                } catch {}
+                try {
+                  const orientation = screen.orientation as unknown as {
+                    lock?: (orientation: string) => Promise<void>;
+                  };
+                  if (orientation?.lock) {
+                    await orientation.lock('landscape');
+                  }
+                } catch {}
+                setMobileFullscreenConfirmed(true);
+              }}
+              className="mt-6 w-full py-3.5 px-5 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-sm font-black uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+            >
+              <Maximize2 className="w-4 h-4" />
+              <span>Aktifkan Layar Penuh &amp; Landscape</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
           MAIN MENU MINIMALIS & KONTRAS TINGGI (BERLATAR ARENA 3D)
          ==================================================================== */}
       {gameState === 'title' && (
@@ -2015,28 +1954,18 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             wrongStreakOnTarget={wrongStreakOnTarget}
             onToggleHint={() => setShowHint((prev) => !prev)}
             currentWeapon={currentWeapon}
+            unlockedWeapons={getUnlockedWeaponsForStage(player.stage)}
             ammo={ammo}
-            maxAmmo={maxAmmo}
-            reserveAmmo={reserveAmmo}
-            isReloading={isReloading}
-            reloadProgress={reloadProgress}
             bossHp={bossHp}
             bossMaxHp={bossMaxHp}
             bossPhase={currentBossPhase}
             activeCrystalColorId={activeCrystalColorId}
-            dashCooldown={dashCd}
-            dashMaxCooldown={2.2 * player.dashCooldownMult}
-            empCooldown={empCd}
-            empMaxCooldown={11.0}
-            overdriveCooldown={overdriveCd}
-            overdriveMaxCooldown={15.0}
-            overdriveActive={overdriveActive}
-            overdriveRemaining={overdriveRemaining}
             shotFeedback={shotFeedback}
             platformMode={platformMode}
             isGamepadConnected={isGamepadConnected}
             vrComfortVignetteActive={vrComfortVignetteActive}
             onSwitchWeapon={(type) => {
+              if (!getUnlockedWeaponsForStage(player.stage).includes(type)) return;
               weaponsRef.current?.switchWeapon(type);
               setCurrentWeapon(type);
             }}
@@ -2062,14 +1991,12 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             <MobileTouchControls
               mobileInput={inputManagerRef.current.mobile}
               currentWeapon={currentWeapon}
+              unlockedWeapons={getUnlockedWeaponsForStage(player.stage)}
               onSwitchWeapon={(type) => {
+                if (!getUnlockedWeaponsForStage(player.stage).includes(type)) return;
                 weaponsRef.current?.switchWeapon(type);
                 setCurrentWeapon(type);
               }}
-              isReloading={isReloading}
-              dashCooldown={dashCd}
-              empCooldown={empCd}
-              overdriveCooldown={overdriveCd}
             />
           )}
         </>

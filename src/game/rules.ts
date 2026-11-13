@@ -48,6 +48,12 @@ export const BASE_ELIMINATION_SCORE = 100;
 export const ACCURACY_DEFINITION_ID =
   'Akurasi dihitung dari jumlah tembakan pada musuh dengan warna target yang benar dibagi total tembakan × 100%.';
 
+export function getUnlockedWeaponsForStage(stage: 1 | 2 | 3): WeaponType[] {
+  if (stage === 1) return ['laser_rifle'];
+  if (stage === 2) return ['laser_rifle', 'cyber_shotgun'];
+  return ['laser_rifle', 'cyber_shotgun', 'railgun'];
+}
+
 export const WEAPON_REGISTRY: Record<WeaponType, WeaponDef> = {
   laser_rifle: {
     id: 'laser_rifle',
@@ -55,7 +61,7 @@ export const WEAPON_REGISTRY: Record<WeaponType, WeaponDef> = {
     category: 'Senapan Presisi Hitscan',
     damage: 35,
     fireRate: 8.0,
-    magSize: 36,
+    magSize: 50,
     reloadTime: 1.3,
     spread: 0.01,
     recoil: 0.014,
@@ -69,10 +75,10 @@ export const WEAPON_REGISTRY: Record<WeaponType, WeaponDef> = {
     id: 'cyber_shotgun',
     name: 'Glitch Scattergun',
     category: 'Sebaran Kinetik 8-Pellet',
-    damage: 24,
+    damage: 22,
     pellets: 8,
-    fireRate: 1.5,
-    magSize: 8,
+    fireRate: 1.6,
+    magSize: 24,
     reloadTime: 1.7,
     spread: 0.06,
     recoil: 0.045,
@@ -88,7 +94,7 @@ export const WEAPON_REGISTRY: Record<WeaponType, WeaponDef> = {
     category: 'Meriam Akselerator Magnetik',
     damage: 220,
     fireRate: 0.95,
-    magSize: 4,
+    magSize: 10,
     reloadTime: 1.9,
     spread: 0.001,
     recoil: 0.07,

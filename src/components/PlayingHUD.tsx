@@ -33,23 +33,12 @@ interface PlayingHUDProps {
   wrongStreakOnTarget?: number;
   onToggleHint?: () => void;
   currentWeapon: WeaponType;
+  unlockedWeapons: WeaponType[];
   ammo: number;
-  maxAmmo: number;
-  reserveAmmo?: number;
-  isReloading: boolean;
-  reloadProgress: number;
   bossHp?: number;
   bossMaxHp?: number;
   bossPhase?: BossPhaseDef;
   activeCrystalColorId?: GameColorId | null;
-  dashCooldown: number;
-  dashMaxCooldown: number;
-  empCooldown: number;
-  empMaxCooldown: number;
-  overdriveCooldown: number;
-  overdriveMaxCooldown: number;
-  overdriveActive: boolean;
-  overdriveRemaining: number;
   shotFeedback: ShotFeedback | null;
   platformMode: PlatformMode;
   isGamepadConnected?: boolean;
@@ -73,19 +62,11 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
   wrongStreakOnTarget = 0,
   onToggleHint,
   currentWeapon,
+  unlockedWeapons,
   ammo,
-  maxAmmo,
-  reserveAmmo = 0,
-  isReloading,
-  reloadProgress,
   bossHp,
   bossMaxHp = 1500,
   activeCrystalColorId = null,
-  dashCooldown,
-  empCooldown,
-  overdriveCooldown,
-  overdriveActive,
-  overdriveRemaining,
   shotFeedback,
   platformMode,
   isGamepadConnected = false,
@@ -457,54 +438,6 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
               style={{ width: `${shieldPercent}%` }}
             />
           </div>
-
-          {/* Indikator Singkat Kemampuan */}
-          {(platformMode !== 'mobile' || isGamepadConnected) && (
-            <div className="grid grid-cols-3 gap-1.5 mt-3 pt-2.5 border-t border-white/10 text-[11px] font-bold">
-              <div className="bg-white/5 px-2 py-1 rounded-lg text-center flex flex-col items-center gap-0.5">
-                {isGamepadConnected ? (
-                  <GamepadBadge button="LB" visible size="sm" />
-                ) : (
-                  <span className="text-slate-400 block text-[9px]">SHIFT</span>
-                )}
-                <span className={dashCooldown <= 0 ? 'text-cyan-400' : 'text-slate-500 tabular-nums'}>
-                  {dashCooldown <= 0 ? 'DASH' : `${dashCooldown.toFixed(0)}s`}
-                </span>
-              </div>
-              <div className="bg-white/5 px-2 py-1 rounded-lg text-center flex flex-col items-center gap-0.5">
-                {isGamepadConnected ? (
-                  <GamepadBadge button="RB" visible size="sm" />
-                ) : (
-                  <span className="text-slate-400 block text-[9px]">Q</span>
-                )}
-                <span className={empCooldown <= 0 ? 'text-cyan-400' : 'text-slate-500 tabular-nums'}>
-                  {empCooldown <= 0 ? 'EMP' : `${empCooldown.toFixed(0)}s`}
-                </span>
-              </div>
-              <div className="bg-white/5 px-2 py-1 rounded-lg text-center flex flex-col items-center gap-0.5">
-                {isGamepadConnected ? (
-                  <GamepadBadge button="LT" visible size="sm" />
-                ) : (
-                  <span className="text-slate-400 block text-[9px]">E</span>
-                )}
-                <span
-                  className={
-                    overdriveActive
-                      ? 'text-amber-300 tabular-nums'
-                      : overdriveCooldown <= 0
-                        ? 'text-cyan-400'
-                        : 'text-slate-500 tabular-nums'
-                  }
-                >
-                  {overdriveActive
-                    ? `${overdriveRemaining.toFixed(0)}s`
-                    : overdriveCooldown <= 0
-                      ? 'TURBO'
-                      : `${overdriveCooldown.toFixed(0)}s`}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -518,65 +451,50 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             : 'bottom-6 right-7'
           }`}
       >
-        <div className="bg-[#090d18]/95 border border-white/12 px-5 py-3.5 rounded-2xl flex flex-col items-end min-w-[180px] md:min-w-[210px] shadow-xl">
-          <div className="flex items-baseline justify-between w-full">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <span>AMMO</span>
-              <GamepadBadge button="X" visible={isGamepadConnected} size="sm" />
+        <div className="bg-[#090d18]/95 border border-white/12 px-5 py-3.5 rounded-2xl flex flex-col items-end min-w-[160px] md:min-w-[190px] shadow-xl">
+          <div className="flex items-baseline justify-between w-full gap-3">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+              PELURU
             </span>
-            <div className="flex items-baseline gap-1.5">
-              <span
-                className={`text-3xl md:text-4xl font-black tabular-nums leading-none ${overdriveActive
-                    ? 'text-cyan-300'
-                    : ammo <= Math.max(2, Math.floor(maxAmmo * 0.2))
-                      ? 'text-rose-400'
-                      : 'text-white'
-                  }`}
-              >
-                {overdriveActive ? '∞' : ammo}
-              </span>
-              <span className="text-sm font-bold tabular-nums text-slate-400">
-                / {overdriveActive ? '∞' : reserveAmmo}
-              </span>
-            </div>
+            <span
+              className={`text-3xl md:text-4xl font-black tabular-nums leading-none ${
+                ammo <= 8 ? 'text-rose-400' : 'text-white'
+              }`}
+            >
+              {ammo}
+            </span>
           </div>
-          {!overdriveActive && ammo === 0 && reserveAmmo === 0 && (
+          {ammo === 0 && (
             <span className="text-[11px] font-extrabold text-rose-400 tracking-wide mt-1">
               PELURU HABIS · AMBIL ITEM PELURU
             </span>
           )}
 
-          {isReloading && (
-            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mt-2">
-              <div
-                className="h-full bg-cyan-400 transition-all duration-75"
-                style={{ width: `${reloadProgress * 100}%` }}
-              />
-            </div>
-          )}
-
-          {(platformMode !== 'mobile' || isGamepadConnected) && (
+          {(platformMode !== 'mobile' || isGamepadConnected) && unlockedWeapons.length > 1 && (
             <div className="flex items-center gap-1.5 w-full mt-3 pt-2.5 border-t border-white/10">
               {isGamepadConnected && <GamepadBadge button="Y" visible size="sm" />}
-              <div className="grid grid-cols-4 gap-1.5 flex-1">
-                {(['laser_rifle', 'cyber_shotgun', 'railgun', 'plasma_smg'] as WeaponType[]).map(
-                  (wId, idx) => {
-                    const isSelected = currentWeapon === wId;
-                    return (
-                      <button
-                        key={wId}
-                        type="button"
-                        onClick={() => onSwitchWeapon(wId)}
-                        className={`py-1 rounded-lg text-xs font-extrabold transition-colors cursor-pointer ${isSelected
-                            ? 'bg-cyan-400 text-slate-950'
-                            : 'bg-white/5 text-slate-400 hover:text-white'
-                          }`}
-                      >
-                        {idx + 1}
-                      </button>
-                    );
-                  }
-                )}
+              <div
+                className={`grid gap-1.5 flex-1 ${
+                  unlockedWeapons.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+                }`}
+              >
+                {unlockedWeapons.map((wId, idx) => {
+                  const isSelected = currentWeapon === wId;
+                  return (
+                    <button
+                      key={wId}
+                      type="button"
+                      onClick={() => onSwitchWeapon(wId)}
+                      className={`py-1 rounded-lg text-xs font-extrabold transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-cyan-400 text-slate-950'
+                          : 'bg-white/5 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

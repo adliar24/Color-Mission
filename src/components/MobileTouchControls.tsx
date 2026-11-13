@@ -1,26 +1,20 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { MobileInput } from '../game/input/InputManager';
 import { WeaponType } from '../game/types';
-import { Crosshair, RotateCw, Zap, Sparkles, ArrowUp, Smartphone } from 'lucide-react';
+import { Crosshair, ArrowUp, Smartphone, Zap, Flame, Target } from 'lucide-react';
 
 interface MobileTouchControlsProps {
   mobileInput: MobileInput;
   currentWeapon: WeaponType;
+  unlockedWeapons: WeaponType[];
   onSwitchWeapon: (w: WeaponType) => void;
-  isReloading: boolean;
-  dashCooldown: number;
-  empCooldown: number;
-  overdriveCooldown: number;
 }
 
 export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   mobileInput,
   currentWeapon,
+  unlockedWeapons,
   onSwitchWeapon,
-  isReloading,
-  dashCooldown,
-  empCooldown,
-  overdriveCooldown,
 }) => {
   const joystickBaseRef = useRef<HTMLDivElement>(null);
   const [knobOffset, setKnobOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -134,7 +128,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         onTouchCancel={handleLookEnd}
       />
 
-      {/* KIRI BAWAH: Virtual Joystick untuk Bergerak */}
+      {/* KIRI BAWAH: Virtual Joystick Transparan Tanpa Teks */}
       <div
         ref={joystickBaseRef}
         data-ui="true"
@@ -142,134 +136,69 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         onTouchMove={handleJoystickMove}
         onTouchEnd={handleJoystickEnd}
         onTouchCancel={handleJoystickEnd}
-        className="absolute bottom-7 left-7 w-32 h-32 rounded-full bg-slate-900/65 border-2 border-cyan-500/40 flex items-center justify-center pointer-events-auto shadow-lg backdrop-blur-xs"
+        className="absolute bottom-6 left-6 w-28 h-28 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
       >
-        <div className="w-20 h-20 rounded-full border border-slate-700/60 flex items-center justify-center">
-          <span className="text-[9px] font-mono text-slate-400 uppercase">Gerak</span>
-        </div>
+        <div className="w-16 h-16 rounded-full border border-white/15" />
         <div
-          className="absolute w-13 h-13 rounded-full bg-cyan-400/80 border-2 border-white shadow-[0_0_15px_#00f0ff]"
+          className="absolute w-12 h-12 rounded-full bg-cyan-400/55 border-2 border-white/75"
           style={{
             transform: `translate(${knobOffset.x}px, ${knobOffset.y}px)`,
           }}
         />
       </div>
 
-      {/* KANAN BAWAH: Gugus Tombol Aksi Ibu Jari */}
+      {/* KANAN BAWAH: Tombol Aksi Transparan (Hanya Ikon) */}
       <div
         data-ui="true"
         className="absolute bottom-6 right-6 flex flex-col items-end gap-3 pointer-events-auto"
       >
-        {/* Baris Pilihan Cepat Senjata */}
-        <div className="flex gap-1.5 bg-slate-950/85 p-1 rounded-xl border border-slate-700/80">
-          {(['laser_rifle', 'cyber_shotgun', 'railgun', 'plasma_smg'] as WeaponType[]).map(
-            (wId, idx) => (
-              <button
-                key={wId}
-                type="button"
-                onTouchStart={(e) => {
-                  e.stopPropagation();
-                  onSwitchWeapon(wId);
-                }}
-                onClick={() => onSwitchWeapon(wId)}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-bold ${
-                  currentWeapon === wId
-                    ? 'bg-cyan-500 text-slate-950'
-                    : 'bg-slate-900 text-slate-300'
-                }`}
-              >
-                S{idx + 1}
-              </button>
-            )
-          )}
-        </div>
+        {unlockedWeapons.length > 1 && (
+          <div className="flex gap-1.5 bg-slate-950/35 p-1 rounded-xl border border-white/15">
+            {unlockedWeapons.map((wId) => {
+              const Icon =
+                wId === 'laser_rifle' ? Zap : wId === 'cyber_shotgun' ? Flame : Target;
+              return (
+                <button
+                  key={wId}
+                  type="button"
+                  aria-label={wId}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    onSwitchWeapon(wId);
+                  }}
+                  onClick={() => onSwitchWeapon(wId)}
+                  className={`w-10 h-9 rounded-lg flex items-center justify-center ${
+                    currentWeapon === wId
+                      ? 'bg-cyan-400/75 text-slate-950'
+                      : 'bg-white/10 text-white/70'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Tombol Kemampuan & Aksi Pendukung */}
-        <div className="flex items-center gap-2.5">
-          {/* Lompat */}
+        <div className="flex items-end gap-3">
+          {/* Lompat (Ikon saja, transparan) */}
           <button
             type="button"
+            aria-label="Lompat"
             onTouchStart={(e) => {
               e.stopPropagation();
               mobileInput.triggerJump();
             }}
             onClick={() => mobileInput.triggerJump()}
-            className="w-13 h-13 rounded-2xl bg-slate-900/90 border border-slate-600 text-slate-200 flex flex-col items-center justify-center active:scale-95"
+            className="w-14 h-14 rounded-full bg-slate-900/35 border-2 border-cyan-400/40 text-cyan-300 flex items-center justify-center active:scale-95"
           >
-            <ArrowUp className="w-4 h-4 text-cyan-400" />
-            <span className="text-[9px] font-mono font-bold mt-0.5">Lompat</span>
+            <ArrowUp className="w-6 h-6" />
           </button>
 
-          {/* Dash */}
+          {/* Tembak (Ikon saja, transparan) */}
           <button
             type="button"
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              mobileInput.triggerDash();
-            }}
-            onClick={() => mobileInput.triggerDash()}
-            className="w-13 h-13 rounded-2xl bg-slate-900/90 border border-cyan-500/50 text-cyan-300 flex flex-col items-center justify-center active:scale-95"
-          >
-            <Zap className="w-4 h-4" />
-            <span className="text-[9px] font-mono font-bold mt-0.5">
-              {dashCooldown > 0 ? `${dashCooldown.toFixed(0)}d` : 'Dash'}
-            </span>
-          </button>
-
-          {/* EMP */}
-          <button
-            type="button"
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              mobileInput.triggerEmp();
-            }}
-            onClick={() => mobileInput.triggerEmp()}
-            className="w-13 h-13 rounded-2xl bg-slate-900/90 border border-purple-500/50 text-purple-300 flex flex-col items-center justify-center active:scale-95"
-          >
-            <Zap className="w-4 h-4" />
-            <span className="text-[9px] font-mono font-bold mt-0.5">
-              {empCooldown > 0 ? `${empCooldown.toFixed(0)}d` : 'EMP'}
-            </span>
-          </button>
-
-          {/* Overdrive */}
-          <button
-            type="button"
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              mobileInput.triggerOverdrive();
-            }}
-            onClick={() => mobileInput.triggerOverdrive()}
-            className="w-13 h-13 rounded-2xl bg-slate-900/90 border border-amber-500/50 text-amber-300 flex flex-col items-center justify-center active:scale-95"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="text-[9px] font-mono font-bold mt-0.5">
-              {overdriveCooldown > 0 ? `${overdriveCooldown.toFixed(0)}d` : 'Turbo'}
-            </span>
-          </button>
-        </div>
-
-        {/* Baris Utama: Isi Ulang & Tombol Tembak Besar */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              mobileInput.triggerReload();
-            }}
-            onClick={() => mobileInput.triggerReload()}
-            className={`w-16 h-16 rounded-2xl border flex flex-col items-center justify-center active:scale-95 ${
-              isReloading
-                ? 'bg-amber-950/90 border-amber-400 text-amber-300'
-                : 'bg-slate-900/90 border-slate-600 text-slate-200'
-            }`}
-          >
-            <RotateCw className={`w-5 h-5 ${isReloading ? 'animate-spin' : ''}`} />
-            <span className="text-[10px] font-mono font-bold mt-1">Isi Ulang</span>
-          </button>
-
-          <button
-            type="button"
+            aria-label="Tembak"
             onTouchStart={(e) => {
               e.stopPropagation();
               mobileInput.setShooting(true);
@@ -284,10 +213,9 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
             }}
             onMouseDown={() => mobileInput.setShooting(true)}
             onMouseUp={() => mobileInput.setShooting(false)}
-            className="w-24 h-24 rounded-full bg-rose-600/90 active:bg-rose-500 border-4 border-rose-300 text-white flex flex-col items-center justify-center shadow-[0_0_25px_rgba(244,63,94,0.6)] active:scale-95"
+            className="w-20 h-20 rounded-full bg-rose-500/35 active:bg-rose-500/60 border-2 border-rose-300/65 text-white flex items-center justify-center active:scale-95"
           >
             <Crosshair className="w-8 h-8" />
-            <span className="text-xs font-mono font-bold mt-1">TEMBAK</span>
           </button>
         </div>
       </div>

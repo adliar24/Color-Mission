@@ -20,6 +20,8 @@ import {
   applyUpgradeToPlayer,
   UPGRADE_POOL,
   buildColorInstructionClue,
+  getUnlockedWeaponsForStage,
+  WEAPON_REGISTRY,
 } from './rules';
 import { InputManager } from './input/InputManager';
 import { VRManager } from './xr/VRManager';
@@ -404,4 +406,16 @@ test('Warna Putih dan Hitam tersedia khusus pertarungan Boss tanpa mengubah 12 w
   const blackShot = validateBossCrystalShot('black', 'black', 35, false, 1.0, 0);
   assert.equal(blackShot.isCorrectCrystal, true);
   assert.equal(blackShot.damage, 35);
+});
+
+test('Progresi senjata per stage membuka 1 -> 2 -> 3 senjata dengan damage lebih besar dan peluru awal lebih sedikit', () => {
+  assert.deepEqual(getUnlockedWeaponsForStage(1), ['laser_rifle']);
+  assert.deepEqual(getUnlockedWeaponsForStage(2), ['laser_rifle', 'cyber_shotgun']);
+  assert.deepEqual(getUnlockedWeaponsForStage(3), ['laser_rifle', 'cyber_shotgun', 'railgun']);
+
+  assert.equal(WEAPON_REGISTRY.laser_rifle.magSize, 50);
+  assert.equal(WEAPON_REGISTRY.cyber_shotgun.magSize, 24);
+  assert.equal(WEAPON_REGISTRY.railgun.magSize, 10);
+
+  assert.ok(WEAPON_REGISTRY.railgun.damage > WEAPON_REGISTRY.laser_rifle.damage);
 });

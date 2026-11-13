@@ -42,7 +42,6 @@ export class DesktopInput {
     'laser_rifle',
     'cyber_shotgun',
     'railgun',
-    'plasma_smg',
   ];
 
   public attach(domElement: HTMLElement) {
@@ -141,14 +140,6 @@ export class DesktopInput {
       this.pendingPause = true;
     } else if (e.code === 'KeyM') {
       this.pendingMute = true;
-    } else if (e.code === 'KeyR') {
-      this.pendingReload = true;
-    } else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-      this.pendingDash = true;
-    } else if (e.code === 'KeyQ') {
-      this.pendingEmp = true;
-    } else if (e.code === 'KeyE') {
-      this.pendingOverdrive = true;
     } else if (e.code === 'KeyH') {
       this.pendingToggleHint = true;
     } else if (e.code === 'Digit1') {
@@ -157,8 +148,6 @@ export class DesktopInput {
       this.pendingWeapon = 'cyber_shotgun';
     } else if (e.code === 'Digit3') {
       this.pendingWeapon = 'railgun';
-    } else if (e.code === 'Digit4') {
-      this.pendingWeapon = 'plasma_smg';
     }
   };
 
@@ -292,35 +281,10 @@ export class DesktopInput {
         if (gp.buttons[0]?.pressed) {
           jump = true;
         }
-        // B / Circle (buttons[1]) -> Dash
-        if (this.wasGamepadJustPressed(`gp_${gp.index}_b1`, gp.buttons[1]?.pressed)) {
-          dash = true;
-        }
-        // X / Square (buttons[2]) -> Reload
-        if (this.wasGamepadJustPressed(`gp_${gp.index}_b2`, gp.buttons[2]?.pressed)) {
-          reload = true;
-        }
         // Y / Triangle (buttons[3]) -> Ganti Senjata
         if (this.wasGamepadJustPressed(`gp_${gp.index}_b3`, gp.buttons[3]?.pressed)) {
           this.gamepadWeaponIdx = (this.gamepadWeaponIdx + 1) % this.weaponsOrder.length;
           weaponSwitch = this.weaponsOrder[this.gamepadWeaponIdx];
-        }
-        // LB / L1 (buttons[4]) -> Dash
-        if (this.wasGamepadJustPressed(`gp_${gp.index}_b4`, gp.buttons[4]?.pressed)) {
-          dash = true;
-        }
-        // RB / R1 (buttons[5]) -> EMP
-        if (this.wasGamepadJustPressed(`gp_${gp.index}_b5`, gp.buttons[5]?.pressed)) {
-          emp = true;
-        }
-        // LT / L2 (buttons[6]) -> Overdrive
-        if (
-          this.wasGamepadJustPressed(
-            `gp_${gp.index}_b6`,
-            gp.buttons[6]?.pressed || (gp.buttons[6]?.value ?? 0) > 0.5
-          )
-        ) {
-          overdrive = true;
         }
         // Back / Select (buttons[8]) -> Petunjuk
         if (this.wasGamepadJustPressed(`gp_${gp.index}_b8`, gp.buttons[8]?.pressed)) {
