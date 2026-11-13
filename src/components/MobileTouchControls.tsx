@@ -136,7 +136,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         onTouchMove={handleJoystickMove}
         onTouchEnd={handleJoystickEnd}
         onTouchCancel={handleJoystickEnd}
-        className="absolute bottom-3.5 left-4 w-20 h-20 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
+        className="absolute bottom-7 left-9 w-20 h-20 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
       >
         <div className="w-11 h-11 rounded-full border border-white/15" />
         <div
@@ -150,7 +150,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
       {/* KANAN BAWAH: Tombol Aksi Transparan (Hanya Ikon) */}
       <div
         data-ui="true"
-        className="absolute bottom-3.5 right-4 flex flex-col items-end gap-1.5 pointer-events-auto"
+        className="absolute bottom-7 right-9 flex flex-col items-end gap-2 pointer-events-auto"
       >
         {unlockedWeapons.length > 1 && (
           <div className="flex gap-1 bg-slate-950/35 p-1 rounded-xl border border-white/15">
@@ -180,7 +180,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
           </div>
         )}
 
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-3">
           {/* Lompat (Ikon saja, transparan) */}
           <button
             type="button"
