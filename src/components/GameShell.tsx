@@ -56,7 +56,6 @@ import {
   Maximize2,
   Minimize2,
   RotateCw,
-  Glasses,
 } from 'lucide-react';
 
 interface GameShellProps {
@@ -343,6 +342,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     returnToMenu: () => {},
     continueStage: () => {},
   });
+
+  const vrTriggerReleaseGuardRef = useRef<boolean>(false);
 
   const vrMenuInfoRef = useRef({
     stageModalMode,
@@ -994,8 +995,14 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         isPresentingVR &&
         (currentState !== 'playing' || stateRef.current.showSettings || stateRef.current.showTutorial);
 
-      if (isPresentingVR && currentState === 'playing' && !isPlayerDyingRef.current && !isVRMenuVisible) {
+      const keepVREquipment =
+        isPresentingVR &&
+        (currentState === 'playing' || currentState === 'paused') &&
+        !isPlayerDyingRef.current;
+
+      if (keepVREquipment) {
         weapons.attachToVRHand(vrManager.rightController);
+        weapons.gunGroup.visible = true;
         vrManager.setRightHandModelVisible(false);
         vrManager.leftController.add(vrWatch.group);
         vrWatch.setVisible(true);
@@ -1074,8 +1081,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             } else if (act === 'exit_vr') {
               vrManager.exitVR();
             } else if (act === 'continue_stage') {
+              vrTriggerReleaseGuardRef.current = true;
               menuCallbacksRef.current.continueStage();
             } else if (act === 'resume') {
+              vrTriggerReleaseGuardRef.current = true;
               setGameState('playing');
             } else if (act === 'return_menu') {
               setShowSettings(false);
@@ -1357,7 +1366,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         const isMoving = _scratchWishDir.lengthSq() > 0.01;
         weapons.update(dt, isMoving, now / 1000);
 
-        if (cmd.shoot) {
+        if (vrTriggerReleaseGuardRef.current) {
+          if (!cmd.shoot) {
+            vrTriggerReleaseGuardRef.current = false;
+          }
+        }
+
+        if (cmd.shoot && !vrTriggerReleaseGuardRef.current) {
           const fired = weapons.fire();
           if (fired) {
             inputManagerRef.current.triggerHaptic(
@@ -1736,7 +1751,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       if (vrHudRef.current) {
         vrHudRef.current.update(
           now,
-          isPresentingVR,
+          isPresentingVR && currentState === 'playing',
           stateRef.current.player,
           stateRef.current.targetColorId,
           weapons.ammoCount,
@@ -2220,7 +2235,18 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             className="bg-[#090d18]/96 border border-cyan-400/30 px-8 py-10 rounded-3xl shadow-2xl flex flex-col items-center text-center max-w-md w-full ui-panel-enter"
           >
             <div className="p-4 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-400 mb-5">
-              <Glasses className="w-10 h-10" />
+              <svg viewBox="0 0 64 48" className="w-12 h-9" fill="none" aria-label="Headset VR">
+                {/* Strap Atas & Samping */}
+                <path d="M12 20 C12 9 22 5 32 5 C42 5 52 9 52 20" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                {/* Visor Utama Headset VR */}
+                <rect x="6" y="16" width="52" height="24" rx="8" fill="rgba(34,211,238,0.14)" stroke="currentColor" strokeWidth="3" />
+                {/* Lekuk Hidung Bawah */}
+                <path d="M24 40 C26 34 38 34 40 40" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+                {/* Lensa / Sensor Depan */}
+                <circle cx="20" cy="28" r="3" fill="currentColor" opacity="0.85" />
+                <circle cx="44" cy="28" r="3" fill="currentColor" opacity="0.85" />
+                <rect x="27" y="26.5" width="10" height="3" rx="1.5" fill="currentColor" opacity="0.55" />
+              </svg>
             </div>
             <span className="text-xs font-extrabold uppercase tracking-widest text-cyan-400 mb-1.5">
               PERANGKAT WEBXR SIAP
@@ -2250,7 +2276,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               }}
               className="w-full h-13 bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-base font-black tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-lg"
             >
-              <Glasses className="w-5 h-5" />
+              <svg viewBox="0 0 64 48" className="w-6 h-5" fill="none" aria-hidden="true">
+                <path d="M12 20 C12 9 22 5 32 5 C42 5 52 9 52 20" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+                <rect x="6" y="16" width="52" height="24" rx="8" stroke="currentColor" strokeWidth="3.5" />
+                <path d="M24 40 C26 34 38 34 40 40" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+              </svg>
               <span>MASUK KE MODE VR</span>
             </button>
           </div>

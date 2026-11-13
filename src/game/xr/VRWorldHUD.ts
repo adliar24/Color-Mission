@@ -20,6 +20,7 @@ export class VRWorldHUD {
     this.ctx = this.canvas.getContext('2d')!;
 
     this.texture = new THREE.CanvasTexture(this.canvas);
+    this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
 
@@ -27,6 +28,7 @@ export class VRWorldHUD {
     const mat = new THREE.MeshBasicMaterial({
       map: this.texture,
       transparent: true,
+      alphaTest: 0.02,
       depthTest: false,
       depthWrite: false,
     });
@@ -60,12 +62,12 @@ export class VRWorldHUD {
 
     ctx.clearRect(0, 0, 768, 220);
 
-    // Panel dark-navy bersih
-    ctx.fillStyle = 'rgba(9, 13, 24, 0.9)';
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
-    ctx.lineWidth = 3;
+    // Panel dark-navy SOLID (tidak transparan) agar warna target terbaca 100% akurat
+    ctx.fillStyle = '#090d18';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.roundRect(12, 12, 744, 196, 20);
+    ctx.roundRect(12, 12, 744, 196, 22);
     ctx.fill();
     ctx.stroke();
 

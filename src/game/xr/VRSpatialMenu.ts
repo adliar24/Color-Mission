@@ -85,19 +85,15 @@ export class VRSpatialMenu {
       new THREE.MeshBasicMaterial({
         map: this.texture,
         transparent: true,
+        alphaTest: 0.02,
       })
     );
     this.group.add(this.panelMesh);
 
     this.frameMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(BOARD_WIDTH + 0.05, BOARD_HEIGHT + 0.05),
-      new THREE.MeshBasicMaterial({
-        color: '#22d3ee',
-        transparent: true,
-        opacity: 0.25,
-      })
+      new THREE.PlaneGeometry(0.01, 0.01),
+      new THREE.MeshBasicMaterial({ visible: false })
     );
-    this.frameMesh.position.z = -0.005;
     this.group.add(this.frameMesh);
 
     this.group.visible = false;
@@ -189,15 +185,17 @@ export class VRSpatialMenu {
 
     const ctx = this.ctx;
     this.buttons = [];
+    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Backdrop papan gelap elegan
-    ctx.fillStyle = '#070b15';
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    // Backdrop papan rounded persis seperti versi Desktop & Mobile (#090d18 + border putih halus)
+    ctx.fillStyle = '#090d18';
+    ctx.beginPath();
+    ctx.roundRect(14, 14, CANVAS_W - 28, CANVAS_H - 28, 44);
+    ctx.fill();
 
-    // Border cyan halus
-    ctx.strokeStyle = 'rgba(34, 211, 238, 0.55)';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(10, 10, CANVAS_W - 20, CANVAS_H - 20);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.lineWidth = 3.5;
+    ctx.stroke();
 
     if (state.showSettings) {
       this.drawSettingsBoard(ctx, state);
@@ -222,77 +220,106 @@ export class VRSpatialMenu {
   ) {
     this.buttons.push(btn);
     const isHover = this.hoveredId === btn.id;
+    const radius = 22;
+
+    ctx.beginPath();
+    ctx.roundRect(btn.x, btn.y, btn.w, btn.h, radius);
 
     if (btn.variant === 'primary') {
       ctx.fillStyle = isHover ? '#67e8f9' : '#22d3ee';
-      ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
-      ctx.fillStyle = '#082f49';
+      ctx.fill();
+      ctx.fillStyle = '#020617';
     } else if (btn.variant === 'danger') {
-      ctx.fillStyle = isHover ? 'rgba(244, 63, 94, 0.35)' : 'rgba(244, 63, 94, 0.16)';
-      ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
-      ctx.strokeStyle = isHover ? '#fb7185' : 'rgba(244, 63, 94, 0.5)';
+      ctx.fillStyle = isHover ? 'rgba(244, 63, 94, 0.32)' : 'rgba(244, 63, 94, 0.14)';
+      ctx.fill();
+      ctx.strokeStyle = isHover ? '#fb7185' : 'rgba(244, 63, 94, 0.45)';
       ctx.lineWidth = 2.5;
-      ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+      ctx.stroke();
       ctx.fillStyle = '#fecdd3';
     } else {
-      ctx.fillStyle = isHover ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.07)';
-      ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
-      ctx.strokeStyle = isHover ? '#22d3ee' : 'rgba(255, 255, 255, 0.18)';
+      ctx.fillStyle = isHover ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.06)';
+      ctx.fill();
+      ctx.strokeStyle = isHover ? '#22d3ee' : 'rgba(255, 255, 255, 0.16)';
       ctx.lineWidth = 2.5;
-      ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-      ctx.fillStyle = '#f8fafc';
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
     }
 
-    ctx.font = '800 24px system-ui, sans-serif';
+    ctx.font = '800 22px Inter, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(btn.label, btn.x + btn.w / 2, btn.y + btn.h / 2);
   }
 
   private drawMainMenuBoard(ctx: CanvasRenderingContext2D) {
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#22d3ee';
-    ctx.font = '800 20px system-ui, sans-serif';
-    ctx.fillText('MODE IMMERSIVE VR · 360° ARENA', CANVAS_W / 2, 76);
+    // Tiga kotak warna primer RYB persis seperti Main Menu Desktop & Mobile
+    const swatchColors = ['#EF233C', '#FFD60A', '#1D6FFF'];
+    const swSize = 30;
+    const swGap = 16;
+    const totalSwW = swatchColors.length * swSize + (swatchColors.length - 1) * swGap;
+    const swStartX = (CANVAS_W - totalSwW) / 2;
+    swatchColors.forEach((hex, idx) => {
+      const sx = swStartX + idx * (swSize + swGap);
+      ctx.fillStyle = hex;
+      ctx.beginPath();
+      ctx.roundRect(sx, 58, swSize, swSize, 8);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    });
 
+    // Logo COLOR MISSION (Putih + Cyan)
+    ctx.font = '900 72px Inter, system-ui, -apple-system, sans-serif';
+    ctx.textBaseline = 'alphabetic';
+    const part1 = 'COLOR ';
+    const part2 = 'MISSION';
+    const w1 = ctx.measureText(part1).width;
+    const w2 = ctx.measureText(part2).width;
+    const titleStartX = (CANVAS_W - (w1 + w2)) / 2;
+
+    ctx.textAlign = 'left';
     ctx.fillStyle = '#ffffff';
-    ctx.font = '900 66px system-ui, sans-serif';
-    ctx.fillText('COLOR MISSION', CANVAS_W / 2, 148);
+    ctx.fillText(part1, titleStartX, 174);
+    ctx.fillStyle = '#22d3ee';
+    ctx.fillText(part2, titleStartX + w1, 174);
 
+    ctx.textAlign = 'center';
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '600 22px system-ui, sans-serif';
-    ctx.fillText('Kuasai Warna. Selesaikan Misi.', CANVAS_W / 2, 200);
+    ctx.font = '600 22px Inter, system-ui, -apple-system, sans-serif';
+    ctx.fillText('Kuasai Warna. Selesaikan Misi.', CANVAS_W / 2, 218);
 
-    const bw = 460;
+    const bw = 540;
     const bx = (CANVAS_W - bw) / 2;
 
     this.drawButton(ctx, {
       id: 'start_mission',
       label: 'MULAI MISI',
       x: bx,
-      y: 254,
+      y: 268,
       w: bw,
-      h: 74,
+      h: 76,
       variant: 'primary',
     });
 
+    const halfW = (bw - 18) / 2;
     this.drawButton(ctx, {
       id: 'open_tutorial',
-      label: 'CARA BERMAIN',
+      label: 'CARA MAIN',
       x: bx,
-      y: 346,
-      w: bw,
-      h: 64,
+      y: 364,
+      w: halfW,
+      h: 68,
       variant: 'secondary',
     });
 
     this.drawButton(ctx, {
       id: 'open_settings',
-      label: 'PENGATURAN VR',
-      x: bx,
-      y: 426,
-      w: bw,
-      h: 64,
+      label: 'PENGATURAN',
+      x: bx + halfW + 18,
+      y: 364,
+      w: halfW,
+      h: 68,
       variant: 'secondary',
     });
 
@@ -300,9 +327,9 @@ export class VRSpatialMenu {
       id: 'exit_vr',
       label: 'KELUAR MODE VR',
       x: bx,
-      y: 512,
+      y: 454,
       w: bw,
-      h: 56,
+      h: 60,
       variant: 'danger',
     });
   }

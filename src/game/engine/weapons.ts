@@ -59,8 +59,8 @@ export class WeaponRig {
     this.vrHandParent = controller;
     if (controller) {
       controller.add(this.gunGroup);
-      this.gunGroup.scale.setScalar(0.55);
-      this.gunGroup.position.set(0, -0.02, -0.14);
+      this.gunGroup.scale.setScalar(0.58);
+      this.gunGroup.position.set(0, 0.01, -0.25);
       this.gunGroup.rotation.set(0, 0, 0);
     } else {
       this.camera.add(this.gunGroup);
@@ -309,7 +309,7 @@ export class WeaponRig {
     this.recoilRot.x = THREE.MathUtils.lerp(this.recoilRot.x, 0, dt * 14);
 
     if (this.vrHandParent) {
-      this.gunGroup.position.set(0, -0.02, -0.14 + this.recoilOffset.z);
+      this.gunGroup.position.set(0, 0.01, -0.25 + this.recoilOffset.z);
       this.gunGroup.rotation.set(this.recoilRot.x, 0, 0);
     } else {
       const bobX = isMoving ? Math.sin(time * 10) * 0.015 : 0;

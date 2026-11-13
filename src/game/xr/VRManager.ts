@@ -16,8 +16,75 @@ export class VRManager {
   public reticleMesh: THREE.Mesh;
   public currentSession: XRSession | null = null;
   private onSessionStateChange?: (isActive: boolean) => void;
-  private leftGripModel: THREE.Mesh;
-  private rightGripModel: THREE.Mesh;
+  private leftGripModel: THREE.Group;
+  private rightGripModel: THREE.Group;
+
+  private static createHoloHand(isLeft: boolean, colorHex: string): THREE.Group {
+    const hand = new THREE.Group();
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: colorHex,
+      transparent: true,
+      opacity: 0.22,
+    });
+    const wireMat = new THREE.MeshBasicMaterial({
+      color: colorHex,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.8,
+    });
+
+    const addPart = (
+      geo: THREE.BufferGeometry,
+      x: number,
+      y: number,
+      z: number,
+      rx = 0,
+      ry = 0,
+      rz = 0
+    ) => {
+      const solid = new THREE.Mesh(geo, coreMat);
+      solid.position.set(x, y, z);
+      solid.rotation.set(rx, ry, rz);
+      hand.add(solid);
+
+      const wire = new THREE.Mesh(geo, wireMat);
+      wire.position.set(x, y, z);
+      wire.rotation.set(rx, ry, rz);
+      hand.add(wire);
+    };
+
+    // Gelang / Wrist Cuff
+    addPart(new THREE.CylinderGeometry(0.032, 0.035, 0.055, 10), 0, -0.005, 0.055, Math.PI / 2, 0, 0);
+
+    // Telapak Tangan (Palm)
+    addPart(new THREE.BoxGeometry(0.072, 0.024, 0.082), 0, 0, -0.005, 0.12, 0, 0);
+
+    // 4 Jari (sedikit menekuk ke depan)
+    const fingerSpecs = [
+      { x: -0.024, len: 0.062 },
+      { x: -0.008, len: 0.07 },
+      { x: 0.008, len: 0.066 },
+      { x: 0.024, len: 0.054 },
+    ];
+    const dirSign = isLeft ? 1 : -1;
+    fingerSpecs.forEach((f) => {
+      const fx = f.x * dirSign;
+      addPart(new THREE.BoxGeometry(0.013, 0.015, f.len), fx, -0.006, -0.048 - f.len * 0.42, -0.28, 0, 0);
+    });
+
+    // Ibu Jari (Thumb) di sisi dalam
+    addPart(
+      new THREE.BoxGeometry(0.015, 0.016, 0.052),
+      0.042 * dirSign,
+      0.004,
+      -0.026,
+      -0.18,
+      -0.55 * dirSign,
+      0
+    );
+
+    return hand;
+  }
 
   constructor(
     renderer: THREE.WebGLRenderer,
@@ -53,13 +120,9 @@ export class VRManager {
     this.aimLine.visible = false;
     this.rightController.add(this.aimLine);
 
-    // Model visual gagang controller sederhana agar pemain melihat posisi tangan di VR
-    const controllerGripGeo = new THREE.BoxGeometry(0.045, 0.045, 0.14);
-    const leftGripMat = new THREE.MeshBasicMaterial({ color: '#38bdf8', wireframe: true });
-    const rightGripMat = new THREE.MeshBasicMaterial({ color: '#00f0ff', wireframe: true });
-
-    this.leftGripModel = new THREE.Mesh(controllerGripGeo, leftGripMat);
-    this.rightGripModel = new THREE.Mesh(controllerGripGeo, rightGripMat);
+    // Model visual hologram tangan cyber agar posisi tangan terlihat jelas di VR
+    this.leftGripModel = VRManager.createHoloHand(true, '#38bdf8');
+    this.rightGripModel = VRManager.createHoloHand(false, '#22d3ee');
     this.leftController.add(this.leftGripModel);
     this.rightController.add(this.rightGripModel);
 

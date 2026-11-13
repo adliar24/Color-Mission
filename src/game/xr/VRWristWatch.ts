@@ -29,9 +29,10 @@ export class VRWristWatch {
 
   constructor() {
     this.group = new THREE.Group();
-    // Posisikan di sisi dalam-atas pergelangan tangan kiri agar mudah dibaca saat diangkat
-    this.group.position.set(0.032, 0.042, 0.065);
-    this.group.rotation.set(-0.52, 0.35, -0.25);
+    // Posisikan di pergelangan tangan kiri dengan ukuran lebih besar & sudut baca natural
+    this.group.position.set(0.018, 0.056, 0.048);
+    this.group.rotation.set(-0.62, 0.32, -0.18);
+    this.group.scale.setScalar(1.38);
 
     // Strap / Body Jam
     const strap = new THREE.Mesh(
