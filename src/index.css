@@ -159,7 +159,9 @@ canvas {
   }
 
   button:focus-visible,
-  input[type="range"]:focus-visible {
+  input[type="range"]:focus-visible,
+  [data-ui-board="true"] button:focus,
+  [data-ui-board="true"] input[type="range"]:focus {
     outline: 2px solid #22d3ee;
     outline-offset: 2px;
     box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.25);

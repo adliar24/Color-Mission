@@ -777,6 +777,10 @@ export interface MenuGamepadCommand {
   tutorial: boolean;
   settings: boolean;
   start: boolean;
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
 }
 
 export class InputManager {
@@ -1006,6 +1010,10 @@ export class InputManager {
       tutorial: false,
       settings: false,
       start: false,
+      up: false,
+      down: false,
+      left: false,
+      right: false,
     };
     if (!this.isGamepadConnected || typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
       return empty;
@@ -1014,12 +1022,22 @@ export class InputManager {
       const gamepads = navigator.getGamepads();
       for (const gp of gamepads) {
         if (!gp || !gp.connected) continue;
+        const axisX = gp.axes[0] ?? 0;
+        const axisY = gp.axes[1] ?? 0;
+        const rawUp = Boolean(gp.buttons[12]?.pressed) || axisY < -0.55;
+        const rawDown = Boolean(gp.buttons[13]?.pressed) || axisY > 0.55;
+        const rawLeft = Boolean(gp.buttons[14]?.pressed) || axisX < -0.55;
+        const rawRight = Boolean(gp.buttons[15]?.pressed) || axisX > 0.55;
         return {
           confirm: this.wasMenuButtonJustPressed(0, gp.buttons[0]?.pressed),
           back: this.wasMenuButtonJustPressed(1, gp.buttons[1]?.pressed),
           tutorial: this.wasMenuButtonJustPressed(2, gp.buttons[2]?.pressed),
           settings: this.wasMenuButtonJustPressed(3, gp.buttons[3]?.pressed),
           start: this.wasMenuButtonJustPressed(9, gp.buttons[9]?.pressed),
+          up: this.wasMenuButtonJustPressed(100, rawUp),
+          down: this.wasMenuButtonJustPressed(101, rawDown),
+          left: this.wasMenuButtonJustPressed(102, rawLeft),
+          right: this.wasMenuButtonJustPressed(103, rawRight),
         };
       }
     } catch {}

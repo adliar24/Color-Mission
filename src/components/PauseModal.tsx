@@ -34,7 +34,6 @@ export const PauseModal: React.FC<PauseModalProps> = ({
           >
             <Play className="w-4 h-4 fill-current" />
             <span>LANJUTKAN</span>
-            <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
           </button>
 
           <button
@@ -44,7 +43,6 @@ export const PauseModal: React.FC<PauseModalProps> = ({
           >
             <Sliders className="w-4 h-4 text-cyan-400" />
             <span>PENGATURAN</span>
-            <GamepadBadge button="Y" visible={isGamepadConnected} size="sm" />
           </button>
 
           <button
@@ -76,9 +74,24 @@ export const PauseModal: React.FC<PauseModalProps> = ({
           >
             <Home className="w-4 h-4" />
             <span>MENU UTAMA</span>
-            <GamepadBadge button="B" visible={isGamepadConnected} size="sm" />
           </button>
         </div>
+
+        {isGamepadConnected && (
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold text-slate-400 tracking-wide">
+            <span>↕ Pilih</span>
+            <span className="text-slate-600">•</span>
+            <span className="inline-flex items-center gap-1">
+              <GamepadBadge button="A" visible size="sm" />
+              <span>Konfirmasi</span>
+            </span>
+            <span className="text-slate-600">•</span>
+            <span className="inline-flex items-center gap-1">
+              <GamepadBadge button="B" visible size="sm" />
+              <span>Lanjutkan</span>
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

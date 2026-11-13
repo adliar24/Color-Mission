@@ -60,6 +60,81 @@ interface GameShellProps {
   autostart?: boolean;
 }
 
+function getActiveUiBoard(): HTMLElement | null {
+  const boards = Array.from(
+    document.querySelectorAll<HTMLElement>('[data-ui-board="true"]')
+  ).filter((el) => !el.closest('.ui-modal-closing'));
+  return boards.length > 0 ? boards[boards.length - 1] : null;
+}
+
+function getBoardControls(board: HTMLElement): HTMLElement[] {
+  return Array.from(
+    board.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input[type="range"]:not(:disabled)'
+    )
+  ).filter((el) => el.offsetParent !== null);
+}
+
+function focusDefaultBoardControl(board: HTMLElement): void {
+  const controls = getBoardControls(board);
+  if (controls.length > 0 && !board.contains(document.activeElement)) {
+    const defaultBtn =
+      controls.find((el) => el.tagName === 'BUTTON' && el.className.includes('bg-cyan-400')) ||
+      controls.find((el) => el.tagName === 'BUTTON') ||
+      controls[0];
+    defaultBtn?.focus();
+  }
+}
+
+function moveBoardFocus(board: HTMLElement, step: 1 | -1): void {
+  const controls = getBoardControls(board);
+  if (controls.length === 0) return;
+  const activeEl = document.activeElement as HTMLElement | null;
+  const currentIdx = activeEl ? controls.indexOf(activeEl) : -1;
+  const nextIdx =
+    currentIdx === -1
+      ? step > 0
+        ? 0
+        : controls.length - 1
+      : (currentIdx + step + controls.length) % controls.length;
+  const target = controls[nextIdx];
+  if (target) {
+    target.focus();
+    target.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function adjustFocusedRange(rangeEl: HTMLInputElement, deltaSign: 1 | -1): void {
+  const min = parseFloat(rangeEl.min || '0');
+  const max = parseFloat(rangeEl.max || '100');
+  const step = parseFloat(rangeEl.step || '1');
+  const current = parseFloat(rangeEl.value || String(min));
+  const decimals = (rangeEl.step.split('.')[1] || '').length;
+  const next = Math.min(max, Math.max(min, Number((current + deltaSign * step).toFixed(decimals))));
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+  if (setter) {
+    setter.call(rangeEl, String(next));
+    rangeEl.dispatchEvent(new Event('input', { bubbles: true }));
+    rangeEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
+function activateBoardControl(board: HTMLElement): void {
+  const controls = getBoardControls(board);
+  if (controls.length === 0) return;
+  const activeEl = document.activeElement as HTMLElement | null;
+  const isRangeInput =
+    activeEl?.tagName === 'INPUT' && (activeEl as HTMLInputElement).type === 'range';
+  if (activeEl && activeEl.tagName === 'BUTTON' && board.contains(activeEl)) {
+    activeEl.click();
+  } else if (!isRangeInput) {
+    const primaryBtn =
+      controls.find((el) => el.tagName === 'BUTTON' && el.className.includes('bg-cyan-400')) ||
+      controls.find((el) => el.tagName === 'BUTTON');
+    primaryBtn?.click();
+  }
+}
+
 const INITIAL_PLAYER_STATS: PlayerStats = {
   hp: 100,
   maxHp: 100,
@@ -840,30 +915,40 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         setShowHint((prev) => !prev);
       }
 
-      // Navigasi Menu & Modal via Gamepad (Format Xbox: A, B, X, Y, Start)
-      if (currentState !== 'playing') {
+      // Navigasi Arah Terpusat Menu & Modal via Gamepad (D-Pad / Analog + A Konfirmasi + B/Start Kembali)
+      if (currentState !== 'playing' || stateRef.current.showSettings || stateRef.current.showTutorial) {
         const menuGp = inputManagerRef.current.pollMenuGamepad();
-        if (stateRef.current.showTutorial) {
-          if (menuGp.back) setShowTutorial(false);
-          else if (menuGp.confirm) {
+        if (menuGp.back || menuGp.start) {
+          if (stateRef.current.showTutorial) {
             setShowTutorial(false);
-            menuCallbacksRef.current.startRun();
+          } else if (stateRef.current.showSettings) {
+            setShowSettings(false);
+          } else if (currentState === 'paused') {
+            setGameState('playing');
+          } else if ((currentState === 'gameover' || currentState === 'victory') && menuGp.back) {
+            menuCallbacksRef.current.returnToMenu();
           }
-        } else if (stateRef.current.showSettings) {
-          if (menuGp.back) setShowSettings(false);
-        } else if (currentState === 'title') {
-          if (menuGp.confirm) menuCallbacksRef.current.startRun();
-          else if (menuGp.tutorial) setShowTutorial(true);
-          else if (menuGp.settings) setShowSettings(true);
-        } else if (currentState === 'paused') {
-          if (menuGp.confirm || menuGp.start) setGameState('playing');
-          else if (menuGp.settings) setShowSettings(true);
-          else if (menuGp.back) menuCallbacksRef.current.returnToMenu();
-        } else if (currentState === 'stage_transition') {
-          if (menuGp.confirm) menuCallbacksRef.current.continueStage();
-        } else if (currentState === 'gameover' || currentState === 'victory') {
-          if (menuGp.confirm) menuCallbacksRef.current.startRun();
-          else if (menuGp.back) menuCallbacksRef.current.returnToMenu();
+        } else {
+          const board = getActiveUiBoard();
+          if (board) {
+            const activeEl = document.activeElement as HTMLElement | null;
+            const isRangeInput =
+              activeEl?.tagName === 'INPUT' &&
+              (activeEl as HTMLInputElement).type === 'range' &&
+              board.contains(activeEl);
+
+            if (menuGp.up || menuGp.down) {
+              moveBoardFocus(board, menuGp.down ? 1 : -1);
+            } else if (menuGp.left || menuGp.right) {
+              if (isRangeInput) {
+                adjustFocusedRange(activeEl as HTMLInputElement, menuGp.right ? 1 : -1);
+              } else {
+                moveBoardFocus(board, menuGp.right ? 1 : -1);
+              }
+            } else if (menuGp.confirm) {
+              activateBoardControl(board);
+            }
+          }
         }
       }
 
@@ -1761,34 +1846,14 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     const isMenuActive = gameState !== 'playing' || showSettings || showTutorial;
     if (!isMenuActive) return;
 
-    const getActiveBoard = (): HTMLElement | null => {
-      const boards = document.querySelectorAll<HTMLElement>('[data-ui-board="true"]');
-      return boards.length > 0 ? boards[boards.length - 1] : null;
-    };
-
-    const getFocusableControls = (board: HTMLElement): HTMLElement[] =>
-      Array.from(
-        board.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input[type="range"]:not(:disabled)'
-        )
-      ).filter((el) => el.offsetParent !== null);
-
     // Fokus otomatis pada tombol utama saat papan berpindah
     const focusTimer = setTimeout(() => {
-      const board = getActiveBoard();
-      if (!board) return;
-      const controls = getFocusableControls(board);
-      if (controls.length > 0 && !board.contains(document.activeElement)) {
-        const defaultBtn =
-          controls.find((el) => el.tagName === 'BUTTON' && el.className.includes('bg-cyan-400')) ||
-          controls.find((el) => el.tagName === 'BUTTON') ||
-          controls[0];
-        defaultBtn?.focus();
-      }
+      const board = getActiveUiBoard();
+      if (board) focusDefaultBoardControl(board);
     }, 30);
 
     const onKeyDown = (e: KeyboardEvent) => {
-      const board = getActiveBoard();
+      const board = getActiveUiBoard();
       if (!board) return;
 
       if (e.key === 'Escape') {
@@ -1808,9 +1873,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         return;
       }
 
-      const controls = getFocusableControls(board);
-      if (controls.length === 0) return;
-
       const activeEl = document.activeElement as HTMLElement | null;
       const isRangeInput =
         activeEl?.tagName === 'INPUT' && (activeEl as HTMLInputElement).type === 'range';
@@ -1821,15 +1883,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         (!isRangeInput && (e.key === 'ArrowRight' || e.key === 'ArrowLeft'))
       ) {
         e.preventDefault();
-        const currentIdx = activeEl ? controls.indexOf(activeEl) : -1;
         const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
-        const nextIdx =
-          currentIdx === -1
-            ? step > 0
-              ? 0
-              : controls.length - 1
-            : (currentIdx + step + controls.length) % controls.length;
-        controls[nextIdx]?.focus();
+        moveBoardFocus(board, step);
         return;
       }
 
@@ -1838,14 +1893,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           e.preventDefault();
           activeEl.click();
         } else if (!isRangeInput) {
-          const primaryBtn =
-            controls.find(
-              (el) => el.tagName === 'BUTTON' && el.className.includes('bg-cyan-400')
-            ) || controls.find((el) => el.tagName === 'BUTTON');
-          if (primaryBtn) {
-            e.preventDefault();
-            primaryBtn.click();
-          }
+          e.preventDefault();
+          activateBoardControl(board);
         }
       }
     };
@@ -1855,7 +1904,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       clearTimeout(focusTimer);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [gameState, showSettings, showTutorial]);
+  }, [gameState, showSettings, showTutorial, mobileFullscreenConfirmed, isGamepadConnected]);
 
   useEffect(() => {
     const syncFullscreen = () => {
@@ -2071,7 +2120,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               >
                 <Play className="w-5 h-5 fill-current" />
                 <span>MULAI MISI</span>
-                <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
               </button>
 
               <div className="grid grid-cols-2 gap-3 w-full">
@@ -2082,7 +2130,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                 >
                   <BookOpen className="w-4 h-4 text-cyan-400" />
                   <span>CARA MAIN</span>
-                  <GamepadBadge button="X" visible={isGamepadConnected} size="sm" />
                 </button>
 
                 <button
@@ -2092,10 +2139,20 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                 >
                   <Sliders className="w-4 h-4 text-cyan-400" />
                   <span>PENGATURAN</span>
-                  <GamepadBadge button="Y" visible={isGamepadConnected} size="sm" />
                 </button>
               </div>
             </div>
+
+            {isGamepadConnected && (
+              <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-bold text-slate-400 tracking-wide">
+                <span>↕↔ Pilih</span>
+                <span className="text-slate-600">•</span>
+                <span className="inline-flex items-center gap-1">
+                  <GamepadBadge button="A" visible size="sm" />
+                  <span>Konfirmasi</span>
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
