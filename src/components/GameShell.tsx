@@ -2003,6 +2003,43 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
          ==================================================================== */}
       {gameState === 'title' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
+          {/* Tombol Ikon Pojok Kanan Atas: Orientasi (Mobile) & Fullscreen */}
+          <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
+            {platformMode === 'mobile' && (
+              <button
+                type="button"
+                onClick={handleToggleMobileOrientation}
+                title={
+                  mobileOrientation === 'landscape'
+                    ? 'Ubah ke Mode Portrait'
+                    : 'Ubah ke Mode Landscape'
+                }
+                aria-label={
+                  mobileOrientation === 'landscape'
+                    ? 'Ubah ke Mode Portrait'
+                    : 'Ubah ke Mode Landscape'
+                }
+                className="p-2.5 rounded-xl bg-[#090d18]/90 hover:bg-slate-900 border border-white/15 text-cyan-400 transition-colors cursor-pointer shadow-xl"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleToggleFullscreen}
+              title={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+              aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+              className="p-2.5 rounded-xl bg-[#090d18]/90 hover:bg-slate-900 border border-white/15 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl"
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-4 h-4 text-slate-300" />
+              ) : (
+                <Maximize2 className="w-4 h-4 text-cyan-400" />
+              )}
+            </button>
+          </div>
+
           {/* Kartu Utama Tengah */}
           <div data-ui-board="true" className="bg-[#090d18]/96 border border-white/15 px-8 py-10 md:px-12 md:py-12 rounded-3xl shadow-2xl flex flex-col items-center text-center max-w-md w-full ui-panel-enter">
             {/* Tiga Kotak Polos Warna Primer RYB */}
@@ -2053,36 +2090,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                   <Sliders className="w-4 h-4 text-cyan-400" />
                   <span>PENGATURAN</span>
                   <GamepadBadge button="Y" visible={isGamepadConnected} size="sm" />
-                </button>
-              </div>
-
-              <div
-                className={`grid gap-3 w-full ${
-                  platformMode === 'mobile' ? 'grid-cols-2' : 'grid-cols-1'
-                }`}
-              >
-                {platformMode === 'mobile' && (
-                  <button
-                    type="button"
-                    onClick={handleToggleMobileOrientation}
-                    className="h-11 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-xs font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <RotateCw className="w-4 h-4 text-cyan-400" />
-                    <span>{mobileOrientation === 'landscape' ? 'LANDSCAPE' : 'PORTRAIT'}</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleToggleFullscreen}
-                  className="h-11 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-xs font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                >
-                  {isFullscreen ? (
-                    <Minimize2 className="w-4 h-4 text-slate-300" />
-                  ) : (
-                    <Maximize2 className="w-4 h-4 text-cyan-400" />
-                  )}
-                  <span>{isFullscreen ? 'KELUAR FULLSCREEN' : 'LAYAR PENUH'}</span>
                 </button>
               </div>
             </div>
