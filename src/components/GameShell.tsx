@@ -174,6 +174,8 @@ const _scratchScreenCenter = new THREE.Vector2(0, 0);
 const _scratchEnemyBox = new THREE.Box3();
 const _scratchEnemyCenter = new THREE.Vector3();
 const _scratchEnemySize = new THREE.Vector3();
+const _scratchAimOrigin = new THREE.Vector3();
+const _scratchAimDir = new THREE.Vector3();
 
 function detectOptimalQuality(): GraphicsQuality {
   if (typeof window === 'undefined') return 'high';
@@ -1004,6 +1006,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         weapons.attachToVRHand(vrManager.rightController);
         weapons.gunGroup.visible = true;
         vrManager.setRightHandModelVisible(false);
+        vrManager.setLeftHandModelVisible(false);
         vrManager.leftController.add(vrWatch.group);
         vrWatch.setVisible(true);
         const pStatsNow = stateRef.current.player;
@@ -1022,6 +1025,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       } else {
         weapons.attachToVRHand(null);
         vrManager.setRightHandModelVisible(true);
+        vrManager.setLeftHandModelVisible(true);
         vrWatch.setVisible(false);
       }
 
@@ -1032,7 +1036,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         }
         vrSpatialMenu.setVisible(true);
         const vrInfo = vrMenuInfoRef.current;
-        const { action } = vrSpatialMenu.update(
+        const { hitPoint, action } = vrSpatialMenu.update(
           {
             gameState: currentState,
             showSettings: stateRef.current.showSettings,
@@ -1064,6 +1068,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           vrManager.rightController,
           vrManager.currentSession
         );
+
+        if (hitPoint) {
+          vrManager.rightController.getWorldPosition(_scratchAimOrigin);
+          vrManager.updateAimRay(hitPoint.distanceTo(_scratchAimOrigin), '#22d3ee');
+        } else {
+          vrManager.updateAimRay(null, '#22d3ee');
+        }
 
         if (action) {
           const dispatchVRMenuAction = (act: VRMenuAction) => {
@@ -1365,6 +1376,21 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         // --- 2. Menembak & Validasi Target Warna ---
         const isMoving = _scratchWishDir.lengthSq() > 0.01;
         weapons.update(dt, isMoving, now / 1000);
+
+        // Update Meta OS-style Laser Aim Ray saat gameplay VR
+        if (isPresentingVR && cmd.vrAimRay) {
+          _scratchAimOrigin.set(...cmd.vrAimRay.origin);
+          _scratchAimDir.set(...cmd.vrAimRay.direction).normalize();
+          _scratchRaycaster.set(_scratchAimOrigin, _scratchAimDir);
+          const liveEnemyMeshes = enemies.enemies
+            .filter((e) => e.state !== 'dead')
+            .map((e) => e.mesh);
+          const aimHits =
+            liveEnemyMeshes.length > 0
+              ? _scratchRaycaster.intersectObjects(liveEnemyMeshes, true)
+              : [];
+          vrManager.updateAimRay(aimHits.length > 0 ? aimHits[0].distance : null, '#38bdf8');
+        }
 
         if (vrTriggerReleaseGuardRef.current) {
           if (!cmd.shoot) {

@@ -12,76 +12,141 @@ export class VRManager {
   public playerRig: THREE.Group;
   public leftController: THREE.Group;
   public rightController: THREE.Group;
-  public aimLine: THREE.Line;
+  public aimLine: THREE.Mesh;
   public reticleMesh: THREE.Mesh;
   public currentSession: XRSession | null = null;
   private onSessionStateChange?: (isActive: boolean) => void;
   private leftGripModel: THREE.Group;
   private rightGripModel: THREE.Group;
+  private aimLineMat: THREE.MeshBasicMaterial;
+  private reticleMat: THREE.MeshBasicMaterial;
 
+  private static createMetaHoloMaterial(colorHex: string): THREE.ShaderMaterial {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(colorHex) },
+      },
+      vertexShader: `
+        varying vec3 vNormalView;
+        varying vec3 vViewPos;
+        void main() {
+          vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+          vViewPos = -mvPos.xyz;
+          vNormalView = normalize(normalMatrix * normal);
+          gl_Position = projectionMatrix * mvPos;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        varying vec3 vNormalView;
+        varying vec3 vViewPos;
+        void main() {
+          vec3 N = normalize(vNormalView);
+          vec3 V = normalize(vViewPos);
+          float fresnel = pow(1.0 - abs(dot(N, V)), 2.1);
+          float alpha = mix(0.08, 0.85, fresnel);
+          vec3 col = mix(uColor * 0.65, vec3(0.88, 0.98, 1.0), fresnel * 0.7);
+          gl_FragColor = vec4(col, alpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.FrontSide,
+    });
+  }
+
+  /**
+   * Membuat model tangan hologram organik bergaya Meta Horizon OS
+   * (siluet telapak anatomis halus + 3 ruas jari melengkung + shader Fresnel).
+   */
   private static createHoloHand(isLeft: boolean, colorHex: string): THREE.Group {
     const hand = new THREE.Group();
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: colorHex,
-      transparent: true,
-      opacity: 0.22,
-    });
-    const wireMat = new THREE.MeshBasicMaterial({
-      color: colorHex,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.8,
-    });
+    const mat = VRManager.createMetaHoloMaterial(colorHex);
+    const sign = isLeft ? 1 : -1;
 
-    const addPart = (
-      geo: THREE.BufferGeometry,
-      x: number,
-      y: number,
-      z: number,
-      rx = 0,
-      ry = 0,
-      rz = 0
+    // 1. Telapak tangan anatomis menggunakan kurva Bezier halus
+    const palmShape = new THREE.Shape();
+    palmShape.moveTo(-0.024, 0.046);
+    palmShape.bezierCurveTo(-0.036, 0.015, -0.04, -0.018, -0.034, -0.044);
+    palmShape.bezierCurveTo(-0.015, -0.052, 0.015, -0.052, 0.034, -0.042);
+    palmShape.bezierCurveTo(0.04, -0.012, 0.034, 0.02, 0.024, 0.046);
+    palmShape.bezierCurveTo(0.01, 0.052, -0.01, 0.052, -0.024, 0.046);
+
+    const palmGeo = new THREE.ExtrudeGeometry(palmShape, {
+      depth: 0.012,
+      bevelEnabled: true,
+      bevelSegments: 5,
+      steps: 1,
+      bevelSize: 0.007,
+      bevelThickness: 0.007,
+    });
+    palmGeo.center();
+    const palmMesh = new THREE.Mesh(palmGeo, mat);
+    palmMesh.rotation.x = Math.PI / 2;
+    palmMesh.position.set(0, 0, -0.004);
+    hand.add(palmMesh);
+
+    // Pergelangan tangan tirus
+    const wristGeo = new THREE.CapsuleGeometry(0.024, 0.035, 6, 12);
+    const wristMesh = new THREE.Mesh(wristGeo, mat);
+    wristMesh.rotation.x = Math.PI / 2;
+    wristMesh.scale.set(1.15, 0.72, 1);
+    wristMesh.position.set(0, -0.004, 0.068);
+    hand.add(wristMesh);
+
+    // 2. Empat jari (3 ruas melengkung natural per jari)
+    const addFinger = (
+      baseX: number,
+      baseZ: number,
+      lengths: [number, number, number],
+      radii: [number, number, number],
+      splayY: number
     ) => {
-      const solid = new THREE.Mesh(geo, coreMat);
-      solid.position.set(x, y, z);
-      solid.rotation.set(rx, ry, rz);
-      hand.add(solid);
+      const root = new THREE.Group();
+      root.position.set(baseX * sign, -0.001, baseZ);
+      root.rotation.y = splayY * sign;
 
-      const wire = new THREE.Mesh(geo, wireMat);
-      wire.position.set(x, y, z);
-      wire.rotation.set(rx, ry, rz);
-      hand.add(wire);
+      let parent: THREE.Group = root;
+      const bends = [0.22, 0.34, 0.28];
+      lengths.forEach((len, idx) => {
+        const segGroup = new THREE.Group();
+        segGroup.rotation.x = -bends[idx];
+        const segGeo = new THREE.CapsuleGeometry(radii[idx], len, 5, 10);
+        const segMesh = new THREE.Mesh(segGeo, mat);
+        segMesh.rotation.x = Math.PI / 2;
+        segMesh.position.set(0, 0, -len * 0.5 - radii[idx] * 0.35);
+        segGroup.add(segMesh);
+        parent.add(segGroup);
+
+        const nextPivot = new THREE.Group();
+        nextPivot.position.set(0, 0, -len - radii[idx] * 0.5);
+        segGroup.add(nextPivot);
+        parent = nextPivot;
+      });
+      hand.add(root);
     };
 
-    // Gelang / Wrist Cuff
-    addPart(new THREE.CylinderGeometry(0.032, 0.035, 0.055, 10), 0, -0.005, 0.055, Math.PI / 2, 0, 0);
+    // Telunjuk, Tengah, Manis, Kelingking
+    addFinger(-0.025, -0.044, [0.026, 0.018, 0.014], [0.0075, 0.0068, 0.0058], 0.06);
+    addFinger(-0.008, -0.048, [0.029, 0.021, 0.015], [0.0078, 0.007, 0.006], 0.01);
+    addFinger(0.009, -0.046, [0.027, 0.019, 0.014], [0.0074, 0.0066, 0.0056], -0.03);
+    addFinger(0.025, -0.04, [0.021, 0.015, 0.012], [0.0066, 0.0058, 0.005], -0.09);
 
-    // Telapak Tangan (Palm)
-    addPart(new THREE.BoxGeometry(0.072, 0.024, 0.082), 0, 0, -0.005, 0.12, 0, 0);
+    // 3. Ibu jari (anatomis miring ke sisi dalam)
+    const thumbRoot = new THREE.Group();
+    thumbRoot.position.set(-0.032 * sign, -0.005, -0.005);
+    thumbRoot.rotation.set(-0.22, 0.65 * sign, 0.38 * sign);
+    const thumbBase = new THREE.Mesh(new THREE.CapsuleGeometry(0.0088, 0.024, 5, 10), mat);
+    thumbBase.rotation.x = Math.PI / 2;
+    thumbBase.position.set(0, 0, -0.014);
+    thumbRoot.add(thumbBase);
 
-    // 4 Jari (sedikit menekuk ke depan)
-    const fingerSpecs = [
-      { x: -0.024, len: 0.062 },
-      { x: -0.008, len: 0.07 },
-      { x: 0.008, len: 0.066 },
-      { x: 0.024, len: 0.054 },
-    ];
-    const dirSign = isLeft ? 1 : -1;
-    fingerSpecs.forEach((f) => {
-      const fx = f.x * dirSign;
-      addPart(new THREE.BoxGeometry(0.013, 0.015, f.len), fx, -0.006, -0.048 - f.len * 0.42, -0.28, 0, 0);
-    });
-
-    // Ibu Jari (Thumb) di sisi dalam
-    addPart(
-      new THREE.BoxGeometry(0.015, 0.016, 0.052),
-      0.042 * dirSign,
-      0.004,
-      -0.026,
-      -0.18,
-      -0.55 * dirSign,
-      0
-    );
+    const thumbTip = new THREE.Mesh(new THREE.CapsuleGeometry(0.0074, 0.02, 5, 10), mat);
+    thumbTip.rotation.x = Math.PI / 2;
+    thumbTip.position.set(0, -0.004, -0.038);
+    thumbTip.rotation.x += -0.25;
+    thumbRoot.add(thumbTip);
+    hand.add(thumbRoot);
 
     return hand;
   }
@@ -97,7 +162,6 @@ export class VRManager {
 
     this.renderer.xr.enabled = true;
 
-    // Controller 0 & 1 pada Three.js WebXRManager
     const ctrl0 = this.renderer.xr.getController(0);
     const ctrl1 = this.renderer.xr.getController(1);
     this.leftController = ctrl0;
@@ -106,48 +170,56 @@ export class VRManager {
     this.playerRig.add(ctrl0);
     this.playerRig.add(ctrl1);
 
-    // Sinar bidik (Aim Ray) pada controller kanan
-    const lineGeo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0, -28),
-    ]);
-    const lineMat = new THREE.LineBasicMaterial({
-      color: '#00f0ff',
+    // Sinar bidik Meta OS Style (pendek & samar saat bebas, panjang & tegas saat kena target)
+    const beamGeo = new THREE.CylinderGeometry(0.0035, 0.0035, 1, 8);
+    beamGeo.rotateX(Math.PI / 2);
+    beamGeo.translate(0, 0, -0.5);
+    this.aimLineMat = new THREE.MeshBasicMaterial({
+      color: '#38bdf8',
       transparent: true,
-      opacity: 0.78,
+      opacity: 0.28,
+      depthWrite: false,
     });
-    this.aimLine = new THREE.Line(lineGeo, lineMat);
+    this.aimLine = new THREE.Mesh(beamGeo, this.aimLineMat);
+    this.aimLine.scale.set(1, 1, 1.5);
     this.aimLine.visible = false;
     this.rightController.add(this.aimLine);
 
-    // Model visual hologram tangan cyber agar posisi tangan terlihat jelas di VR
-    this.leftGripModel = VRManager.createHoloHand(true, '#38bdf8');
-    this.rightGripModel = VRManager.createHoloHand(false, '#22d3ee');
-    this.leftController.add(this.leftGripModel);
-    this.rightController.add(this.rightGripModel);
-
-    // Reticle titik bidik di ujung sinar
+    // Titik bulat tegas di ujung sinar saat mengenai target/tombol
+    this.reticleMat = new THREE.MeshBasicMaterial({
+      color: '#ffffff',
+      transparent: true,
+      opacity: 0.96,
+    });
     this.reticleMesh = new THREE.Mesh(
-      new THREE.RingGeometry(0.08, 0.14, 16),
-      new THREE.MeshBasicMaterial({ color: '#00f0ff', side: THREE.DoubleSide })
+      new THREE.SphereGeometry(0.032, 16, 16),
+      this.reticleMat
     );
     this.reticleMesh.position.set(0, 0, -12);
     this.reticleMesh.visible = false;
     this.rightController.add(this.reticleMesh);
 
+    // Hologram Tangan Meta OS
+    this.leftGripModel = VRManager.createHoloHand(true, '#38bdf8');
+    this.rightGripModel = VRManager.createHoloHand(false, '#22d3ee');
+    this.leftController.add(this.leftGripModel);
+    this.rightController.add(this.rightGripModel);
+
     // Pastikan handedness kiri & kanan selalu akurat sesuai laporan WebXR
-    const handleConnect = (ctrl: THREE.Group, other: THREE.Group) => (event: THREE.Event & { data?: XRInputSource }) => {
-      const handedness = event.data?.handedness;
-      if (handedness === 'right' && this.rightController !== ctrl) {
-        this.rightController = ctrl;
-        this.leftController = other;
-        this.syncControllerAttachments();
-      } else if (handedness === 'left' && this.leftController !== ctrl) {
-        this.leftController = ctrl;
-        this.rightController = other;
-        this.syncControllerAttachments();
-      }
-    };
+    const handleConnect =
+      (ctrl: THREE.Group, other: THREE.Group) =>
+      (event: THREE.Event & { data?: XRInputSource }) => {
+        const handedness = event.data?.handedness;
+        if (handedness === 'right' && this.rightController !== ctrl) {
+          this.rightController = ctrl;
+          this.leftController = other;
+          this.syncControllerAttachments();
+        } else if (handedness === 'left' && this.leftController !== ctrl) {
+          this.leftController = ctrl;
+          this.rightController = other;
+          this.syncControllerAttachments();
+        }
+      };
     ctrl0.addEventListener('connected', handleConnect(ctrl0, ctrl1));
     ctrl1.addEventListener('connected', handleConnect(ctrl1, ctrl0));
   }
@@ -159,8 +231,37 @@ export class VRManager {
     this.rightController.add(this.reticleMesh);
   }
 
+  public setLeftHandModelVisible(visible: boolean) {
+    this.leftGripModel.visible = visible;
+  }
+
   public setRightHandModelVisible(visible: boolean) {
     this.rightGripModel.visible = visible;
+  }
+
+  /**
+   * Memperbarui gaya laser bidik Meta OS:
+   * - Jika tidak mengenai objek (hitDistance === null): laser pendek (1.5m) & agak transparan tanpa ujung bulat.
+   * - Jika mengenai musuh / objek / papan UI: laser memanjang tepat ke target, tegas, dengan ujung bulat bersinar.
+   */
+  public updateAimRay(hitDistance: number | null, colorHex = '#38bdf8') {
+    if (!this.currentSession) return;
+    this.aimLine.visible = true;
+    this.aimLineMat.color.set(colorHex);
+
+    if (hitDistance !== null && hitDistance > 0.05) {
+      this.aimLine.scale.set(1.25, 1.25, hitDistance);
+      this.aimLineMat.opacity = 0.92;
+      this.reticleMesh.visible = true;
+      this.reticleMesh.position.set(0, 0, -hitDistance);
+      const dotScale = THREE.MathUtils.clamp(hitDistance * 0.16, 0.55, 2.2);
+      this.reticleMesh.scale.setScalar(dotScale);
+      this.reticleMat.color.set(colorHex);
+    } else {
+      this.aimLine.scale.set(0.75, 0.75, 1.5);
+      this.aimLineMat.opacity = 0.28;
+      this.reticleMesh.visible = false;
+    }
   }
 
   public static async checkSupport(): Promise<VRSupportStatus> {
@@ -237,7 +338,7 @@ export class VRManager {
 
       await this.renderer.xr.setSession(session);
       this.aimLine.visible = true;
-      this.reticleMesh.visible = true;
+      this.reticleMesh.visible = false;
       this.onSessionStateChange?.(true);
 
       return { ok: true, message: 'Berhasil masuk ke sesi Mode VR.' };
@@ -275,9 +376,8 @@ export class VRManager {
       this.currentSession = null;
     }
     this.aimLine.geometry.dispose();
-    (this.aimLine.material as THREE.Material).dispose();
+    this.aimLineMat.dispose();
     this.reticleMesh.geometry.dispose();
-    (this.reticleMesh.material as THREE.Material).dispose();
+    this.reticleMat.dispose();
   }
 }
-
