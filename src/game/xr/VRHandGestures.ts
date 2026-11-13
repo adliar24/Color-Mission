@@ -159,9 +159,12 @@ export class VRHandGestures {
       const ringDist = _vRing.distanceTo(_vWrist);
       const pinkyDist = _vPinky.distanceTo(_vWrist);
 
-      // Deteksi kepal: jari tengah, manis, dan kelingking tertekuk dekat pergelangan/telapak
-      const fistNow = middleDist < 0.095 && ringDist < 0.09 && pinkyDist < 0.085;
-      const fingersOpen = middleDist > 0.115 && ringDist > 0.11;
+      // Deteksi kepal dengan hysteresis agar tidak bocor ke gestur cubit/pause saat menggeser ibu jari
+      const fistEnter = middleDist < 0.11 && ringDist < 0.105;
+      const fistStay = this.isLeftFist && middleDist < 0.125 && ringDist < 0.12;
+      const fistNow = fistEnter || fistStay;
+      const fingersOpen =
+        !fistNow && middleDist > 0.128 && ringDist > 0.122 && pinkyDist > 0.108;
 
       // Sumbu horizontal kamera agar geser ibu jari & teleport selalu konsisten arahnya
       if (camera) {
@@ -180,11 +183,12 @@ export class VRHandGestures {
 
       // Di WebXR tangan kiri, sisi telapak mengarah ke -Y lokal wrist
       _vPalmNormal.set(0, -1, 0).applyQuaternion(_qWrist).normalize();
-      const isFacingFace = camera ? _vPalmNormal.dot(_vToCam) > 0.42 : false;
+      // Pause hanya aktif jika telapak tangan TERBUKA penuh dan benar-benar menghadap wajah
+      const isFacingFace = camera && fingersOpen ? _vPalmNormal.dot(_vToCam) > 0.72 : false;
       const leftPinchDist = _vThumb.distanceTo(_vIndex);
 
-      // === 2A. TELEPORT ARC GAYA META QUEST VR HOME (Telapak kiri menghadap atas + cubit) ===
-      const isPalmUp = _vPalmNormal.y > 0.36 && !isFacingFace && !fistNow;
+      // === 2A. TELEPORT ARC GAYA META QUEST VR HOME (Telapak kiri terbuka menghadap atas + cubit) ===
+      const isPalmUp = fingersOpen && _vPalmNormal.y > 0.45 && !isFacingFace;
       if (isPalmUp) {
         _vHandFwd.subVectors(_vIndexMcp, _vWrist);
         _vHandFwd.y = 0;
@@ -279,7 +283,7 @@ export class VRHandGestures {
       }
 
       // === 2C. CUBIT TANGAN KIRI (Ganti Senjata / Tahan menghadap wajah untuk Pause) ===
-      if (fingersOpen && !isPalmUp) {
+      if (fingersOpen && !isPalmUp && !this.isLeftFist) {
         if (this.isLeftPinching) {
           if (leftPinchDist > 0.038) {
             // Dilepas sebelum 0.55s dan tidak menghadap wajah -> ganti senjata

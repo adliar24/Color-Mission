@@ -33,6 +33,8 @@ export class VRManager {
   private rightCtrlGroup: THREE.Object3D;
   private aimLineMat: THREE.MeshBasicMaterial;
   private reticleMat: THREE.MeshBasicMaterial;
+  private aimRayTarget: THREE.Object3D | null = null;
+  private aimScratchScale = new THREE.Vector3(1, 1, 1);
   private leftVisible = true;
   private rightVisible = true;
 
@@ -282,6 +284,15 @@ export class VRManager {
     return this.leftController;
   }
 
+  public attachAimRayTo(target: THREE.Object3D | null) {
+    this.aimRayTarget = target;
+    const desiredParent = target ?? this.rightController;
+    if (this.aimLine.parent !== desiredParent) {
+      desiredParent.add(this.aimLine);
+      desiredParent.add(this.reticleMesh);
+    }
+  }
+
   public getRightWeaponMount(): THREE.Object3D {
     if (this.isHandTrackingRight) {
       const wrist = (this.rightHand as THREE.Group & { joints?: Record<string, THREE.Object3D> }).joints?.['wrist'];
@@ -327,10 +338,10 @@ export class VRManager {
     this.rightHoloGroup.visible = this.rightVisible && this.isHandTrackingRight;
     this.rightCtrlGroup.visible = this.rightVisible && !this.isHandTrackingRight;
 
-    // Sinar bidik selalu menempel pada rightController (WebXR targetRaySpace yang mengikuti tangan maupun controller)
-    if (this.aimLine.parent !== this.rightController) {
-      this.rightController.add(this.aimLine);
-      this.rightController.add(this.reticleMesh);
+    const desiredAimParent = this.aimRayTarget ?? this.rightController;
+    if (this.aimLine.parent !== desiredAimParent) {
+      desiredAimParent.add(this.aimLine);
+      desiredAimParent.add(this.reticleMesh);
     }
 
     if (virtualStick && virtualStick.active && this.isHandTrackingLeft) {
@@ -381,16 +392,24 @@ export class VRManager {
     this.aimLine.visible = true;
     this.aimLineMat.color.set(colorHex);
 
+    let parentScale = 1;
+    if (this.aimLine.parent) {
+      this.aimLine.parent.getWorldScale(this.aimScratchScale);
+      parentScale = Math.max(0.05, this.aimScratchScale.z);
+    }
+    const invScale = 1 / parentScale;
+
     if (hitDistance !== null && hitDistance > 0.05) {
-      this.aimLine.scale.set(1.25, 1.25, hitDistance);
+      const localDist = hitDistance * invScale;
+      this.aimLine.scale.set(1.25 * invScale, 1.25 * invScale, localDist);
       this.aimLineMat.opacity = 0.92;
       this.reticleMesh.visible = true;
-      this.reticleMesh.position.set(0, 0, -hitDistance);
-      const dotScale = THREE.MathUtils.clamp(hitDistance * 0.16, 0.55, 2.2);
+      this.reticleMesh.position.set(0, 0, -localDist);
+      const dotScale = THREE.MathUtils.clamp(hitDistance * 0.16, 0.55, 2.2) * invScale;
       this.reticleMesh.scale.setScalar(dotScale);
       this.reticleMat.color.set(colorHex);
     } else {
-      this.aimLine.scale.set(0.75, 0.75, 1.5);
+      this.aimLine.scale.set(0.75 * invScale, 0.75 * invScale, 1.5 * invScale);
       this.aimLineMat.opacity = 0.28;
       this.reticleMesh.visible = false;
     }

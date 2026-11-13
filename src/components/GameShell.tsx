@@ -1026,6 +1026,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       if (keepVREquipment) {
         weapons.attachToVRHand(vrManager.getRightWeaponMount(), vrManager.isHandTrackingRight);
         weapons.gunGroup.visible = true;
+        vrManager.attachAimRayTo(
+          currentState === 'playing' && vrManager.isHandTrackingRight
+            ? weapons.muzzleTipAnchor
+            : null
+        );
         vrManager.setRightHandModelVisible(false);
         vrManager.setLeftHandModelVisible(false);
         const watchMount = vrManager.getLeftWatchMount();
@@ -1049,6 +1054,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         });
       } else {
         weapons.attachToVRHand(null);
+        vrManager.attachAimRayTo(null);
         vrManager.setRightHandModelVisible(true);
         vrManager.setLeftHandModelVisible(true);
         vrWatch.setVisible(false);
@@ -1418,8 +1424,18 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
         // Update Meta OS-style Laser Aim Ray saat gameplay VR
         if (isPresentingVR && cmd.vrAimRay) {
-          _scratchAimOrigin.set(...cmd.vrAimRay.origin);
-          _scratchAimDir.set(...cmd.vrAimRay.direction).normalize();
+          if (vrManager.isHandTrackingRight) {
+            weapons.getMuzzleRay(_scratchAimOrigin, _scratchAimDir);
+            cmd.vrAimRay.origin[0] = _scratchAimOrigin.x;
+            cmd.vrAimRay.origin[1] = _scratchAimOrigin.y;
+            cmd.vrAimRay.origin[2] = _scratchAimOrigin.z;
+            cmd.vrAimRay.direction[0] = _scratchAimDir.x;
+            cmd.vrAimRay.direction[1] = _scratchAimDir.y;
+            cmd.vrAimRay.direction[2] = _scratchAimDir.z;
+          } else {
+            _scratchAimOrigin.set(...cmd.vrAimRay.origin);
+            _scratchAimDir.set(...cmd.vrAimRay.direction).normalize();
+          }
           _scratchRaycaster.set(_scratchAimOrigin, _scratchAimDir);
           const liveEnemyMeshes = enemies.enemies
             .filter((e) => e.state !== 'dead')

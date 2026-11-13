@@ -18,7 +18,7 @@ export class WeaponRig {
   > = new Map();
   private crystalTintHex: string | null = null;
   private muzzleFlashLight: THREE.PointLight;
-  private muzzleTipAnchor: THREE.Object3D;
+  public muzzleTipAnchor: THREE.Object3D;
   private recoilOffset = new THREE.Vector3();
   private recoilRot = new THREE.Euler();
   private timeSinceLastShot = 0;
@@ -64,10 +64,10 @@ export class WeaponRig {
         controller.add(this.gunGroup);
       }
       if (isHandTracking) {
-        // Mode tangan kosong (mount pada sendi wrist): selaraskan sejajar punggung/telapak tangan
-        this.gunGroup.scale.setScalar(0.46);
-        this.gunGroup.position.set(0.015, 0.01, -0.09);
-        this.gunGroup.rotation.set(-0.22, 0, 0);
+        // Mode tangan kosong (mount pada sendi wrist): putar 90° Z agar tegak saat tangan menggenggam senjata
+        this.gunGroup.scale.setScalar(0.45);
+        this.gunGroup.position.set(0.02, -0.015, -0.1);
+        this.gunGroup.rotation.set(-0.08, 0, Math.PI / 2);
       } else {
         // Mode controller fisik: posisi grip tepat di genggaman controller
         this.gunGroup.scale.setScalar(0.5);
@@ -85,6 +85,14 @@ export class WeaponRig {
   public getMuzzleWorldPosition(out: THREE.Vector3): THREE.Vector3 {
     this.gunGroup.updateMatrixWorld(true);
     return this.muzzleTipAnchor.getWorldPosition(out);
+  }
+
+  public getMuzzleRay(originOut: THREE.Vector3, dirOut: THREE.Vector3) {
+    this.gunGroup.updateMatrixWorld(true);
+    this.muzzleTipAnchor.getWorldPosition(originOut);
+    this.muzzleTipAnchor.getWorldDirection(dirOut);
+    // THREE.Object3D.getWorldDirection mengarah ke +Z; moncong senjata menghadap -Z
+    dirOut.negate().normalize();
   }
 
   public setModifiers(fireRateMult: number, reloadTimeMult: number, magSizeBonus: number) {
