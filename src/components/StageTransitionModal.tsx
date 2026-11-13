@@ -5,8 +5,62 @@ import {
   getColorsByCategory,
   getColorDef,
 } from '../game/rules';
-import { ArrowRight, CheckCircle2, Plus, Shield, Crosshair, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Plus, Shield, Crosshair } from 'lucide-react';
 import { GamepadBadge } from './GamepadBadge';
+import { WeaponType } from '../game/types';
+
+const WeaponPreviewArt: React.FC<{ weaponId: WeaponType }> = ({ weaponId }) => {
+  if (weaponId === 'cyber_shotgun') {
+    return (
+      <svg viewBox="0 0 120 64" className="w-full h-full" aria-label="Ilustrasi Cyber Shotgun">
+        <defs>
+          <linearGradient id="sgAccent" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#ff0055" />
+            <stop offset="100%" stopColor="#ff6b9d" />
+          </linearGradient>
+        </defs>
+        {/* Popor & Grip */}
+        <path d="M12 30 L34 26 L36 39 L14 44 Z" fill="#1e1b2e" stroke="#475569" strokeWidth="1.5" />
+        <path d="M38 38 L46 38 L42 54 L33 54 Z" fill="#111827" stroke="#475569" strokeWidth="1.5" />
+        {/* Badan Utama */}
+        <rect x="32" y="21" width="44" height="18" rx="3" fill="#271738" stroke="#64748b" strokeWidth="1.5" />
+        {/* Laras Ganda & Pump */}
+        <rect x="74" y="21" width="34" height="6.5" rx="2" fill="url(#sgAccent)" />
+        <rect x="74" y="30" width="30" height="6.5" rx="2" fill="#e11d48" />
+        <rect x="64" y="39" width="24" height="6" rx="2" fill="#0f172a" stroke="#ff0055" strokeWidth="1.2" />
+        {/* Inti Energi */}
+        <rect x="40" y="26" width="22" height="5" rx="1.5" fill="#ff0055" />
+        <circle cx="109" cy="24" r="3" fill="#fda4af" opacity="0.85" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 120 64" className="w-full h-full" aria-label="Ilustrasi Chroma Railgun">
+      <defs>
+        <linearGradient id="rgAccent" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#9333ea" />
+          <stop offset="100%" stopColor="#e879f9" />
+        </linearGradient>
+      </defs>
+      {/* Popor & Grip */}
+      <path d="M10 31 L30 27 L32 39 L12 43 Z" fill="#1e293b" stroke="#64748b" strokeWidth="1.5" />
+      <path d="M36 39 L44 39 L40 54 L32 54 Z" fill="#0f172a" stroke="#64748b" strokeWidth="1.5" />
+      {/* Badan & Optik */}
+      <rect x="28" y="22" width="36" height="17" rx="3" fill="#1e1b4b" stroke="#818cf8" strokeWidth="1.4" />
+      <rect x="36" y="15" width="18" height="5" rx="1.5" fill="#312e81" stroke="#c084fc" strokeWidth="1.2" />
+      {/* Rel Panjang */}
+      <rect x="64" y="22" width="46" height="4.5" rx="1.5" fill="#e2e8f0" />
+      <rect x="64" y="33" width="46" height="4.5" rx="1.5" fill="#e2e8f0" />
+      {/* Kumparan Energi */}
+      <rect x="64" y="27.5" width="42" height="4.5" rx="1.5" fill="url(#rgAccent)" />
+      <rect x="70" y="20" width="4" height="19" rx="1" fill="#bf00ff" />
+      <rect x="82" y="20" width="4" height="19" rx="1" fill="#bf00ff" />
+      <rect x="94" y="20" width="4" height="19" rx="1" fill="#bf00ff" />
+      <circle cx="111" cy="30" r="3" fill="#f0abfc" opacity="0.9" />
+    </svg>
+  );
+};
 
 interface StageTransitionModalProps {
   mode: 'stage_clear' | 'stage_intro';
@@ -73,9 +127,9 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
           </div>
 
           {/* Hadiah Senjata Baru */}
-          <div className="w-full bg-cyan-500/10 border border-cyan-400/30 rounded-2xl p-3.5 mb-6 flex items-center gap-3 text-left">
-            <div className="w-10 h-10 rounded-xl bg-cyan-400/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shrink-0">
-              <Sparkles className="w-5 h-5" />
+          <div className="w-full bg-cyan-500/10 border border-cyan-400/30 rounded-2xl p-3.5 mb-6 flex items-center gap-3.5 text-left">
+            <div className="w-22 h-14 rounded-xl bg-[#0b1122] border border-white/15 p-1.5 flex items-center justify-center shrink-0 shadow-inner">
+              <WeaponPreviewArt weaponId={unlockedWeaponId} />
             </div>
             <div className="min-w-0 flex-1">
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-300 block">
