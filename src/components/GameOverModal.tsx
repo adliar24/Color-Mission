@@ -5,7 +5,6 @@ import {
   Skull,
   Home,
 } from 'lucide-react';
-import { GamepadBadge } from './GamepadBadge';
 
 interface GameOverModalProps {
   summary: RunSummary;
@@ -85,7 +84,6 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           >
             <Home className="w-4 h-4 text-slate-300" />
             <span>MENU UTAMA</span>
-            <GamepadBadge button="B" visible={isGamepadConnected} size="sm" />
           </button>
         </div>
       </div>

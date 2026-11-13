@@ -2,7 +2,6 @@ import React from 'react';
 import { Play, X } from 'lucide-react';
 import { getColorsByCategory } from '../game/rules';
 import { PlatformMode } from '../game/types';
-import { GamepadBadge } from './GamepadBadge';
 
 interface TutorialModalProps {
   platformMode?: PlatformMode;
@@ -30,9 +29,8 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/6 hover:bg-white/12 text-slate-300 hover:text-white cursor-pointer flex items-center gap-1.5"
+            className="p-2 rounded-xl bg-white/6 hover:bg-white/12 text-slate-300 hover:text-white cursor-pointer flex items-center justify-center"
           >
-            <GamepadBadge button="B" visible={isGamepadConnected} size="sm" />
             <X className="w-5 h-5" />
           </button>
         </div>

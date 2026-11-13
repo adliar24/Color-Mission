@@ -8,6 +8,8 @@ import { VisualShotSystem } from '../game/engine/tracers';
 import { InputManager } from '../game/input/InputManager';
 import { VRManager } from '../game/xr/VRManager';
 import { VRWorldHUD } from '../game/xr/VRWorldHUD';
+import { VRWristWatch } from '../game/xr/VRWristWatch';
+import { VRSpatialMenu, VRMenuAction } from '../game/xr/VRSpatialMenu';
 import { PlayingHUD } from './PlayingHUD';
 import { MobileTouchControls } from './MobileTouchControls';
 import { TutorialModal } from './TutorialModal';
@@ -54,6 +56,7 @@ import {
   Maximize2,
   Minimize2,
   RotateCw,
+  Glasses,
 } from 'lucide-react';
 
 interface GameShellProps {
@@ -250,6 +253,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   );
   const [isGamepadConnected, setIsGamepadConnected] = useState<boolean>(false);
   const [vrComfortVignetteActive, setVrComfortVignetteActive] = useState<boolean>(false);
+  const [isVRActive, setIsVRActive] = useState<boolean>(false);
+  const [vrErrorMsg, setVrErrorMsg] = useState<string | null>(null);
 
   // Pengaturan yang disimpan di localStorage
   const [settings, setSettings] = useState<GameSettings>(() => {
@@ -338,6 +343,26 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     returnToMenu: () => {},
     continueStage: () => {},
   });
+
+  const vrMenuInfoRef = useRef({
+    stageModalMode,
+    stageModalNumber,
+    stageClearScore,
+    runSummary,
+    finalScore,
+    isMuted,
+  });
+
+  useEffect(() => {
+    vrMenuInfoRef.current = {
+      stageModalMode,
+      stageModalNumber,
+      stageClearScore,
+      runSummary,
+      finalScore,
+      isMuted,
+    };
+  }, [stageModalMode, stageModalNumber, stageClearScore, runSummary, finalScore, isMuted]);
 
   useEffect(() => {
     try {
@@ -839,16 +864,28 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     const tracers = new VisualShotSystem(scene);
     tracersRef.current = tracers;
 
-    const vrManager = new VRManager(renderer, playerRig, (isVRActive) => {
-      if (isVRActive) {
+    const vrWatch = new VRWristWatch();
+    const vrSpatialMenu = new VRSpatialMenu();
+    playerRig.add(vrSpatialMenu.group);
+
+    const vrManager = new VRManager(renderer, playerRig, (active) => {
+      setIsVRActive(active);
+      if (active) {
+        setVrErrorMsg(null);
+        vrManager.leftController.add(vrWatch.group);
         inputManagerRef.current.setMode('vr');
         setPlatformMode('vr');
       } else {
+        weapons.attachToVRHand(null);
+        vrManager.setRightHandModelVisible(true);
+        vrWatch.setVisible(false);
+        vrSpatialMenu.setVisible(false);
         const fallback = inputManagerRef.current.detectInitialMode();
         inputManagerRef.current.setMode(fallback);
         setPlatformMode(fallback);
       }
     });
+    vrManager.leftController.add(vrWatch.group);
     vrManagerRef.current = vrManager;
 
     inputManagerRef.current.desktop.attach(renderer.domElement);
@@ -905,8 +942,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       if (cmd.pause) {
         if (currentState === 'playing') {
           inputManagerRef.current.desktop.releasePointerLock();
+          inputManagerRef.current.syncMenuGamepadState();
           setGameState('paused');
-        } else if (currentState === 'paused' && !stateRef.current.showSettings) {
+        } else if (currentState === 'paused' && !stateRef.current.showSettings && !stateRef.current.showTutorial) {
           setGameState('playing');
         }
       }
@@ -923,7 +961,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             setShowTutorial(false);
           } else if (stateRef.current.showSettings) {
             setShowSettings(false);
-          } else if (currentState === 'paused') {
+          } else if (currentState === 'paused' && menuGp.back) {
             setGameState('playing');
           } else if ((currentState === 'gameover' || currentState === 'victory') && menuGp.back) {
             menuCallbacksRef.current.returnToMenu();
@@ -950,6 +988,123 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             }
           }
         }
+      }
+
+      const isVRMenuVisible =
+        isPresentingVR &&
+        (currentState !== 'playing' || stateRef.current.showSettings || stateRef.current.showTutorial);
+
+      if (isPresentingVR && currentState === 'playing' && !isPlayerDyingRef.current && !isVRMenuVisible) {
+        weapons.attachToVRHand(vrManager.rightController);
+        vrManager.setRightHandModelVisible(false);
+        vrManager.leftController.add(vrWatch.group);
+        vrWatch.setVisible(true);
+        const pStatsNow = stateRef.current.player;
+        vrWatch.update({
+          hp: pStatsNow.hp,
+          maxHp: pStatsNow.maxHp,
+          shield: pStatsNow.shield,
+          maxShield: pStatsNow.maxShield,
+          ammo: weapons.ammoCount,
+          maxAmmo: weapons.getMaxMagSize(),
+          weapon: weapons.currentWeapon,
+          targetColorId: stateRef.current.targetColorId,
+          crystalColorId: activeCrystalColorIdRef.current,
+          stage: pStatsNow.stage,
+        });
+      } else {
+        weapons.attachToVRHand(null);
+        vrManager.setRightHandModelVisible(true);
+        vrWatch.setVisible(false);
+      }
+
+      if (isVRMenuVisible) {
+        if (currentState === 'title' || currentState === 'gameover' || currentState === 'victory') {
+          playerRig.position.set(0, 0, 0);
+          playerRig.rotation.set(0, 0, 0);
+        }
+        vrSpatialMenu.setVisible(true);
+        const vrInfo = vrMenuInfoRef.current;
+        const { action } = vrSpatialMenu.update(
+          {
+            gameState: currentState,
+            showSettings: stateRef.current.showSettings,
+            showTutorial: stateRef.current.showTutorial,
+            stageTransitionMode: vrInfo.stageModalMode,
+            stageNumber: vrInfo.stageModalNumber,
+            stageScore: vrInfo.stageClearScore,
+            stageBonus: STAGE_DEFINITIONS[vrInfo.stageModalNumber].stageClearBonus,
+            score: vrInfo.finalScore,
+            summary: vrInfo.runSummary ?? {
+              score: vrInfo.finalScore,
+              stagesCleared: 0,
+              masteredCategories: [],
+              kills: 0,
+              headshots: 0,
+              shotsFired: 0,
+              correctHits: 0,
+              wrongHits: 0,
+              accuracy: 0,
+              bestCombo: 0,
+              dataCoresCollected: 0,
+              timeSurvivedSeconds: 0,
+              bossDefeated: false,
+              won: false,
+            },
+            settings: curSettings,
+            isMuted: vrInfo.isMuted,
+          },
+          vrManager.rightController,
+          vrManager.currentSession
+        );
+
+        if (action) {
+          const dispatchVRMenuAction = (act: VRMenuAction) => {
+            if (act === 'start_mission' || act === 'restart') {
+              setShowTutorial(false);
+              setShowSettings(false);
+              menuCallbacksRef.current.startRun();
+            } else if (act === 'open_tutorial') {
+              setShowTutorial(true);
+            } else if (act === 'open_settings') {
+              setShowSettings(true);
+            } else if (act === 'close_subpanel') {
+              setShowTutorial(false);
+              setShowSettings(false);
+            } else if (act === 'exit_vr') {
+              vrManager.exitVR();
+            } else if (act === 'continue_stage') {
+              menuCallbacksRef.current.continueStage();
+            } else if (act === 'resume') {
+              setGameState('playing');
+            } else if (act === 'return_menu') {
+              setShowSettings(false);
+              setShowTutorial(false);
+              menuCallbacksRef.current.returnToMenu();
+            } else if (act === 'toggle_vr_turn') {
+              setSettings((prev) => ({
+                ...prev,
+                vrTurnMode: prev.vrTurnMode === 'snap' ? 'smooth' : 'snap',
+              }));
+            } else if (act === 'toggle_vr_move') {
+              setSettings((prev) => ({
+                ...prev,
+                vrMovementMode: prev.vrMovementMode === 'teleport' ? 'smooth' : 'teleport',
+              }));
+            } else if (act === 'toggle_vr_vignette') {
+              setSettings((prev) => ({
+                ...prev,
+                vrComfortVignette: !prev.vrComfortVignette,
+              }));
+            } else if (act === 'toggle_mute') {
+              const m = sound.toggleMute();
+              setIsMuted(m);
+            }
+          };
+          dispatchVRMenuAction(action);
+        }
+      } else {
+        vrSpatialMenu.setVisible(false);
       }
 
       if (
@@ -1618,6 +1773,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         stageClearTimerRef.current = null;
       }
       inputManagerRef.current.dispose();
+      vrWatch.dispose();
+      vrSpatialMenu.dispose();
       vrManager.dispose();
       vrHud.dispose();
       arena.dispose();
@@ -2054,9 +2211,58 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       />
 
       {/* ====================================================================
+          HALAMAN DETEKSI HEADSET VR (KHUSUS PERANGKAT VR SEBELUM IMMERSIVE)
+         ==================================================================== */}
+      {gameState === 'title' && platformMode === 'vr' && !isVRActive && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 bg-[#050811]/88 backdrop-blur-md">
+          <div
+            data-ui-board="true"
+            className="bg-[#090d18]/96 border border-cyan-400/30 px-8 py-10 rounded-3xl shadow-2xl flex flex-col items-center text-center max-w-md w-full ui-panel-enter"
+          >
+            <div className="p-4 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-400 mb-5">
+              <Glasses className="w-10 h-10" />
+            </div>
+            <span className="text-xs font-extrabold uppercase tracking-widest text-cyan-400 mb-1.5">
+              PERANGKAT WEBXR SIAP
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white uppercase leading-tight mb-2">
+              HEADSET VR TERDETEKSI
+            </h1>
+            <p className="text-sm text-slate-300 mb-7">
+              Masuk ke tampilan Immersive VR 360° untuk mengakses menu utama &amp; bermain dengan
+              kontrol tangan 6DoF.
+            </p>
+
+            {vrErrorMsg && (
+              <div className="w-full mb-4 px-4 py-2.5 rounded-xl bg-rose-500/15 border border-rose-400/35 text-xs font-semibold text-rose-200">
+                {vrErrorMsg}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={async () => {
+                setVrErrorMsg(null);
+                const res = await vrManagerRef.current?.enterVR();
+                if (res && !res.ok) {
+                  setVrErrorMsg(res.message);
+                }
+              }}
+              className="w-full h-13 bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-base font-black tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-lg"
+            >
+              <Glasses className="w-5 h-5" />
+              <span>MASUK KE MODE VR</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
           MAIN MENU MINIMALIS & KONTRAS TINGGI (BERLATAR ARENA 3D)
          ==================================================================== */}
-      {gameState === 'title' && !(platformMode === 'mobile' && !mobileFullscreenConfirmed) && (
+      {gameState === 'title' &&
+        !(platformMode === 'mobile' && !mobileFullscreenConfirmed) &&
+        !(platformMode === 'vr' && !isVRActive) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
           {/* Tombol Ikon Pojok Kanan Atas: Orientasi (Mobile) & Fullscreen */}
           <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
@@ -2147,12 +2353,17 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             </div>
 
             {isGamepadConnected && (
-              <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-bold text-slate-400 tracking-wide">
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold text-slate-400 tracking-wide">
                 <span>↕↔ Pilih</span>
                 <span className="text-slate-600">•</span>
                 <span className="inline-flex items-center gap-1">
                   <GamepadBadge button="A" visible size="sm" />
                   <span>Konfirmasi</span>
+                </span>
+                <span className="text-slate-600">•</span>
+                <span className="inline-flex items-center gap-1">
+                  <GamepadBadge button="B" visible size="sm" />
+                  <span>Kembali</span>
                 </span>
               </div>
             )}

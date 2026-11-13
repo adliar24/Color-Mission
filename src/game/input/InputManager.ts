@@ -683,7 +683,7 @@ export class VRInput {
           weaponSwitch = this.weaponsOrder[this.currentWeaponIndex];
         }
         if (this.wasJustPressed('left_btn5', gp.buttons[5]?.pressed)) {
-          emp = true;
+          pause = true;
         }
         if (this.wasJustPressed('left_grip', gp.buttons[1]?.pressed)) {
           dash = true;
@@ -1000,6 +1000,31 @@ export class InputManager {
     const prev = !!this.menuPrevButtons[idx];
     this.menuPrevButtons[idx] = now;
     return now && !prev;
+  }
+
+  /** Menyelaraskan status tombol menu dengan kondisi gamepad saat ini agar transisi playing -> paused tidak memicu double-press. */
+  public syncMenuGamepadState(): void {
+    if (!this.isGamepadConnected || typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
+      return;
+    }
+    try {
+      const gamepads = navigator.getGamepads();
+      for (const gp of gamepads) {
+        if (!gp || !gp.connected) continue;
+        const axisX = gp.axes[0] ?? 0;
+        const axisY = gp.axes[1] ?? 0;
+        this.menuPrevButtons[0] = Boolean(gp.buttons[0]?.pressed);
+        this.menuPrevButtons[1] = Boolean(gp.buttons[1]?.pressed);
+        this.menuPrevButtons[2] = Boolean(gp.buttons[2]?.pressed);
+        this.menuPrevButtons[3] = Boolean(gp.buttons[3]?.pressed);
+        this.menuPrevButtons[9] = Boolean(gp.buttons[9]?.pressed);
+        this.menuPrevButtons[100] = Boolean(gp.buttons[12]?.pressed) || axisY < -0.55;
+        this.menuPrevButtons[101] = Boolean(gp.buttons[13]?.pressed) || axisY > 0.55;
+        this.menuPrevButtons[102] = Boolean(gp.buttons[14]?.pressed) || axisX < -0.55;
+        this.menuPrevButtons[103] = Boolean(gp.buttons[15]?.pressed) || axisX > 0.55;
+        break;
+      }
+    } catch {}
   }
 
   public pollMenuGamepad(): MenuGamepadCommand {

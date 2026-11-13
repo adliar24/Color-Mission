@@ -26,6 +26,7 @@ export class WeaponRig {
   private fireRateMult = 1.0;
   private reloadTimeMult = 1.0;
   private magSizeBonus = 0;
+  private vrHandParent: THREE.Object3D | null = null;
 
   constructor(camera: THREE.Camera) {
     this.camera = camera;
@@ -51,6 +52,22 @@ export class WeaponRig {
 
     this.buildAllWeaponModels();
     this.switchWeapon('laser_rifle');
+  }
+
+  public attachToVRHand(controller: THREE.Object3D | null) {
+    if (this.vrHandParent === controller) return;
+    this.vrHandParent = controller;
+    if (controller) {
+      controller.add(this.gunGroup);
+      this.gunGroup.scale.setScalar(0.55);
+      this.gunGroup.position.set(0, -0.02, -0.14);
+      this.gunGroup.rotation.set(0, 0, 0);
+    } else {
+      this.camera.add(this.gunGroup);
+      this.gunGroup.scale.setScalar(1);
+      this.gunGroup.position.set(0.32, -0.28, -0.6);
+      this.gunGroup.rotation.set(0, 0, 0);
+    }
   }
 
   public getMuzzleWorldPosition(out: THREE.Vector3): THREE.Vector3 {
@@ -288,15 +305,20 @@ export class WeaponRig {
   public update(dt: number, isMoving: boolean, time: number) {
     this.timeSinceLastShot += dt;
 
-    const bobX = isMoving ? Math.sin(time * 10) * 0.015 : 0;
-    const bobY = isMoving ? Math.cos(time * 20) * 0.015 : Math.sin(time * 2) * 0.003;
-    this.gunGroup.position.x = 0.32 + bobX;
-    this.gunGroup.position.y = -0.28 + bobY;
-
     this.recoilOffset.lerp(WeaponRig.ZERO_VEC, dt * 14);
     this.recoilRot.x = THREE.MathUtils.lerp(this.recoilRot.x, 0, dt * 14);
-    this.gunGroup.position.z = -0.6 + this.recoilOffset.z;
-    this.gunGroup.rotation.x = this.recoilRot.x;
+
+    if (this.vrHandParent) {
+      this.gunGroup.position.set(0, -0.02, -0.14 + this.recoilOffset.z);
+      this.gunGroup.rotation.set(this.recoilRot.x, 0, 0);
+    } else {
+      const bobX = isMoving ? Math.sin(time * 10) * 0.015 : 0;
+      const bobY = isMoving ? Math.cos(time * 20) * 0.015 : Math.sin(time * 2) * 0.003;
+      this.gunGroup.position.x = 0.32 + bobX;
+      this.gunGroup.position.y = -0.28 + bobY;
+      this.gunGroup.position.z = -0.6 + this.recoilOffset.z;
+      this.gunGroup.rotation.x = this.recoilRot.x;
+    }
 
     if (this.muzzleFlashLight.intensity > 0) {
       this.muzzleFlashLight.intensity = Math.max(0, this.muzzleFlashLight.intensity - dt * 25);

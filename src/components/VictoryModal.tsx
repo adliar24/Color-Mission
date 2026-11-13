@@ -7,7 +7,6 @@ import {
   RotateCcw,
   Home,
 } from 'lucide-react';
-import { GamepadBadge } from './GamepadBadge';
 
 interface VictoryModalProps {
   summary: RunSummary;
@@ -112,7 +111,6 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           >
             <Home className="w-4 h-4 text-slate-300" />
             <span>MENU UTAMA</span>
-            <GamepadBadge button="B" visible={isGamepadConnected} size="sm" />
           </button>
         </div>
       </div>

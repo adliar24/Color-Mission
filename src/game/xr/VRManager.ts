@@ -16,6 +16,8 @@ export class VRManager {
   public reticleMesh: THREE.Mesh;
   public currentSession: XRSession | null = null;
   private onSessionStateChange?: (isActive: boolean) => void;
+  private leftGripModel: THREE.Mesh;
+  private rightGripModel: THREE.Mesh;
 
   constructor(
     renderer: THREE.WebGLRenderer,
@@ -29,11 +31,13 @@ export class VRManager {
     this.renderer.xr.enabled = true;
 
     // Controller 0 & 1 pada Three.js WebXRManager
-    this.leftController = this.renderer.xr.getController(0);
-    this.rightController = this.renderer.xr.getController(1);
+    const ctrl0 = this.renderer.xr.getController(0);
+    const ctrl1 = this.renderer.xr.getController(1);
+    this.leftController = ctrl0;
+    this.rightController = ctrl1;
 
-    this.playerRig.add(this.leftController);
-    this.playerRig.add(this.rightController);
+    this.playerRig.add(ctrl0);
+    this.playerRig.add(ctrl1);
 
     // Sinar bidik (Aim Ray) pada controller kanan
     const lineGeo = new THREE.BufferGeometry().setFromPoints([
@@ -50,14 +54,14 @@ export class VRManager {
     this.rightController.add(this.aimLine);
 
     // Model visual gagang controller sederhana agar pemain melihat posisi tangan di VR
-    const controllerGripGeo = new THREE.BoxGeometry(0.05, 0.05, 0.16);
+    const controllerGripGeo = new THREE.BoxGeometry(0.045, 0.045, 0.14);
     const leftGripMat = new THREE.MeshBasicMaterial({ color: '#38bdf8', wireframe: true });
-    const rightGripMat = new THREE.MeshBasicMaterial({ color: '#00f0ff' });
+    const rightGripMat = new THREE.MeshBasicMaterial({ color: '#00f0ff', wireframe: true });
 
-    const leftModel = new THREE.Mesh(controllerGripGeo, leftGripMat);
-    const rightModel = new THREE.Mesh(controllerGripGeo, rightGripMat);
-    this.leftController.add(leftModel);
-    this.rightController.add(rightModel);
+    this.leftGripModel = new THREE.Mesh(controllerGripGeo, leftGripMat);
+    this.rightGripModel = new THREE.Mesh(controllerGripGeo, rightGripMat);
+    this.leftController.add(this.leftGripModel);
+    this.rightController.add(this.rightGripModel);
 
     // Reticle titik bidik di ujung sinar
     this.reticleMesh = new THREE.Mesh(
@@ -67,6 +71,33 @@ export class VRManager {
     this.reticleMesh.position.set(0, 0, -12);
     this.reticleMesh.visible = false;
     this.rightController.add(this.reticleMesh);
+
+    // Pastikan handedness kiri & kanan selalu akurat sesuai laporan WebXR
+    const handleConnect = (ctrl: THREE.Group, other: THREE.Group) => (event: THREE.Event & { data?: XRInputSource }) => {
+      const handedness = event.data?.handedness;
+      if (handedness === 'right' && this.rightController !== ctrl) {
+        this.rightController = ctrl;
+        this.leftController = other;
+        this.syncControllerAttachments();
+      } else if (handedness === 'left' && this.leftController !== ctrl) {
+        this.leftController = ctrl;
+        this.rightController = other;
+        this.syncControllerAttachments();
+      }
+    };
+    ctrl0.addEventListener('connected', handleConnect(ctrl0, ctrl1));
+    ctrl1.addEventListener('connected', handleConnect(ctrl1, ctrl0));
+  }
+
+  private syncControllerAttachments() {
+    this.leftController.add(this.leftGripModel);
+    this.rightController.add(this.rightGripModel);
+    this.rightController.add(this.aimLine);
+    this.rightController.add(this.reticleMesh);
+  }
+
+  public setRightHandModelVisible(visible: boolean) {
+    this.rightGripModel.visible = visible;
   }
 
   public static async checkSupport(): Promise<VRSupportStatus> {
