@@ -167,8 +167,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const playerDeathTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Mode Platform Otomatis (Desktop, Mobile, VR) & Gamepad
-  const [platformMode, setPlatformMode] = useState<PlatformMode>('desktop');
+  // Mode Platform Otomatis (Desktop, Mobile, VR) & Gamepad — dideteksi sinkron sejak render pertama
+  const inputManagerRef = useRef<InputManager>(new InputManager());
+  const [platformMode, setPlatformMode] = useState<PlatformMode>(() =>
+    inputManagerRef.current.detectInitialMode()
+  );
   const [isGamepadConnected, setIsGamepadConnected] = useState<boolean>(false);
   const [vrComfortVignetteActive, setVrComfortVignetteActive] = useState<boolean>(false);
 
@@ -191,7 +194,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const enemiesRef = useRef<EnemyManager | null>(null);
   const particlesRef = useRef<ParticleSystem | null>(null);
   const tracersRef = useRef<VisualShotSystem | null>(null);
-  const inputManagerRef = useRef<InputManager>(new InputManager());
   const vrManagerRef = useRef<VRManager | null>(null);
   const vrHudRef = useRef<VRWorldHUD | null>(null);
 
@@ -2001,7 +2003,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       {/* ====================================================================
           MAIN MENU MINIMALIS & KONTRAS TINGGI (BERLATAR ARENA 3D)
          ==================================================================== */}
-      {gameState === 'title' && (
+      {gameState === 'title' && !(platformMode === 'mobile' && !mobileFullscreenConfirmed) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
           {/* Tombol Ikon Pojok Kanan Atas: Orientasi (Mobile) & Fullscreen */}
           <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
