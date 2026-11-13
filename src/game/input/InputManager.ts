@@ -745,7 +745,15 @@ export class VRInput {
     }
 
     let vrAimRay: GameplayInputCommand['vrAimRay'] = null;
-    if (handGestures?.rightAimOrigin && handGestures?.rightAimDir) {
+    if (rightController) {
+      rightController.getWorldPosition(_scratchVROrigin);
+      rightController.getWorldQuaternion(_scratchVRQuat);
+      _scratchVRDir.set(0, 0, -1).applyQuaternion(_scratchVRQuat).normalize();
+      vrAimRay = {
+        origin: [_scratchVROrigin.x, _scratchVROrigin.y, _scratchVROrigin.z],
+        direction: [_scratchVRDir.x, _scratchVRDir.y, _scratchVRDir.z],
+      };
+    } else if (handGestures?.rightAimOrigin && handGestures?.rightAimDir) {
       vrAimRay = {
         origin: [
           handGestures.rightAimOrigin.x,
@@ -757,14 +765,6 @@ export class VRInput {
           handGestures.rightAimDir.y,
           handGestures.rightAimDir.z,
         ],
-      };
-    } else if (rightController) {
-      rightController.getWorldPosition(_scratchVROrigin);
-      rightController.getWorldQuaternion(_scratchVRQuat);
-      _scratchVRDir.set(0, 0, -1).applyQuaternion(_scratchVRQuat).normalize();
-      vrAimRay = {
-        origin: [_scratchVROrigin.x, _scratchVROrigin.y, _scratchVROrigin.z],
-        direction: [_scratchVRDir.x, _scratchVRDir.y, _scratchVRDir.z],
       };
     }
 

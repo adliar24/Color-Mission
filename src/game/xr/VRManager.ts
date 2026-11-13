@@ -232,12 +232,18 @@ export class VRManager {
     this.rightVisible = visible;
   }
 
-  public getLeftWatchMount(): THREE.Group {
-    return this.isHandTrackingLeft ? this.leftHand : this.leftController;
+  public getLeftWatchMount(): THREE.Object3D {
+    if (this.isHandTrackingLeft) {
+      const wrist = (this.leftHand as THREE.Group & { joints?: Record<string, THREE.Object3D> }).joints?.['wrist'];
+      if (wrist && (wrist.position.x !== 0 || wrist.position.y !== 0 || wrist.position.z !== 0)) {
+        return wrist;
+      }
+    }
+    return this.leftController;
   }
 
   public getRightWeaponMount(): THREE.Group {
-    return this.isHandTrackingRight ? this.rightHand : this.rightController;
+    return this.rightController;
   }
 
   /**
@@ -274,14 +280,17 @@ export class VRManager {
     this.rightHoloGroup.visible = this.rightVisible && this.isHandTrackingRight;
     this.rightCtrlGroup.visible = this.rightVisible && !this.isHandTrackingRight;
 
-    // Pastikan sinar bidik menempel pada sumber tangan kanan yang sedang aktif
-    const aimParent = this.isHandTrackingRight ? this.rightHand : this.rightController;
-    if (this.aimLine.parent !== aimParent) {
-      aimParent.add(this.aimLine);
-      aimParent.add(this.reticleMesh);
+    // Sinar bidik selalu menempel pada rightController (WebXR targetRaySpace yang mengikuti tangan maupun controller)
+    if (this.aimLine.parent !== this.rightController) {
+      this.rightController.add(this.aimLine);
+      this.rightController.add(this.reticleMesh);
     }
 
     if (virtualStick && virtualStick.active && this.isHandTrackingLeft) {
+      const stickMount = this.getLeftWatchMount();
+      if (this.virtualStickGroup.parent !== stickMount) {
+        stickMount.add(this.virtualStickGroup);
+      }
       this.virtualStickGroup.visible = true;
       this.virtualStickKnob.position.set(virtualStick.x * 0.032, 0, virtualStick.y * 0.032);
     } else {
