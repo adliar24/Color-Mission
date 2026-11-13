@@ -1851,7 +1851,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   }, [gameState, showSettings, showTutorial]);
 
   return (
-    <div className="relative w-full h-screen bg-slate-950 overflow-hidden select-none font-sans">
+    <div className="fixed inset-0 w-full h-dvh bg-slate-950 overflow-hidden select-none font-sans">
       {/* Container Kanvas 3D Three.js */}
       <div ref={mountRef} className="absolute inset-0 w-full h-full cursor-crosshair" />
 
@@ -1875,7 +1875,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               onClick={async () => {
                 try {
                   if (document.documentElement.requestFullscreen) {
-                    await document.documentElement.requestFullscreen();
+                    try {
+                      await document.documentElement.requestFullscreen({
+                        navigationUI: 'hide',
+                      } as FullscreenOptions);
+                    } catch {
+                      await document.documentElement.requestFullscreen();
+                    }
                   }
                 } catch {}
                 try {
