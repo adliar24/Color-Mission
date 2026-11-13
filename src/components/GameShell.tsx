@@ -1856,49 +1856,84 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       <div ref={mountRef} className="absolute inset-0 w-full h-full cursor-crosshair" />
 
       {/* ====================================================================
-          PEMBERITAHUAN FULLSCREEN & LANDSCAPE KHUSUS PERANGKAT MOBILE
+          PEMBERITAHUAN PILIHAN MODE LAYAR PENUH KHUSUS PERANGKAT MOBILE
          ==================================================================== */}
       {platformMode === 'mobile' && !mobileFullscreenConfirmed && (
         <div className="fixed inset-0 z-50 bg-[#050811]/96 flex items-center justify-center p-5">
-          <div className="bg-[#090d18] border border-cyan-400/35 px-7 py-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+          <div
+            data-ui-board="true"
+            className="bg-[#090d18] border border-cyan-400/35 px-7 py-8 rounded-3xl shadow-2xl max-w-sm w-full text-center"
+          >
             <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-cyan-400/15 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
               <Maximize2 className="w-7 h-7" />
             </div>
             <h2 className="text-xl font-black text-white uppercase tracking-tight">
-              Mode Layar Penuh &amp; Landscape
+              Pilih Mode Layar Penuh
             </h2>
             <p className="text-xs font-semibold text-slate-300 mt-2.5 leading-relaxed">
-              Game ini dirancang khusus untuk tampilan horizontal (landscape) di ponsel. Tekan tombol di bawah untuk mengaktifkan layar penuh.
+              Pilih orientasi layar yang paling nyaman untuk bermain di ponsel Anda.
             </p>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  if (document.documentElement.requestFullscreen) {
-                    try {
-                      await document.documentElement.requestFullscreen({
-                        navigationUI: 'hide',
-                      } as FullscreenOptions);
-                    } catch {
-                      await document.documentElement.requestFullscreen();
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    if (document.documentElement.requestFullscreen) {
+                      try {
+                        await document.documentElement.requestFullscreen({
+                          navigationUI: 'hide',
+                        } as FullscreenOptions);
+                      } catch {
+                        await document.documentElement.requestFullscreen();
+                      }
                     }
-                  }
-                } catch {}
-                try {
-                  const orientation = screen.orientation as unknown as {
-                    lock?: (orientation: string) => Promise<void>;
-                  };
-                  if (orientation?.lock) {
-                    await orientation.lock('landscape');
-                  }
-                } catch {}
-                setMobileFullscreenConfirmed(true);
-              }}
-              className="mt-6 w-full py-3.5 px-5 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-sm font-black uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-            >
-              <Maximize2 className="w-4 h-4" />
-              <span>Aktifkan Layar Penuh &amp; Landscape</span>
-            </button>
+                  } catch {}
+                  try {
+                    const orientation = screen.orientation as unknown as {
+                      lock?: (orientation: string) => Promise<void>;
+                    };
+                    if (orientation?.lock) {
+                      await orientation.lock('landscape');
+                    }
+                  } catch {}
+                  setMobileFullscreenConfirmed(true);
+                }}
+                className="py-3.5 px-4 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-black uppercase tracking-wide flex flex-col items-center justify-center gap-1.5 shadow-lg cursor-pointer"
+              >
+                <Maximize2 className="w-4 h-4" />
+                <span>Landscape</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    if (document.documentElement.requestFullscreen) {
+                      try {
+                        await document.documentElement.requestFullscreen({
+                          navigationUI: 'hide',
+                        } as FullscreenOptions);
+                      } catch {
+                        await document.documentElement.requestFullscreen();
+                      }
+                    }
+                  } catch {}
+                  try {
+                    const orientation = screen.orientation as unknown as {
+                      lock?: (orientation: string) => Promise<void>;
+                    };
+                    if (orientation?.lock) {
+                      await orientation.lock('portrait');
+                    }
+                  } catch {}
+                  setMobileFullscreenConfirmed(true);
+                }}
+                className="py-3.5 px-4 rounded-2xl bg-white/10 hover:bg-white/18 border border-white/20 text-white text-xs font-black uppercase tracking-wide flex flex-col items-center justify-center gap-1.5 shadow-lg cursor-pointer"
+              >
+                <Maximize2 className="w-4 h-4 text-cyan-300" />
+                <span>Portrait</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

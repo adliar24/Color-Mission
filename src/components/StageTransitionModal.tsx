@@ -165,7 +165,9 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
       <div
         key={`${mode}-${stageNumber}`}
         data-ui-board="true"
-        className="max-w-lg w-full bg-[#090d18] border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col items-center text-center ui-panel-enter"
+        className={`w-full bg-[#090d18] border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col items-center text-center ui-panel-enter ${
+          stageNumber === 1 ? 'max-w-lg' : 'max-w-lg sm:max-w-2xl'
+        }`}
       >
         <span className="text-xs font-extrabold tracking-widest uppercase text-cyan-400">
           STAGE {stageNumber} · {stageDef.targetEliminations} ELIMINASI
@@ -200,29 +202,29 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
               ))}
             </div>
           ) : (
-            <div className="w-full flex flex-col gap-2.5">
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {stageColors.map((col) => {
                 const ing1 = col.ingredients ? getColorDef(col.ingredients[0]) : null;
                 const ing2 = col.ingredients ? getColorDef(col.ingredients[1]) : null;
                 return (
                   <div
                     key={col.id}
-                    className="w-full bg-white/5 border border-white/10 px-5 py-3 rounded-2xl flex items-center justify-center gap-4"
+                    className="w-full bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl flex items-center justify-center gap-3"
                   >
                     {ing1 && ing2 && (
                       <>
                         <div
-                          className="w-11 h-11 rounded-xl border-2 border-white shrink-0 shadow-md"
+                          className="w-9 h-9 rounded-xl border-2 border-white shrink-0 shadow-md"
                           style={{ backgroundColor: ing1.hex }}
                         />
-                        <span className="text-lg font-black text-cyan-400">+</span>
+                        <span className="text-base font-black text-cyan-400">+</span>
                         <div
-                          className="w-11 h-11 rounded-xl border-2 border-white shrink-0 shadow-md"
+                          className="w-9 h-9 rounded-xl border-2 border-white shrink-0 shadow-md"
                           style={{ backgroundColor: ing2.hex }}
                         />
-                        <span className="text-lg font-black text-slate-400">=</span>
+                        <span className="text-base font-black text-slate-400">=</span>
                         <div
-                          className="w-11 h-11 rounded-xl border-2 border-white shrink-0 shadow-md"
+                          className="w-9 h-9 rounded-xl border-2 border-white shrink-0 shadow-md"
                           style={{ backgroundColor: col.hex }}
                         />
                       </>
