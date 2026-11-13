@@ -1055,8 +1055,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             setPlayer((prev) => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + 30) }));
             triggerShotBanner({
               type: 'correct',
-              title: '+30 DARAH!',
-              subtitle: 'Kesehatan dipulihkan',
+              title: 'DARAH +30!',
+              subtitle: 'Kesehatan dipulihkan (+30 HP)',
               colorHex: p.colorHex,
               timestamp: performance.now(),
             });
@@ -1064,19 +1064,22 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             setPlayer((prev) => ({ ...prev, shield: Math.min(prev.maxShield, prev.shield + 25) }));
             triggerShotBanner({
               type: 'correct',
-              title: '+25 PERISAI!',
-              subtitle: 'Perisai energi terisi ulang',
+              title: 'PERISAI +25!',
+              subtitle: 'Perisai energi terisi (+25 Shield)',
               colorHex: p.colorHex,
               timestamp: performance.now(),
             });
           } else {
-            weapons.addAmmoSupply(curP.stage);
+            const addedAmmo = weapons.addAmmoSupply(curP.stage);
             ammoRef.current = weapons.ammoCount;
             setAmmo(weapons.ammoCount);
             triggerShotBanner({
               type: 'correct',
-              title: 'PELURU TERISI!',
-              subtitle: 'Peluru senjata bertambah',
+              title: addedAmmo > 0 ? `PELURU +${addedAmmo}!` : 'PELURU PENUH!',
+              subtitle:
+                addedAmmo > 0
+                  ? `${WEAPON_REGISTRY[weapons.currentWeapon].name} (+${addedAmmo} peluru)`
+                  : 'Kapasitas peluru sudah maksimal',
               colorHex: p.colorHex,
               timestamp: performance.now(),
             });

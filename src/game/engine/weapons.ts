@@ -186,18 +186,20 @@ export class WeaponRig {
     this.ammoCount = this.ammoByWeapon[this.currentWeapon];
   }
 
-  public addAmmoSupply(stage: 1 | 2 | 3 = 1) {
+  public addAmmoSupply(stage: 1 | 2 | 3 = 1): number {
     const gainsByStage: Record<1 | 2 | 3, Record<WeaponType, number>> = {
-      1: { laser_rifle: 20, cyber_shotgun: 8, railgun: 3, plasma_smg: 20 },
-      2: { laser_rifle: 14, cyber_shotgun: 6, railgun: 2, plasma_smg: 14 },
-      3: { laser_rifle: 10, cyber_shotgun: 4, railgun: 2, plasma_smg: 10 },
+      1: { laser_rifle: 5, cyber_shotgun: 3, railgun: 2, plasma_smg: 5 },
+      2: { laser_rifle: 4, cyber_shotgun: 2, railgun: 1, plasma_smg: 4 },
+      3: { laser_rifle: 3, cyber_shotgun: 2, railgun: 1, plasma_smg: 3 },
     };
     const gains = gainsByStage[stage];
+    const prevCurrentAmmo = this.ammoByWeapon[this.currentWeapon];
     (Object.keys(WEAPON_REGISTRY) as WeaponType[]).forEach((w) => {
       const maxCap = WEAPON_REGISTRY[w].magSize * 2;
       this.ammoByWeapon[w] = Math.min(maxCap, this.ammoByWeapon[w] + gains[w]);
     });
     this.ammoCount = this.ammoByWeapon[this.currentWeapon];
+    return Math.max(0, this.ammoCount - prevCurrentAmmo);
   }
 
   public switchWeapon(type: WeaponType) {
