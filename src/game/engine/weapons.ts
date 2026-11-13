@@ -27,6 +27,7 @@ export class WeaponRig {
   private reloadTimeMult = 1.0;
   private magSizeBonus = 0;
   private vrHandParent: THREE.Object3D | null = null;
+  private vrHandIsTracking = false;
 
   constructor(camera: THREE.Camera) {
     this.camera = camera;
@@ -54,15 +55,25 @@ export class WeaponRig {
     this.switchWeapon('laser_rifle');
   }
 
-  public attachToVRHand(controller: THREE.Object3D | null) {
-    if (this.vrHandParent === controller) return;
+  public attachToVRHand(controller: THREE.Object3D | null, isHandTracking = false) {
+    if (this.vrHandParent === controller && this.vrHandIsTracking === isHandTracking) return;
     this.vrHandParent = controller;
+    this.vrHandIsTracking = isHandTracking;
     if (controller) {
-      controller.add(this.gunGroup);
-      this.gunGroup.scale.setScalar(0.5);
-      // Posisikan sehingga pistol grip berada tepat di genggaman tangan kanan & seluruh bodi senjata terlihat utuh
-      this.gunGroup.position.set(0, 0.045, -0.055);
-      this.gunGroup.rotation.set(0, 0, 0);
+      if (this.gunGroup.parent !== controller) {
+        controller.add(this.gunGroup);
+      }
+      if (isHandTracking) {
+        // Mode tangan kosong (mount pada sendi wrist): selaraskan sejajar punggung/telapak tangan
+        this.gunGroup.scale.setScalar(0.46);
+        this.gunGroup.position.set(0.015, 0.01, -0.09);
+        this.gunGroup.rotation.set(-0.22, 0, 0);
+      } else {
+        // Mode controller fisik: posisi grip tepat di genggaman controller
+        this.gunGroup.scale.setScalar(0.5);
+        this.gunGroup.position.set(0, 0.045, -0.055);
+        this.gunGroup.rotation.set(0, 0, 0);
+      }
     } else {
       this.camera.add(this.gunGroup);
       this.gunGroup.scale.setScalar(1);

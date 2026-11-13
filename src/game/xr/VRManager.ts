@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
+import type { VRTeleportPreview } from './VRHandGestures';
 
 export interface VRSupportStatus {
   hasWebXR: boolean;
@@ -38,6 +39,12 @@ export class VRManager {
   // Indikator joystick virtual saat tangan kiri mengepal di mode Hand Tracking
   private virtualStickGroup: THREE.Group;
   private virtualStickKnob: THREE.Mesh;
+
+  // Kurva Teleport Arc + Ring Target gaya Meta Quest VR Home
+  private teleportGroup: THREE.Group;
+  private teleportArcLine: THREE.Line;
+  private teleportArcPositions: Float32Array;
+  private teleportRing: THREE.Mesh;
 
   private static createHoloHandMaterial(colorHex: string): THREE.MeshStandardMaterial {
     const mat = new THREE.MeshStandardMaterial({
@@ -153,6 +160,39 @@ export class VRManager {
     this.virtualStickGroup.visible = false;
     this.leftHand.add(this.virtualStickGroup);
 
+    // Kurva Teleport Arc + Ring Target Lantai (Meta Quest VR Home style)
+    this.teleportGroup = new THREE.Group();
+    this.teleportGroup.visible = false;
+    const arcSegments = 24;
+    this.teleportArcPositions = new Float32Array((arcSegments + 1) * 3);
+    const arcGeo = new THREE.BufferGeometry();
+    arcGeo.setAttribute('position', new THREE.BufferAttribute(this.teleportArcPositions, 3));
+    this.teleportArcLine = new THREE.Line(
+      arcGeo,
+      new THREE.LineBasicMaterial({
+        color: '#e0f2fe',
+        transparent: true,
+        opacity: 0.92,
+      })
+    );
+    this.teleportGroup.add(this.teleportArcLine);
+
+    const tpRingGeo = new THREE.RingGeometry(0.24, 0.34, 32);
+    tpRingGeo.rotateX(-Math.PI / 2);
+    this.teleportRing = new THREE.Mesh(
+      tpRingGeo,
+      new THREE.MeshBasicMaterial({
+        color: '#38bdf8',
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+      })
+    );
+    this.teleportGroup.add(this.teleportRing);
+    if (this.playerRig.parent) {
+      this.playerRig.parent.add(this.teleportGroup);
+    }
+
     // 4. Sinar Bidik Meta OS Style
     const beamGeo = new THREE.CylinderGeometry(0.0035, 0.0035, 1, 8);
     beamGeo.rotateX(Math.PI / 2);
@@ -242,7 +282,13 @@ export class VRManager {
     return this.leftController;
   }
 
-  public getRightWeaponMount(): THREE.Group {
+  public getRightWeaponMount(): THREE.Object3D {
+    if (this.isHandTrackingRight) {
+      const wrist = (this.rightHand as THREE.Group & { joints?: Record<string, THREE.Object3D> }).joints?.['wrist'];
+      if (wrist && (wrist.position.x !== 0 || wrist.position.y !== 0 || wrist.position.z !== 0)) {
+        return wrist;
+      }
+    }
     return this.rightController;
   }
 
@@ -252,7 +298,8 @@ export class VRManager {
    */
   public updateInputVisuals(
     xrSession: XRSession | null,
-    virtualStick?: { active: boolean; x: number; y: number }
+    virtualStick?: { active: boolean; x: number; y: number },
+    teleportPreview?: VRTeleportPreview
   ) {
     let leftHasHand = false;
     let rightHasHand = false;
@@ -295,6 +342,32 @@ export class VRManager {
       this.virtualStickKnob.position.set(virtualStick.x * 0.032, 0, virtualStick.y * 0.032);
     } else {
       this.virtualStickGroup.visible = false;
+    }
+
+    if (teleportPreview && teleportPreview.active && teleportPreview.valid && this.isHandTrackingLeft) {
+      if (!this.teleportGroup.parent && this.playerRig.parent) {
+        this.playerRig.parent.add(this.teleportGroup);
+      }
+      this.teleportGroup.visible = true;
+      this.teleportRing.position.copy(teleportPreview.target);
+
+      const g = 9.8;
+      const y0 = teleportPreview.origin.y;
+      const vy = teleportPreview.velocity.y;
+      const totalT = (vy + Math.sqrt(Math.max(0, vy * vy + 2 * g * (y0 - 0.04)))) / g;
+      const segs = 24;
+      for (let i = 0; i <= segs; i++) {
+        const t = (i / segs) * totalT;
+        const px = THREE.MathUtils.clamp(teleportPreview.origin.x + teleportPreview.velocity.x * t, -28, 28);
+        const py = Math.max(0.04, y0 + vy * t - 0.5 * g * t * t);
+        const pz = THREE.MathUtils.clamp(teleportPreview.origin.z + teleportPreview.velocity.z * t, -28, 28);
+        this.teleportArcPositions[i * 3] = px;
+        this.teleportArcPositions[i * 3 + 1] = py;
+        this.teleportArcPositions[i * 3 + 2] = pz;
+      }
+      this.teleportArcLine.geometry.attributes.position.needsUpdate = true;
+    } else {
+      this.teleportGroup.visible = false;
     }
   }
 

@@ -948,7 +948,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         : null;
 
       if (isPresentingVR) {
-        vrManager.updateInputVisuals(vrManager.currentSession, handGestures?.virtualStick);
+        vrManager.updateInputVisuals(
+          vrManager.currentSession,
+          handGestures?.virtualStick,
+          currentState === 'playing' ? handGestures?.teleportPreview : undefined
+        );
       }
 
       const cmd = inputManagerRef.current.poll(
@@ -1020,7 +1024,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         !isPlayerDyingRef.current;
 
       if (keepVREquipment) {
-        weapons.attachToVRHand(vrManager.getRightWeaponMount());
+        weapons.attachToVRHand(vrManager.getRightWeaponMount(), vrManager.isHandTrackingRight);
         weapons.gunGroup.visible = true;
         vrManager.setRightHandModelVisible(false);
         vrManager.setLeftHandModelVisible(false);
@@ -1028,6 +1032,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         if (vrWatch.group.parent !== watchMount) {
           watchMount.add(vrWatch.group);
         }
+        vrWatch.setHandTrackingMode(vrManager.isHandTrackingLeft);
         vrWatch.setVisible(true);
         const pStatsNow = stateRef.current.player;
         vrWatch.update({
@@ -1229,7 +1234,19 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           playerVel.current.z = THREE.MathUtils.lerp(playerVel.current.z, 0, dt * 12);
         }
 
-        if (cmd.vrTeleportRequest) {
+        if (handGestures?.teleportCommit && vrManager.isHandTrackingLeft) {
+          playerPos.current.x = THREE.MathUtils.clamp(handGestures.teleportCommit.x, -28.5, 28.5);
+          playerPos.current.z = THREE.MathUtils.clamp(handGestures.teleportCommit.z, -28.5, 28.5);
+          playerVel.current.x = 0;
+          playerVel.current.z = 0;
+          sound.playDash();
+          particles.emit(
+            new THREE.Vector3(playerPos.current.x, 0.35, playerPos.current.z),
+            16,
+            '#38bdf8',
+            1.4
+          );
+        } else if (cmd.vrTeleportRequest) {
           const forward = new THREE.Vector3(
             -Math.sin(cameraRot.current.yaw),
             0,

@@ -26,6 +26,7 @@ export class VRWristWatch {
   private texture: THREE.CanvasTexture;
   private screenMesh: THREE.Mesh;
   private lastSignature = '';
+  private isHandTrackingPose = false;
 
   constructor() {
     this.group = new THREE.Group();
@@ -85,6 +86,21 @@ export class VRWristWatch {
 
   public setVisible(visible: boolean) {
     this.group.visible = visible;
+  }
+
+  public setHandTrackingMode(isHandTracking: boolean) {
+    if (this.isHandTrackingPose === isHandTracking) return;
+    this.isHandTrackingPose = isHandTracking;
+    if (isHandTracking) {
+      // Di sendi wrist tangan kiri, posisikan di sisi luar punggung pergelangan agar layar menghadap wajah & tidak tertutup
+      this.group.position.set(-0.008, 0.038, 0.016);
+      this.group.rotation.set(-0.18, 0.08, -0.35);
+      this.group.scale.setScalar(1.22);
+    } else {
+      this.group.position.set(0.014, 0.088, 0.02);
+      this.group.rotation.set(-0.56, 0.25, -0.14);
+      this.group.scale.setScalar(1.38);
+    }
   }
 
   public update(state: VRWristWatchState) {
