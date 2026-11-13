@@ -943,7 +943,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             vrManager.rightHand,
             camera,
             dt,
-            curSettings
+            curSettings,
+            vrManager.leftController
           )
         : null;
 
@@ -1436,6 +1437,30 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         if (isPresentingVR && cmd.vrAimRay) {
           if (vrManager.isHandTrackingRight) {
             weapons.getMuzzleRay(_scratchAimOrigin, _scratchAimDir);
+
+            // Aim Assist magnetik ringan khusus mode tangan kosong agar tembakan cubit lebih akurat
+            let bestDot = 0.9965; // ~4.8 derajat
+            let bestDir: THREE.Vector3 | null = null;
+            const candidateDir = new THREE.Vector3();
+            const enemyPos = new THREE.Vector3();
+            for (const e of enemies.enemies) {
+              if (e.state === 'dead') continue;
+              e.mesh.getWorldPosition(enemyPos);
+              enemyPos.y += 0.95;
+              candidateDir.subVectors(enemyPos, _scratchAimOrigin);
+              const dist = candidateDir.length();
+              if (dist < 0.8 || dist > 32) continue;
+              candidateDir.divideScalar(dist);
+              const d = candidateDir.dot(_scratchAimDir);
+              if (d > bestDot) {
+                bestDot = d;
+                bestDir = candidateDir.clone();
+              }
+            }
+            if (bestDir) {
+              _scratchAimDir.lerp(bestDir, 0.65).normalize();
+            }
+
             cmd.vrAimRay.origin[0] = _scratchAimOrigin.x;
             cmd.vrAimRay.origin[1] = _scratchAimOrigin.y;
             cmd.vrAimRay.origin[2] = _scratchAimOrigin.z;

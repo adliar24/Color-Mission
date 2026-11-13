@@ -35,6 +35,10 @@ export class VRManager {
   private reticleMat: THREE.MeshBasicMaterial;
   private aimRayTarget: THREE.Object3D | null = null;
   private aimScratchScale = new THREE.Vector3(1, 1, 1);
+  public rightWeaponAnchor: THREE.Group;
+  private weaponAnchorPosScratch = new THREE.Vector3();
+  private weaponAnchorQuatScratch = new THREE.Quaternion();
+  private rigQuatInvScratch = new THREE.Quaternion();
   private leftVisible = true;
   private rightVisible = true;
 
@@ -195,6 +199,10 @@ export class VRManager {
       this.playerRig.parent.add(this.teleportGroup);
     }
 
+    // Anchor senjata tangan kanan khusus Hand Tracking: posisi di telapak tangan, arah mengikuti targetRaySpace yang stabil
+    this.rightWeaponAnchor = new THREE.Group();
+    this.playerRig.add(this.rightWeaponAnchor);
+
     // 4. Sinar Bidik Meta OS Style
     const beamGeo = new THREE.CylinderGeometry(0.0035, 0.0035, 1, 8);
     beamGeo.rotateX(Math.PI / 2);
@@ -295,10 +303,7 @@ export class VRManager {
 
   public getRightWeaponMount(): THREE.Object3D {
     if (this.isHandTrackingRight) {
-      const wrist = (this.rightHand as THREE.Group & { joints?: Record<string, THREE.Object3D> }).joints?.['wrist'];
-      if (wrist && (wrist.position.x !== 0 || wrist.position.y !== 0 || wrist.position.z !== 0)) {
-        return wrist;
-      }
+      return this.rightWeaponAnchor;
     }
     return this.rightController;
   }
@@ -337,6 +342,21 @@ export class VRManager {
 
     this.rightHoloGroup.visible = this.rightVisible && this.isHandTrackingRight;
     this.rightCtrlGroup.visible = this.rightVisible && !this.isHandTrackingRight;
+
+    // Update rightWeaponAnchor: tempelkan posisi ke telapak tangan kanan, arahkan ke targetRaySpace (stabilized)
+    if (this.isHandTrackingRight) {
+      const joints = (this.rightHand as THREE.Group & { joints?: Record<string, THREE.Object3D> }).joints;
+      const palm = joints?.['middle-finger-metacarpal'] ?? joints?.['index-finger-metacarpal'] ?? joints?.['wrist'];
+      if (palm && (palm.position.x !== 0 || palm.position.y !== 0 || palm.position.z !== 0)) {
+        palm.getWorldPosition(this.weaponAnchorPosScratch);
+        this.playerRig.worldToLocal(this.weaponAnchorPosScratch);
+        this.rightWeaponAnchor.position.lerp(this.weaponAnchorPosScratch, 0.48);
+      }
+      this.rightController.getWorldQuaternion(this.weaponAnchorQuatScratch);
+      this.playerRig.getWorldQuaternion(this.rigQuatInvScratch).invert();
+      this.weaponAnchorQuatScratch.premultiply(this.rigQuatInvScratch);
+      this.rightWeaponAnchor.quaternion.slerp(this.weaponAnchorQuatScratch, 0.35);
+    }
 
     const desiredAimParent = this.aimRayTarget ?? this.rightController;
     if (this.aimLine.parent !== desiredAimParent) {
