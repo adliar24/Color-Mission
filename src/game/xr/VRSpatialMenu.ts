@@ -34,6 +34,7 @@ export interface VRSpatialMenuState {
   stageTransitionMode: 'stage_clear' | 'stage_intro';
   stageNumber: 1 | 2 | 3;
   stageScore: number;
+  isHandTracking?: boolean;
   stageBonus: number;
   score: number;
   summary: RunSummary;
@@ -191,6 +192,7 @@ export class VRSpatialMenu {
       move: state.settings.vrMovementMode,
       vig: state.settings.vrComfortVignette,
       mute: state.isMuted,
+      ht: Boolean(state.isHandTracking),
     });
     if (sig === this.lastSignature || !this.ctx) return;
     this.lastSignature = sig;
@@ -415,7 +417,9 @@ export class VRSpatialMenu {
 
     this.drawButton(ctx, {
       id: 'toggle_vr_turn',
-      label: `PUTARAN VR: ${state.settings.vrTurnMode === 'snap' ? 'SNAP' : 'HALUS'}`,
+      label: state.isHandTracking
+        ? 'PUTARAN VR: SNAP (TANGAN KOSONG)'
+        : `PUTARAN VR: ${state.settings.vrTurnMode === 'snap' ? 'SNAP' : 'HALUS'}`,
       x: bx,
       y: 140,
       w: bw,

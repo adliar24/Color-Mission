@@ -953,6 +953,14 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           handGestures?.virtualStick,
           currentState === 'playing' ? handGestures?.teleportPreview : undefined
         );
+        if (
+          (vrManager.isHandTrackingLeft || vrManager.isHandTrackingRight) &&
+          curSettings.vrTurnMode !== 'snap'
+        ) {
+          setSettings((prev) =>
+            prev.vrTurnMode === 'snap' ? prev : { ...prev, vrTurnMode: 'snap' }
+          );
+        }
       }
 
       const cmd = inputManagerRef.current.poll(
@@ -1095,6 +1103,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             },
             settings: curSettings,
             isMuted: vrInfo.isMuted,
+            isHandTracking: vrManager.isHandTrackingLeft || vrManager.isHandTrackingRight,
           },
           vrManager.rightController,
           vrManager.currentSession,
@@ -1135,9 +1144,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               setShowTutorial(false);
               menuCallbacksRef.current.returnToMenu();
             } else if (act === 'toggle_vr_turn') {
+              const isHT = vrManager.isHandTrackingLeft || vrManager.isHandTrackingRight;
               setSettings((prev) => ({
                 ...prev,
-                vrTurnMode: prev.vrTurnMode === 'snap' ? 'smooth' : 'snap',
+                vrTurnMode: isHT ? 'snap' : prev.vrTurnMode === 'snap' ? 'smooth' : 'snap',
               }));
             } else if (act === 'toggle_vr_move') {
               setSettings((prev) => ({
