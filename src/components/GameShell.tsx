@@ -1933,9 +1933,25 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                   await enterFullscreenAndLock('landscape');
                   setMobileFullscreenConfirmed(true);
                 }}
-                className="py-3.5 px-4 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-black uppercase tracking-wide flex flex-col items-center justify-center gap-1.5 shadow-lg cursor-pointer"
+                className="py-3.5 px-4 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-black uppercase tracking-wide flex flex-col items-center justify-center gap-2 shadow-lg cursor-pointer"
               >
-                <Maximize2 className="w-4 h-4" />
+                <svg
+                  viewBox="0 0 32 22"
+                  className="w-8 h-5.5"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="1.5"
+                    y="1.5"
+                    width="29"
+                    height="19"
+                    rx="3.5"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                  />
+                  <circle cx="5" cy="11" r="1.2" fill="currentColor" />
+                </svg>
                 <span>Landscape</span>
               </button>
 
@@ -1945,9 +1961,25 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                   await enterFullscreenAndLock('portrait');
                   setMobileFullscreenConfirmed(true);
                 }}
-                className="py-3.5 px-4 rounded-2xl bg-white/10 hover:bg-white/18 border border-white/20 text-white text-xs font-black uppercase tracking-wide flex flex-col items-center justify-center gap-1.5 shadow-lg cursor-pointer"
+                className="py-3.5 px-4 rounded-2xl bg-white/10 hover:bg-white/18 border border-white/20 text-white text-xs font-black uppercase tracking-wide flex flex-col items-center justify-center gap-2 shadow-lg cursor-pointer"
               >
-                <Maximize2 className="w-4 h-4 text-cyan-300" />
+                <svg
+                  viewBox="0 0 22 32"
+                  className="w-5.5 h-8 text-cyan-300"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="1.5"
+                    y="1.5"
+                    width="19"
+                    height="29"
+                    rx="3.5"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                  />
+                  <circle cx="11" cy="5" r="1.2" fill="currentColor" />
+                </svg>
                 <span>Portrait</span>
               </button>
             </div>
