@@ -136,11 +136,11 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         onTouchMove={handleJoystickMove}
         onTouchEnd={handleJoystickEnd}
         onTouchCancel={handleJoystickEnd}
-        className="absolute bottom-4 left-4 w-24 h-24 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
+        className="absolute bottom-3.5 left-4 w-20 h-20 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
       >
-        <div className="w-14 h-14 rounded-full border border-white/15" />
+        <div className="w-11 h-11 rounded-full border border-white/15" />
         <div
-          className="absolute w-10 h-10 rounded-full bg-cyan-400/55 border-2 border-white/75"
+          className="absolute w-8 h-8 rounded-full bg-cyan-400/55 border-2 border-white/75"
           style={{
             transform: `translate(${knobOffset.x}px, ${knobOffset.y}px)`,
           }}
@@ -150,7 +150,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
       {/* KANAN BAWAH: Tombol Aksi Transparan (Hanya Ikon) */}
       <div
         data-ui="true"
-        className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-auto"
+        className="absolute bottom-3.5 right-4 flex flex-col items-end gap-1.5 pointer-events-auto"
       >
         {unlockedWeapons.length > 1 && (
           <div className="flex gap-1 bg-slate-950/35 p-1 rounded-xl border border-white/15">
@@ -167,20 +167,20 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
                     onSwitchWeapon(wId);
                   }}
                   onClick={() => onSwitchWeapon(wId)}
-                  className={`w-8 h-7 rounded-lg flex items-center justify-center ${
+                  className={`w-7 h-6 rounded-md flex items-center justify-center ${
                     currentWeapon === wId
                       ? 'bg-cyan-400/75 text-slate-950'
                       : 'bg-white/10 text-white/70'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  <Icon className="w-3 h-3" />
                 </button>
               );
             })}
           </div>
         )}
 
-        <div className="flex items-end gap-2.5">
+        <div className="flex items-end gap-2">
           {/* Lompat (Ikon saja, transparan) */}
           <button
             type="button"
@@ -190,9 +190,9 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
               mobileInput.triggerJump();
             }}
             onClick={() => mobileInput.triggerJump()}
-            className="w-12 h-12 rounded-full bg-slate-900/35 border-2 border-cyan-400/40 text-cyan-300 flex items-center justify-center active:scale-95"
+            className="w-10 h-10 rounded-full bg-slate-900/35 border-2 border-cyan-400/40 text-cyan-300 flex items-center justify-center active:scale-95"
           >
-            <ArrowUp className="w-5 h-5" />
+            <ArrowUp className="w-4 h-4" />
           </button>
 
           {/* Tembak (Ikon saja, transparan) */}
@@ -213,9 +213,9 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
             }}
             onMouseDown={() => mobileInput.setShooting(true)}
             onMouseUp={() => mobileInput.setShooting(false)}
-            className="w-16 h-16 rounded-full bg-rose-500/35 active:bg-rose-500/60 border-2 border-rose-300/65 text-white flex items-center justify-center active:scale-95"
+            className="w-14 h-14 rounded-full bg-rose-500/35 active:bg-rose-500/60 border-2 border-rose-300/65 text-white flex items-center justify-center active:scale-95"
           >
-            <Crosshair className="w-6 h-6" />
+            <Crosshair className="w-5 h-5" />
           </button>
         </div>
       </div>

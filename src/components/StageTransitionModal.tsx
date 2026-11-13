@@ -200,7 +200,7 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
               ))}
             </div>
           ) : (
-            <div className="w-full flex flex-col gap-2.5 max-h-[42vh] overflow-y-auto pr-0.5">
+            <div className="w-full flex flex-col gap-2.5">
               {stageColors.map((col) => {
                 const ing1 = col.ingredients ? getColorDef(col.ingredients[0]) : null;
                 const ing2 = col.ingredients ? getColorDef(col.ingredients[1]) : null;
