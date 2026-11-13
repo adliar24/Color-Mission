@@ -249,7 +249,7 @@ export interface RunSummary {
   won: boolean;
 }
 
-export type ShotFeedbackType = 'correct' | 'wrong' | 'streak' | null;
+export type ShotFeedbackType = 'correct' | 'wrong' | 'streak' | 'pickup' | null;
 
 export interface ShotFeedback {
   type: ShotFeedbackType;

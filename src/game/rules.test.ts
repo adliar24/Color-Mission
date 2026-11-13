@@ -206,16 +206,21 @@ test('selectNextTargetColor memprioritaskan warna musuh aktif yang ada di arena'
   assert.equal(chosen, 'yellow');
 });
 
-test('calculatePlayerDamage menyerap serangan dengan perisai terlebih dahulu sebelum mengurangi kesehatan', () => {
-  const hit1 = calculatePlayerDamage(100, 50, 30);
-  assert.equal(hit1.newShield, 20);
-  assert.equal(hit1.newHp, 100);
-  assert.equal(hit1.isDead, false);
+test('calculatePlayerDamage menahan sebagian besar serangan dengan perisai sambil tetap mengurangi darah lebih sedikit daripada saat perisai 0', () => {
+  const hitWithShield = calculatePlayerDamage(100, 50, 20);
+  assert.equal(hitWithShield.newShield, 35);
+  assert.equal(hitWithShield.newHp, 95);
+  assert.equal(hitWithShield.isDead, false);
 
-  const hit2 = calculatePlayerDamage(100, 20, 50);
-  assert.equal(hit2.newShield, 0);
-  assert.equal(hit2.newHp, 70);
-  assert.equal(hit2.isDead, false);
+  const hitNoShield = calculatePlayerDamage(100, 0, 20);
+  assert.equal(hitNoShield.newShield, 0);
+  assert.equal(hitNoShield.newHp, 80);
+  assert.ok(hitWithShield.damageToHp < hitNoShield.damageToHp);
+
+  const hitBreakShield = calculatePlayerDamage(100, 10, 40);
+  assert.equal(hitBreakShield.newShield, 0);
+  assert.equal(hitBreakShield.newHp, 70);
+  assert.equal(hitBreakShield.isDead, false);
 
   const fatalHit = calculatePlayerDamage(20, 0, 50);
   assert.equal(fatalHit.newHp, 0);

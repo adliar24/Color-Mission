@@ -145,6 +145,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const [shotFeedback, setShotFeedback] = useState<ShotFeedback | null>(null);
   const [stageModalMode, setStageModalMode] = useState<'stage_clear' | 'stage_intro'>('stage_intro');
   const [stageModalNumber, setStageModalNumber] = useState<1 | 2 | 3>(1);
+  const [stageClearScore, setStageClearScore] = useState<number>(0);
+  const stageStartScoreRef = useRef<number>(0);
   const [runSummary, setRunSummary] = useState<RunSummary | null>(null);
   const [finalScore, setFinalScore] = useState<number>(0);
   const [showSettings, setShowSettings] = useState<boolean>(false);
@@ -722,11 +724,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     vrHudRef.current = vrHud;
 
     const initialPixelRatio =
-      stateRef.current.settings.graphicsQuality === 'low'
-        ? 1.0
-        : stateRef.current.settings.graphicsQuality === 'medium'
-        ? Math.min(window.devicePixelRatio, 1.15)
-        : Math.min(window.devicePixelRatio, 1.5);
+      stateRef.current.settings.graphicsQuality === 'high'
+        ? Math.min(window.devicePixelRatio, 1.25)
+        : 1.0;
 
     const renderer = new THREE.WebGLRenderer({
       antialias: stateRef.current.settings.graphicsQuality === 'high',
@@ -1042,11 +1042,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           p.respawnTimer =
             p.type === 'ammo'
               ? curP.stage === 1
-                ? 10.0
+                ? 4.5
                 : curP.stage === 2
-                  ? 16.0
-                  : 22.0
-              : 11.0;
+                  ? 6.0
+                  : 8.0
+              : 7.0;
 
           sound.playOverdrive();
           particles.emit(p.position.clone().setY(1.2), 20, p.colorHex, 1.6);
@@ -1054,7 +1054,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           if (p.type === 'health') {
             setPlayer((prev) => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + 30) }));
             triggerShotBanner({
-              type: 'correct',
+              type: 'pickup',
               title: 'DARAH +30!',
               subtitle: 'Kesehatan dipulihkan (+30 HP)',
               colorHex: p.colorHex,
@@ -1063,7 +1063,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           } else if (p.type === 'shield') {
             setPlayer((prev) => ({ ...prev, shield: Math.min(prev.maxShield, prev.shield + 25) }));
             triggerShotBanner({
-              type: 'correct',
+              type: 'pickup',
               title: 'PERISAI +25!',
               subtitle: 'Perisai energi terisi (+25 Shield)',
               colorHex: p.colorHex,
@@ -1074,7 +1074,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             ammoRef.current = weapons.ammoCount;
             setAmmo(weapons.ammoCount);
             triggerShotBanner({
-              type: 'correct',
+              type: 'pickup',
               title: addedAmmo > 0 ? `PELURU +${addedAmmo}!` : 'PELURU PENUH!',
               subtitle:
                 addedAmmo > 0
@@ -1304,6 +1304,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             sound.playWaveFanfare();
 
             const clearedNum = stageNum as 1 | 2;
+            const earnedInStage = Math.max(
+              0,
+              stateRef.current.player.score - stageStartScoreRef.current
+            );
+            setStageClearScore(earnedInStage);
             setPlayer((prev) => ({
               ...prev,
               score: prev.score + stageDef.stageClearBonus,
@@ -1495,7 +1500,12 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         );
       }
 
-      renderer.render(scene, camera);
+      if (
+        isPresentingVR ||
+        (currentState !== 'paused' && currentState !== 'stage_transition')
+      ) {
+        renderer.render(scene, camera);
+      }
     });
 
     return () => {
@@ -1590,6 +1600,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       ...INITIAL_PLAYER_STATS,
       stage: 1,
     });
+    stageStartScoreRef.current = 0;
+    setStageClearScore(0);
 
     playerPos.current.set(0, 1.7, 0);
     playerVel.current.set(0, 0, 0);
@@ -1641,6 +1653,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       const nextStage = Math.min(3, stageModalNumber + 1) as 2 | 3;
       const nextStageDef = STAGE_DEFINITIONS[nextStage];
       const firstTarget = nextStageDef.colorPool[0];
+      stageStartScoreRef.current = stateRef.current.player.score;
 
       setTargetColorId(firstTarget);
       setWrongStreakOnTarget(0);
@@ -1846,7 +1859,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           PEMBERITAHUAN FULLSCREEN & LANDSCAPE KHUSUS PERANGKAT MOBILE
          ==================================================================== */}
       {platformMode === 'mobile' && !mobileFullscreenConfirmed && (
-        <div className="fixed inset-0 z-50 bg-[#050811]/95 backdrop-blur-md flex items-center justify-center p-5">
+        <div className="fixed inset-0 z-50 bg-[#050811]/96 flex items-center justify-center p-5">
           <div className="bg-[#090d18] border border-cyan-400/35 px-7 py-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
             <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-cyan-400/15 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
               <Maximize2 className="w-7 h-7" />
@@ -2011,6 +2024,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           mode={stageModalMode}
           stageNumber={stageModalNumber}
           stageScoreBonus={STAGE_DEFINITIONS[stageModalNumber].stageClearBonus}
+          stageScore={stageClearScore}
           onContinue={handleContinueFromStageTransition}
           isGamepadConnected={isGamepadConnected}
         />

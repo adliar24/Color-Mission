@@ -334,10 +334,13 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
         {shotFeedback && (
           <div
             key={shotFeedback.timestamp}
-            className={`px-4 py-1.5 rounded-xl border text-xs md:text-sm font-extrabold tracking-wide shadow-xl flex items-center gap-2 ui-banner-enter ${shotFeedback.type === 'wrong'
+            className={`px-4 py-1.5 rounded-xl border text-xs md:text-sm font-extrabold tracking-wide shadow-xl flex items-center gap-2 ui-banner-enter ${
+              shotFeedback.type === 'wrong'
                 ? 'bg-[#090d18]/95 border-rose-500 text-rose-400'
-                : 'bg-[#090d18]/95 border-emerald-400 text-emerald-300'
-              }`}
+                : shotFeedback.type === 'pickup'
+                  ? 'bg-[#090d18]/95 border-cyan-400 text-cyan-200'
+                  : 'bg-[#090d18]/95 border-emerald-400 text-emerald-300'
+            }`}
           >
             {shotFeedback.type !== 'wrong' && (
               <span
@@ -346,12 +349,17 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
               />
             )}
             <span>
-              {isBossActive
+              {isBossActive || shotFeedback.type === 'pickup'
                 ? shotFeedback.title
                 : shotFeedback.type === 'wrong'
                   ? 'SALAH!'
                   : 'TEPAT!'}
             </span>
+            {shotFeedback.type === 'pickup' && shotFeedback.subtitle && (
+              <span className="text-[11px] font-semibold text-slate-300 hidden sm:inline">
+                · {shotFeedback.subtitle}
+              </span>
+            )}
             {shotFeedback.points && (
               <span className="text-white tabular-nums">+{shotFeedback.points}</span>
             )}

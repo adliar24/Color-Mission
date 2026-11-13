@@ -382,8 +382,11 @@ export function calculatePlayerDamage(
   let newShield = currentShield;
   let damageToShield = 0;
 
-  if (newShield > 0) {
-    damageToShield = Math.min(newShield, damageLeft);
+  if (newShield > 0 && rawIncomingDamage > 0) {
+    // Saat perisai aktif, perisai menahan 75% serangan dan darah tetap berkurang 25% (minimal 1)
+    const shieldAbsorbCap = Math.max(1, Math.round(rawIncomingDamage * 0.75));
+    const maxAbsorbWithBleed = Math.min(shieldAbsorbCap, Math.max(0, rawIncomingDamage - 1));
+    damageToShield = Math.min(newShield, maxAbsorbWithBleed);
     newShield -= damageToShield;
     damageLeft -= damageToShield;
   }

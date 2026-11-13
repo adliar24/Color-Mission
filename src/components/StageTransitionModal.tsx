@@ -1,12 +1,18 @@
 import React from 'react';
-import { STAGE_DEFINITIONS, getColorsByCategory, getColorDef } from '../game/rules';
-import { ArrowRight, CheckCircle2, Plus, Shield, Crosshair } from 'lucide-react';
+import {
+  STAGE_DEFINITIONS,
+  WEAPON_REGISTRY,
+  getColorsByCategory,
+  getColorDef,
+} from '../game/rules';
+import { ArrowRight, CheckCircle2, Plus, Shield, Crosshair, Sparkles } from 'lucide-react';
 import { GamepadBadge } from './GamepadBadge';
 
 interface StageTransitionModalProps {
   mode: 'stage_clear' | 'stage_intro';
   stageNumber: 1 | 2 | 3;
   stageScoreBonus: number;
+  stageScore?: number;
   onContinue: () => void;
   isGamepadConnected?: boolean;
 }
@@ -15,6 +21,7 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
   mode,
   stageNumber,
   stageScoreBonus,
+  stageScore = 0,
   onContinue,
   isGamepadConnected = false,
 }) => {
@@ -23,8 +30,14 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
 
   if (mode === 'stage_clear') {
     const nextStageNum = (stageNumber + 1) as 2 | 3;
+    const unlockedWeaponId = nextStageNum === 2 ? 'cyber_shotgun' : 'railgun';
+    const unlockedWeapon = WEAPON_REGISTRY[unlockedWeaponId];
+
     return (
-      <div className="fixed inset-0 bg-[#050811]/88 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
+      <div
+        key={`${mode}-${stageNumber}`}
+        className="fixed inset-0 bg-[#050811]/92 flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter"
+      >
         <div
           data-ui-board="true"
           className="max-w-md w-full bg-[#090d18] border border-emerald-400/30 rounded-3xl p-7 md:p-8 shadow-2xl flex flex-col items-center text-center ui-panel-enter"
@@ -33,18 +46,53 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
             <CheckCircle2 className="w-9 h-9" />
           </div>
 
-          <span className="text-xs font-extrabold tracking-widest uppercase text-emerald-400">
-            BONUS +{stageScoreBonus.toLocaleString('id-ID')} SKOR
-          </span>
-
-          <h2 className="text-3xl font-black uppercase tracking-tight text-white mt-1 mb-2">
+          <h2 className="text-3xl font-black uppercase tracking-tight text-white mb-1.5">
             STAGE {stageNumber} BERHASIL!
           </h2>
 
-          <p className="text-sm text-slate-300 mb-7">
-            Seluruh target pada Stage {stageNumber} berhasil dieliminasi. Siap lanjut ke Stage{' '}
-            {nextStageNum}?
+          <p className="text-sm text-slate-300 mb-5">
+            Seluruh target pada Stage {stageNumber} berhasil dieliminasi.
           </p>
+
+          {/* Skor Stage & Bonus */}
+          <div className="grid grid-cols-2 gap-2.5 w-full mb-4">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col items-center">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                SKOR STAGE {stageNumber}
+              </span>
+              <span className="text-xl font-black tabular-nums text-white mt-0.5">
+                {stageScore.toLocaleString('id-ID')}
+              </span>
+            </div>
+            <div className="bg-emerald-500/10 border border-emerald-400/25 rounded-2xl p-3 flex flex-col items-center">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                BONUS STAGE
+              </span>
+              <span className="text-xl font-black tabular-nums text-emerald-400 mt-0.5">
+                +{stageScoreBonus.toLocaleString('id-ID')}
+              </span>
+            </div>
+          </div>
+
+          {/* Hadiah Senjata Baru */}
+          <div className="w-full bg-cyan-500/10 border border-cyan-400/30 rounded-2xl p-3.5 mb-6 flex items-center gap-3 text-left">
+            <div className="w-10 h-10 rounded-xl bg-cyan-400/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shrink-0">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-300 block">
+                HADIAH SENJATA BARU TERBUKA
+              </span>
+              <div className="text-sm font-black text-white truncate">
+                {unlockedWeapon.name}
+              </div>
+              <div className="text-[11px] font-semibold text-slate-300">
+                Damage {unlockedWeapon.damage}
+                {(unlockedWeapon.pellets ?? 1) > 1 ? ` × ${unlockedWeapon.pellets}` : ''} ·{' '}
+                {unlockedWeapon.magSize} Peluru Awal
+              </div>
+            </div>
+          </div>
 
           <button
             type="button"
@@ -61,7 +109,10 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-[#050811]/88 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
+    <div
+      key={`${mode}-${stageNumber}`}
+      className="fixed inset-0 bg-[#050811]/92 flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter"
+    >
       <div
         data-ui-board="true"
         className="max-w-lg w-full bg-[#090d18] border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl flex flex-col items-center text-center ui-panel-enter"
