@@ -10,6 +10,7 @@ import { VRManager } from '../game/xr/VRManager';
 import { VRWorldHUD } from '../game/xr/VRWorldHUD';
 import { VRWristWatch } from '../game/xr/VRWristWatch';
 import { VRSpatialMenu, VRMenuAction } from '../game/xr/VRSpatialMenu';
+import { VRHandGestures } from '../game/xr/VRHandGestures';
 import { PlayingHUD } from './PlayingHUD';
 import { MobileTouchControls } from './MobileTouchControls';
 import { TutorialModal } from './TutorialModal';
@@ -869,6 +870,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
     const vrWatch = new VRWristWatch();
     const vrSpatialMenu = new VRSpatialMenu();
+    const vrHandGestures = new VRHandGestures();
     playerRig.add(vrSpatialMenu.group);
 
     const vrManager = new VRManager(renderer, playerRig, (active) => {
@@ -935,11 +937,26 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         setIsMuted(muted);
       }
 
+      const handGestures = isPresentingVR
+        ? vrHandGestures.update(
+            vrManager.leftHand,
+            vrManager.rightHand,
+            camera,
+            dt,
+            curSettings
+          )
+        : null;
+
+      if (isPresentingVR) {
+        vrManager.updateInputVisuals(vrManager.currentSession, handGestures?.virtualStick);
+      }
+
       const cmd = inputManagerRef.current.poll(
         curSettings,
         dt,
         vrManager.currentSession,
-        vrManager.rightController
+        vrManager.rightController,
+        vrManager.isHandTrackingLeft || vrManager.isHandTrackingRight ? handGestures : null
       );
 
       if (cmd.pause) {
@@ -1003,11 +1020,14 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         !isPlayerDyingRef.current;
 
       if (keepVREquipment) {
-        weapons.attachToVRHand(vrManager.rightController);
+        weapons.attachToVRHand(vrManager.getRightWeaponMount());
         weapons.gunGroup.visible = true;
         vrManager.setRightHandModelVisible(false);
         vrManager.setLeftHandModelVisible(false);
-        vrManager.leftController.add(vrWatch.group);
+        const watchMount = vrManager.getLeftWatchMount();
+        if (vrWatch.group.parent !== watchMount) {
+          watchMount.add(vrWatch.group);
+        }
         vrWatch.setVisible(true);
         const pStatsNow = stateRef.current.player;
         vrWatch.update({
@@ -1066,11 +1086,15 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             isMuted: vrInfo.isMuted,
           },
           vrManager.rightController,
-          vrManager.currentSession
+          vrManager.currentSession,
+          vrManager.isHandTrackingRight && handGestures
+            ? { origin: handGestures.rightAimOrigin, dir: handGestures.rightAimDir }
+            : null,
+          vrManager.isHandTrackingRight ? Boolean(handGestures?.shoot) : false
         );
 
         if (hitPoint) {
-          vrManager.rightController.getWorldPosition(_scratchAimOrigin);
+          vrManager.getRightWeaponMount().getWorldPosition(_scratchAimOrigin);
           vrManager.updateAimRay(hitPoint.distanceTo(_scratchAimOrigin), '#22d3ee');
         } else {
           vrManager.updateAimRay(null, '#22d3ee');

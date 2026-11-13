@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { VRHandGestureResult } from '../xr/VRHandGestures';
 
 const _scratchVROrigin = new THREE.Vector3();
 const _scratchVRQuat = new THREE.Quaternion();
@@ -628,7 +629,8 @@ export class VRInput {
     session: XRSession | null,
     rightController: THREE.Group | null,
     dt: number,
-    settings: GameSettings
+    settings: GameSettings,
+    handGestures?: VRHandGestureResult | null
   ): GameplayInputCommand {
     const empty: GameplayInputCommand = {
       moveX: 0,
@@ -731,8 +733,32 @@ export class VRInput {
       }
     }
 
+    if (handGestures) {
+      if (Math.abs(handGestures.moveZ) > 0.01) moveZ = handGestures.moveZ;
+      if (Math.abs(handGestures.lookDeltaX) > 0.0001) lookDeltaX = handGestures.lookDeltaX;
+      if (handGestures.shoot) shoot = true;
+      if (handGestures.pause) pause = true;
+      if (handGestures.weaponSwitch) {
+        this.currentWeaponIndex = (this.currentWeaponIndex + 1) % this.weaponsOrder.length;
+        weaponSwitch = this.weaponsOrder[this.currentWeaponIndex];
+      }
+    }
+
     let vrAimRay: GameplayInputCommand['vrAimRay'] = null;
-    if (rightController) {
+    if (handGestures?.rightAimOrigin && handGestures?.rightAimDir) {
+      vrAimRay = {
+        origin: [
+          handGestures.rightAimOrigin.x,
+          handGestures.rightAimOrigin.y,
+          handGestures.rightAimOrigin.z,
+        ],
+        direction: [
+          handGestures.rightAimDir.x,
+          handGestures.rightAimDir.y,
+          handGestures.rightAimDir.z,
+        ],
+      };
+    } else if (rightController) {
       rightController.getWorldPosition(_scratchVROrigin);
       rightController.getWorldQuaternion(_scratchVRQuat);
       _scratchVRDir.set(0, 0, -1).applyQuaternion(_scratchVRQuat).normalize();
@@ -961,12 +987,13 @@ export class InputManager {
     settings: GameSettings,
     dt: number,
     xrSession: XRSession | null = null,
-    rightController: THREE.Group | null = null
+    rightController: THREE.Group | null = null,
+    handGestures: VRHandGestureResult | null = null
   ): GameplayInputCommand {
     this.syncGamepadConnection(true);
 
     if (this.mode === 'vr' && xrSession) {
-      return this.vr.poll(xrSession, rightController, dt, settings);
+      return this.vr.poll(xrSession, rightController, dt, settings, handGestures);
     }
     if (this.mode === 'mobile') {
       const mobileCmd = this.mobile.poll(settings);

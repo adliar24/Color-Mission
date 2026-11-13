@@ -110,36 +110,48 @@ export class VRSpatialMenu {
   public update(
     state: VRSpatialMenuState,
     rightController: THREE.Group | null,
-    xrSession: XRSession | null
+    xrSession: XRSession | null,
+    handAimRay?: { origin: THREE.Vector3 | null; dir: THREE.Vector3 | null } | null,
+    handPinchPressed?: boolean
   ): { hitPoint: THREE.Vector3 | null; action: VRMenuAction | null } {
     let hitPoint: THREE.Vector3 | null = null;
     let nextHover: VRMenuAction | null = null;
     let action: VRMenuAction | null = null;
 
-    if (rightController && this.group.visible) {
-      rightController.getWorldPosition(VRSpatialMenu.ORIGIN);
-      rightController.getWorldQuaternion(VRSpatialMenu.QUAT);
-      VRSpatialMenu.DIR.set(0, 0, -1).applyQuaternion(VRSpatialMenu.QUAT).normalize();
+    if (this.group.visible) {
+      let hasRay = false;
+      if (handAimRay?.origin && handAimRay?.dir) {
+        VRSpatialMenu.ORIGIN.copy(handAimRay.origin);
+        VRSpatialMenu.DIR.copy(handAimRay.dir).normalize();
+        hasRay = true;
+      } else if (rightController) {
+        rightController.getWorldPosition(VRSpatialMenu.ORIGIN);
+        rightController.getWorldQuaternion(VRSpatialMenu.QUAT);
+        VRSpatialMenu.DIR.set(0, 0, -1).applyQuaternion(VRSpatialMenu.QUAT).normalize();
+        hasRay = true;
+      }
 
-      this.raycaster.set(VRSpatialMenu.ORIGIN, VRSpatialMenu.DIR);
-      const hits = this.raycaster.intersectObject(this.panelMesh, false);
-      if (hits.length > 0 && hits[0].uv) {
-        hitPoint = hits[0].point.clone();
-        const px = hits[0].uv.x * CANVAS_W;
-        const py = (1 - hits[0].uv.y) * CANVAS_H;
+      if (hasRay) {
+        this.raycaster.set(VRSpatialMenu.ORIGIN, VRSpatialMenu.DIR);
+        const hits = this.raycaster.intersectObject(this.panelMesh, false);
+        if (hits.length > 0 && hits[0].uv) {
+          hitPoint = hits[0].point.clone();
+          const px = hits[0].uv.x * CANVAS_W;
+          const py = (1 - hits[0].uv.y) * CANVAS_H;
 
-        for (const btn of this.buttons) {
-          if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
-            nextHover = btn.id;
-            break;
+          for (const btn of this.buttons) {
+            if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
+              nextHover = btn.id;
+              break;
+            }
           }
         }
       }
     }
 
-    // Cek trigger controller kanan untuk klik tombol
-    let triggerPressed = false;
-    if (xrSession) {
+    // Cek trigger controller kanan ATAU cubit tangan kanan untuk klik tombol
+    let triggerPressed = Boolean(handPinchPressed);
+    if (!triggerPressed && xrSession) {
       for (const src of xrSession.inputSources) {
         if (!src.gamepad) continue;
         if (src.handedness === 'right' || src.handedness === 'none') {

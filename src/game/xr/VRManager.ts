@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
+import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 
 export interface VRSupportStatus {
   hasWebXR: boolean;
@@ -12,143 +14,66 @@ export class VRManager {
   public playerRig: THREE.Group;
   public leftController: THREE.Group;
   public rightController: THREE.Group;
+  public leftGrip: THREE.Group;
+  public rightGrip: THREE.Group;
+  public leftHand: THREE.Group;
+  public rightHand: THREE.Group;
+
   public aimLine: THREE.Mesh;
   public reticleMesh: THREE.Mesh;
   public currentSession: XRSession | null = null;
+  public isHandTrackingLeft = false;
+  public isHandTrackingRight = false;
+
   private onSessionStateChange?: (isActive: boolean) => void;
-  private leftGripModel: THREE.Group;
-  private rightGripModel: THREE.Group;
+  private leftHoloGroup: THREE.Object3D;
+  private rightHoloGroup: THREE.Object3D;
+  private leftCtrlGroup: THREE.Object3D;
+  private rightCtrlGroup: THREE.Object3D;
   private aimLineMat: THREE.MeshBasicMaterial;
   private reticleMat: THREE.MeshBasicMaterial;
+  private leftVisible = true;
+  private rightVisible = true;
 
-  private static createMetaHoloMaterial(colorHex: string): THREE.ShaderMaterial {
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        uColor: { value: new THREE.Color(colorHex) },
-      },
-      vertexShader: `
-        varying vec3 vNormalView;
-        varying vec3 vViewPos;
-        void main() {
-          vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-          vViewPos = -mvPos.xyz;
-          vNormalView = normalize(normalMatrix * normal);
-          gl_Position = projectionMatrix * mvPos;
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 uColor;
-        varying vec3 vNormalView;
-        varying vec3 vViewPos;
-        void main() {
-          vec3 N = normalize(vNormalView);
-          vec3 V = normalize(vViewPos);
-          float fresnel = pow(1.0 - abs(dot(N, V)), 2.1);
-          float alpha = mix(0.08, 0.85, fresnel);
-          vec3 col = mix(uColor * 0.65, vec3(0.88, 0.98, 1.0), fresnel * 0.7);
-          gl_FragColor = vec4(col, alpha);
-        }
-      `,
+  // Indikator joystick virtual saat tangan kiri mengepal di mode Hand Tracking
+  private virtualStickGroup: THREE.Group;
+  private virtualStickKnob: THREE.Mesh;
+
+  private static createHoloHandMaterial(colorHex: string): THREE.MeshStandardMaterial {
+    const mat = new THREE.MeshStandardMaterial({
+      color: colorHex,
+      emissive: colorHex,
+      emissiveIntensity: 0.75,
       transparent: true,
+      opacity: 0.42,
+      roughness: 0.2,
+      metalness: 0.1,
       depthWrite: false,
-      side: THREE.FrontSide,
     });
+    mat.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <dithering_fragment>',
+        `
+        vec3 holoV = normalize(vViewPosition);
+        float fresnel = pow(1.0 - abs(dot(normalize(vNormal), holoV)), 1.9);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb * 0.7, vec3(0.85, 0.98, 1.0), fresnel * 0.75);
+        gl_FragColor.a = clamp(mix(0.16, 0.88, fresnel), 0.12, 0.92);
+        #include <dithering_fragment>
+        `
+      );
+    };
+    return mat;
   }
 
-  /**
-   * Membuat model tangan hologram organik bergaya Meta Horizon OS
-   * (siluet telapak anatomis halus + 3 ruas jari melengkung + shader Fresnel).
-   */
-  private static createHoloHand(isLeft: boolean, colorHex: string): THREE.Group {
-    const hand = new THREE.Group();
-    const mat = VRManager.createMetaHoloMaterial(colorHex);
-    const sign = isLeft ? 1 : -1;
-
-    // 1. Telapak tangan anatomis menggunakan kurva Bezier halus
-    const palmShape = new THREE.Shape();
-    palmShape.moveTo(-0.024, 0.046);
-    palmShape.bezierCurveTo(-0.036, 0.015, -0.04, -0.018, -0.034, -0.044);
-    palmShape.bezierCurveTo(-0.015, -0.052, 0.015, -0.052, 0.034, -0.042);
-    palmShape.bezierCurveTo(0.04, -0.012, 0.034, 0.02, 0.024, 0.046);
-    palmShape.bezierCurveTo(0.01, 0.052, -0.01, 0.052, -0.024, 0.046);
-
-    const palmGeo = new THREE.ExtrudeGeometry(palmShape, {
-      depth: 0.012,
-      bevelEnabled: true,
-      bevelSegments: 5,
-      steps: 1,
-      bevelSize: 0.007,
-      bevelThickness: 0.007,
+  private static applyHoloMaterialToTree(root: THREE.Object3D, mat: THREE.Material) {
+    root.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.material = mat;
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+      }
     });
-    palmGeo.center();
-    const palmMesh = new THREE.Mesh(palmGeo, mat);
-    palmMesh.rotation.x = Math.PI / 2;
-    palmMesh.position.set(0, 0, -0.004);
-    hand.add(palmMesh);
-
-    // Pergelangan tangan tirus
-    const wristGeo = new THREE.CapsuleGeometry(0.024, 0.035, 6, 12);
-    const wristMesh = new THREE.Mesh(wristGeo, mat);
-    wristMesh.rotation.x = Math.PI / 2;
-    wristMesh.scale.set(1.15, 0.72, 1);
-    wristMesh.position.set(0, -0.004, 0.068);
-    hand.add(wristMesh);
-
-    // 2. Empat jari (3 ruas melengkung natural per jari)
-    const addFinger = (
-      baseX: number,
-      baseZ: number,
-      lengths: [number, number, number],
-      radii: [number, number, number],
-      splayY: number
-    ) => {
-      const root = new THREE.Group();
-      root.position.set(baseX * sign, -0.001, baseZ);
-      root.rotation.y = splayY * sign;
-
-      let parent: THREE.Group = root;
-      const bends = [0.22, 0.34, 0.28];
-      lengths.forEach((len, idx) => {
-        const segGroup = new THREE.Group();
-        segGroup.rotation.x = -bends[idx];
-        const segGeo = new THREE.CapsuleGeometry(radii[idx], len, 5, 10);
-        const segMesh = new THREE.Mesh(segGeo, mat);
-        segMesh.rotation.x = Math.PI / 2;
-        segMesh.position.set(0, 0, -len * 0.5 - radii[idx] * 0.35);
-        segGroup.add(segMesh);
-        parent.add(segGroup);
-
-        const nextPivot = new THREE.Group();
-        nextPivot.position.set(0, 0, -len - radii[idx] * 0.5);
-        segGroup.add(nextPivot);
-        parent = nextPivot;
-      });
-      hand.add(root);
-    };
-
-    // Telunjuk, Tengah, Manis, Kelingking
-    addFinger(-0.025, -0.044, [0.026, 0.018, 0.014], [0.0075, 0.0068, 0.0058], 0.06);
-    addFinger(-0.008, -0.048, [0.029, 0.021, 0.015], [0.0078, 0.007, 0.006], 0.01);
-    addFinger(0.009, -0.046, [0.027, 0.019, 0.014], [0.0074, 0.0066, 0.0056], -0.03);
-    addFinger(0.025, -0.04, [0.021, 0.015, 0.012], [0.0066, 0.0058, 0.005], -0.09);
-
-    // 3. Ibu jari (anatomis miring ke sisi dalam)
-    const thumbRoot = new THREE.Group();
-    thumbRoot.position.set(-0.032 * sign, -0.005, -0.005);
-    thumbRoot.rotation.set(-0.22, 0.65 * sign, 0.38 * sign);
-    const thumbBase = new THREE.Mesh(new THREE.CapsuleGeometry(0.0088, 0.024, 5, 10), mat);
-    thumbBase.rotation.x = Math.PI / 2;
-    thumbBase.position.set(0, 0, -0.014);
-    thumbRoot.add(thumbBase);
-
-    const thumbTip = new THREE.Mesh(new THREE.CapsuleGeometry(0.0074, 0.02, 5, 10), mat);
-    thumbTip.rotation.x = Math.PI / 2;
-    thumbTip.position.set(0, -0.004, -0.038);
-    thumbTip.rotation.x += -0.25;
-    thumbRoot.add(thumbTip);
-    hand.add(thumbRoot);
-
-    return hand;
   }
 
   constructor(
@@ -162,15 +87,73 @@ export class VRManager {
 
     this.renderer.xr.enabled = true;
 
+    const ctrlModelFactory = new XRControllerModelFactory();
+    const handModelFactory = new XRHandModelFactory();
+
     const ctrl0 = this.renderer.xr.getController(0);
     const ctrl1 = this.renderer.xr.getController(1);
+    const grip0 = this.renderer.xr.getControllerGrip(0);
+    const grip1 = this.renderer.xr.getControllerGrip(1);
+    const hand0 = this.renderer.xr.getHand(0);
+    const hand1 = this.renderer.xr.getHand(1);
+
     this.leftController = ctrl0;
     this.rightController = ctrl1;
+    this.leftGrip = grip0;
+    this.rightGrip = grip1;
+    this.leftHand = hand0;
+    this.rightHand = hand1;
 
-    this.playerRig.add(ctrl0);
-    this.playerRig.add(ctrl1);
+    this.playerRig.add(ctrl0, ctrl1, grip0, grip1, hand0, hand1);
 
-    // Sinar bidik Meta OS Style (pendek & samar saat bebas, panjang & tegas saat kena target)
+    // 1. Model 3D Controller Quest Resmi (untuk mode pakai Controller)
+    this.leftCtrlGroup = ctrlModelFactory.createControllerModel(grip0);
+    this.rightCtrlGroup = ctrlModelFactory.createControllerModel(grip1);
+    grip0.add(this.leftCtrlGroup);
+    grip1.add(this.rightCtrlGroup);
+
+    // 2. Model Tangan Fleksibel Meta OS 25-Sendi (untuk mode Tangan Kosong / Hand Tracking)
+    const leftHoloMat = VRManager.createHoloHandMaterial('#38bdf8');
+    const rightHoloMat = VRManager.createHoloHandMaterial('#22d3ee');
+    this.leftHoloGroup = handModelFactory.createHandModel(hand0, 'mesh');
+    this.rightHoloGroup = handModelFactory.createHandModel(hand1, 'mesh');
+    hand0.add(this.leftHoloGroup);
+    hand1.add(this.rightHoloGroup);
+
+    // Terapkan shader hologram Meta OS segera setelah mesh skinned tangan selesai dimuat
+    const watchHoloLoad = (group: THREE.Object3D, mat: THREE.Material) => {
+      group.addEventListener('childadded', () => {
+        VRManager.applyHoloMaterialToTree(group, mat);
+      });
+      VRManager.applyHoloMaterialToTree(group, mat);
+    };
+    watchHoloLoad(this.leftHoloGroup, leftHoloMat);
+    watchHoloLoad(this.rightHoloGroup, rightHoloMat);
+
+    // 3. Cincin Indikator Virtual Thumbstick (muncul saat tangan kiri mengepal untuk bergerak)
+    this.virtualStickGroup = new THREE.Group();
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.036, 0.044, 24),
+      new THREE.MeshBasicMaterial({
+        color: '#22d3ee',
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide,
+      })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    this.virtualStickGroup.add(ring);
+
+    this.virtualStickKnob = new THREE.Mesh(
+      new THREE.SphereGeometry(0.011, 12, 12),
+      new THREE.MeshBasicMaterial({ color: '#ffffff' })
+    );
+    this.virtualStickGroup.add(this.virtualStickKnob);
+    this.virtualStickGroup.position.set(0, 0.08, -0.02);
+    this.virtualStickGroup.visible = false;
+    this.leftHand.add(this.virtualStickGroup);
+
+    // 4. Sinar Bidik Meta OS Style
     const beamGeo = new THREE.CylinderGeometry(0.0035, 0.0035, 1, 8);
     beamGeo.rotateX(Math.PI / 2);
     beamGeo.translate(0, 0, -0.5);
@@ -191,52 +174,119 @@ export class VRManager {
       transparent: true,
       opacity: 0.96,
     });
-    this.reticleMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.032, 16, 16),
-      this.reticleMat
-    );
+    this.reticleMesh = new THREE.Mesh(new THREE.SphereGeometry(0.032, 16, 16), this.reticleMat);
     this.reticleMesh.position.set(0, 0, -12);
     this.reticleMesh.visible = false;
     this.rightController.add(this.reticleMesh);
 
-    // Hologram Tangan Meta OS
-    this.leftGripModel = VRManager.createHoloHand(true, '#38bdf8');
-    this.rightGripModel = VRManager.createHoloHand(false, '#22d3ee');
-    this.leftController.add(this.leftGripModel);
-    this.rightController.add(this.rightGripModel);
-
     // Pastikan handedness kiri & kanan selalu akurat sesuai laporan WebXR
     const handleConnect =
-      (ctrl: THREE.Group, other: THREE.Group) =>
+      (
+        ctrl: THREE.Group,
+        otherCtrl: THREE.Group,
+        grip: THREE.Group,
+        otherGrip: THREE.Group,
+        hand: THREE.Group,
+        otherHand: THREE.Group
+      ) =>
       (event: THREE.Event & { data?: XRInputSource }) => {
         const handedness = event.data?.handedness;
         if (handedness === 'right' && this.rightController !== ctrl) {
           this.rightController = ctrl;
-          this.leftController = other;
+          this.leftController = otherCtrl;
+          this.rightGrip = grip;
+          this.leftGrip = otherGrip;
+          this.rightHand = hand;
+          this.leftHand = otherHand;
           this.syncControllerAttachments();
         } else if (handedness === 'left' && this.leftController !== ctrl) {
           this.leftController = ctrl;
-          this.rightController = other;
+          this.rightController = otherCtrl;
+          this.leftGrip = grip;
+          this.rightGrip = otherGrip;
+          this.leftHand = hand;
+          this.rightHand = otherHand;
           this.syncControllerAttachments();
         }
+        VRManager.applyHoloMaterialToTree(this.leftHoloGroup, leftHoloMat);
+        VRManager.applyHoloMaterialToTree(this.rightHoloGroup, rightHoloMat);
       };
-    ctrl0.addEventListener('connected', handleConnect(ctrl0, ctrl1));
-    ctrl1.addEventListener('connected', handleConnect(ctrl1, ctrl0));
+
+    ctrl0.addEventListener('connected', handleConnect(ctrl0, ctrl1, grip0, grip1, hand0, hand1));
+    ctrl1.addEventListener('connected', handleConnect(ctrl1, ctrl0, grip1, grip0, hand1, hand0));
+    hand0.addEventListener('connected', handleConnect(ctrl0, ctrl1, grip0, grip1, hand0, hand1));
+    hand1.addEventListener('connected', handleConnect(ctrl1, ctrl0, grip1, grip0, hand1, hand0));
   }
 
   private syncControllerAttachments() {
-    this.leftController.add(this.leftGripModel);
-    this.rightController.add(this.rightGripModel);
     this.rightController.add(this.aimLine);
     this.rightController.add(this.reticleMesh);
+    this.leftHand.add(this.virtualStickGroup);
   }
 
   public setLeftHandModelVisible(visible: boolean) {
-    this.leftGripModel.visible = visible;
+    this.leftVisible = visible;
   }
 
   public setRightHandModelVisible(visible: boolean) {
-    this.rightGripModel.visible = visible;
+    this.rightVisible = visible;
+  }
+
+  public getLeftWatchMount(): THREE.Group {
+    return this.isHandTrackingLeft ? this.leftHand : this.leftController;
+  }
+
+  public getRightWeaponMount(): THREE.Group {
+    return this.isHandTrackingRight ? this.rightHand : this.rightController;
+  }
+
+  /**
+   * Memperbarui visibilitas otomatis antara Controller Quest 3D dan Tangan Hologram Meta OS
+   * berdasarkan apakah pengguna sedang memegang controller atau menggunakan tangan kosong.
+   */
+  public updateInputVisuals(
+    xrSession: XRSession | null,
+    virtualStick?: { active: boolean; x: number; y: number }
+  ) {
+    let leftHasHand = false;
+    let rightHasHand = false;
+    let leftHasCtrl = false;
+    let rightHasCtrl = false;
+
+    if (xrSession) {
+      for (const src of xrSession.inputSources) {
+        if (src.hand) {
+          if (src.handedness === 'left') leftHasHand = true;
+          else if (src.handedness === 'right') rightHasHand = true;
+        } else if (src.gamepad) {
+          if (src.handedness === 'left') leftHasCtrl = true;
+          else if (src.handedness === 'right') rightHasCtrl = true;
+        }
+      }
+    }
+
+    this.isHandTrackingLeft = leftHasHand && !leftHasCtrl;
+    this.isHandTrackingRight = rightHasHand && !rightHasCtrl;
+
+    this.leftHoloGroup.visible = this.leftVisible && this.isHandTrackingLeft;
+    this.leftCtrlGroup.visible = this.leftVisible && !this.isHandTrackingLeft;
+
+    this.rightHoloGroup.visible = this.rightVisible && this.isHandTrackingRight;
+    this.rightCtrlGroup.visible = this.rightVisible && !this.isHandTrackingRight;
+
+    // Pastikan sinar bidik menempel pada sumber tangan kanan yang sedang aktif
+    const aimParent = this.isHandTrackingRight ? this.rightHand : this.rightController;
+    if (this.aimLine.parent !== aimParent) {
+      aimParent.add(this.aimLine);
+      aimParent.add(this.reticleMesh);
+    }
+
+    if (virtualStick && virtualStick.active && this.isHandTrackingLeft) {
+      this.virtualStickGroup.visible = true;
+      this.virtualStickKnob.position.set(virtualStick.x * 0.032, 0, virtualStick.y * 0.032);
+    } else {
+      this.virtualStickGroup.visible = false;
+    }
   }
 
   /**
