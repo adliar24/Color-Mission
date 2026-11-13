@@ -6,6 +6,7 @@ export interface LaserBeam {
   maxLife: number;
   initialOpacity: number;
   expandRate?: number;
+  sharedGeo?: boolean;
 }
 
 export interface FlyingPlasma {
@@ -15,17 +16,21 @@ export interface FlyingPlasma {
   life: number;
 }
 
+const _UP_AXIS = new THREE.Vector3(0, 1, 0);
+const _X_AXIS = new THREE.Vector3(1, 0, 0);
+
 export class VisualShotSystem {
   public scene: THREE.Scene;
   private activeBeams: LaserBeam[] = [];
   public activePlasma: FlyingPlasma[] = [];
+  private sharedBeamGeo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, false);
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
   }
 
   /**
-   * Spawns a visible hitscan beam from muzzle to target
+   * Spawns a visible 2-layer glowing hitscan beam from muzzle to target
    */
   public addLaserBeam(
     from: THREE.Vector3,
@@ -39,36 +44,60 @@ export class VisualShotSystem {
     if (length < 0.1) return;
 
     const mid = new THREE.Vector3().addVectors(from, to).multiplyScalar(0.5);
-
-    const geo = new THREE.CylinderGeometry(thickness, thickness, length, 6, 1, false);
-    const mat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(colorHex),
-      transparent: true,
-      opacity: 0.95,
-      depthWrite: false,
-    });
-
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(mid);
-
-    const up = new THREE.Vector3(0, 1, 0);
-    const normalizedDir = dir.clone().normalize();
-    const axis = new THREE.Vector3().crossVectors(up, normalizedDir).normalize();
-    const angle = Math.acos(Math.max(-1, Math.min(1, up.dot(normalizedDir))));
+    const normalizedDir = dir.divideScalar(length);
+    const quat = new THREE.Quaternion();
+    const axis = new THREE.Vector3().crossVectors(_UP_AXIS, normalizedDir);
 
     if (axis.lengthSq() > 0.0001) {
-      mesh.quaternion.setFromAxisAngle(axis, angle);
-    } else if (up.dot(normalizedDir) < -0.99) {
-      mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
+      axis.normalize();
+      const angle = Math.acos(Math.max(-1, Math.min(1, _UP_AXIS.dot(normalizedDir))));
+      quat.setFromAxisAngle(axis, angle);
+    } else if (_UP_AXIS.dot(normalizedDir) < -0.99) {
+      quat.setFromAxisAngle(_X_AXIS, Math.PI);
     }
 
-    this.scene.add(mesh);
+    // 1. Inti Laser Putih Terang (Core)
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: '#ffffff',
+      transparent: true,
+      opacity: 0.98,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const coreMesh = new THREE.Mesh(this.sharedBeamGeo, coreMat);
+    coreMesh.position.copy(mid);
+    coreMesh.quaternion.copy(quat);
+    coreMesh.scale.set(thickness * 0.45, length, thickness * 0.45);
+    this.scene.add(coreMesh);
 
     this.activeBeams.push({
-      mesh,
+      mesh: coreMesh,
       life: duration,
       maxLife: duration,
-      initialOpacity: 0.95,
+      initialOpacity: 0.98,
+      sharedGeo: true,
+    });
+
+    // 2. Halo Glow Berwarna (Outer Glow)
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: colorHex,
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const glowMesh = new THREE.Mesh(this.sharedBeamGeo, glowMat);
+    glowMesh.position.copy(mid);
+    glowMesh.quaternion.copy(quat);
+    glowMesh.scale.set(thickness * 2.1, length, thickness * 2.1);
+    this.scene.add(glowMesh);
+
+    this.activeBeams.push({
+      mesh: glowMesh,
+      life: duration * 1.15,
+      maxLife: duration * 1.15,
+      initialOpacity: 0.55,
+      sharedGeo: true,
     });
   }
 
@@ -166,7 +195,7 @@ export class VisualShotSystem {
       b.life -= dt;
       if (b.life <= 0) {
         this.scene.remove(b.mesh);
-        if ('geometry' in b.mesh) b.mesh.geometry.dispose();
+        if (!b.sharedGeo && 'geometry' in b.mesh) b.mesh.geometry.dispose();
         if ('material' in b.mesh && b.mesh.material instanceof THREE.Material) {
           b.mesh.material.dispose();
         }
@@ -197,11 +226,15 @@ export class VisualShotSystem {
   public clearAll() {
     this.activeBeams.forEach((b) => {
       this.scene.remove(b.mesh);
-      b.mesh.geometry.dispose();
+      if (!b.sharedGeo) b.mesh.geometry.dispose();
+      if ('material' in b.mesh && b.mesh.material instanceof THREE.Material) {
+        b.mesh.material.dispose();
+      }
     });
     this.activePlasma.forEach((p) => {
       this.scene.remove(p.mesh);
       p.mesh.geometry.dispose();
+      (p.mesh.material as THREE.Material).dispose();
     });
     this.activeBeams = [];
     this.activePlasma = [];

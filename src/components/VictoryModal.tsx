@@ -7,12 +7,14 @@ import {
   RotateCcw,
   Home,
 } from 'lucide-react';
+import { GamepadBadge } from './GamepadBadge';
 
 interface VictoryModalProps {
   summary: RunSummary;
   score: number;
   onRestart: () => void;
   onReturnToMenu: () => void;
+  isGamepadConnected?: boolean;
 }
 
 export const VictoryModal: React.FC<VictoryModalProps> = ({
@@ -20,6 +22,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   score,
   onRestart,
   onReturnToMenu,
+  isGamepadConnected = false,
 }) => {
   useEffect(() => {
     try {
@@ -33,8 +36,8 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-[#050811]/55 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans text-white">
-      <div className="max-w-md w-full bg-[#090d18]/92 border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-md flex flex-col items-center text-center">
+    <div className="fixed inset-0 bg-[#050811]/55 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
+      <div data-ui-board="true" className="max-w-md w-full bg-[#090d18]/92 border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-md flex flex-col items-center text-center ui-panel-enter">
         <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 mb-3 text-emerald-400">
           <Trophy className="w-8 h-8" />
         </div>
@@ -97,6 +100,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           >
             <RotateCcw className="w-4 h-4" />
             <span>MAIN LAGI</span>
+            <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
           </button>
 
           <button
@@ -106,6 +110,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           >
             <Home className="w-4 h-4 text-slate-300" />
             <span>MENU UTAMA</span>
+            <GamepadBadge button="B" visible={isGamepadConnected} size="sm" />
           </button>
         </div>
       </div>

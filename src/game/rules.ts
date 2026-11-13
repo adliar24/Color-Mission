@@ -7,12 +7,15 @@ import {
   PlayerStats,
   RunSummary,
   RYBColorId,
+  GameColorId,
   ColorCategory,
 } from './types';
 import { STAGE_DEFINITIONS, BOSS_DEFEAT_BONUS, BOSS_PHASES, getBossPhaseForHp } from './stages';
 import {
   RYB_COLOR_REGISTRY,
+  BOSS_NEUTRAL_COLORS,
   ALL_RYB_COLORS,
+  ALL_BOSS_COLORS,
   PRIMARY_COLOR_IDS,
   SECONDARY_COLOR_IDS,
   TERTIARY_COLOR_IDS,
@@ -28,7 +31,9 @@ export {
   BOSS_PHASES,
   getBossPhaseForHp,
   RYB_COLOR_REGISTRY,
+  BOSS_NEUTRAL_COLORS,
   ALL_RYB_COLORS,
+  ALL_BOSS_COLORS,
   PRIMARY_COLOR_IDS,
   SECONDARY_COLOR_IDS,
   TERTIARY_COLOR_IDS,
@@ -241,8 +246,8 @@ export const UPGRADE_POOL: CyberUpgrade[] = [
 ];
 
 export function validateColorShot(
-  targetColorId: RYBColorId,
-  hitEnemyColorId: RYBColorId,
+  targetColorId: GameColorId,
+  hitEnemyColorId: GameColorId,
   baseDamage: number,
   isHeadshot: boolean,
   damageMult: number,
@@ -275,8 +280,8 @@ export function validateColorShot(
  * tembakan tidak mengurangi darah Boss (`damage: 0`).
  */
 export function validateBossCrystalShot(
-  bossColorId: RYBColorId,
-  activeCrystalColorId: RYBColorId | null,
+  bossColorId: GameColorId,
+  activeCrystalColorId: GameColorId | null,
   baseDamage: number,
   isHeadshot: boolean,
   damageMult: number,

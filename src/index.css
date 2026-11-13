@@ -37,3 +37,89 @@ html, body, #root {
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+@keyframes uiBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes uiPanelIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes uiBannerIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.ui-backdrop-enter {
+  animation: uiBackdropIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ui-panel-enter {
+  animation: uiPanelIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.ui-banner-enter {
+  animation: uiBannerIn 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@layer base {
+  button {
+    transition:
+      transform 120ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      box-shadow 150ms ease,
+      opacity 150ms ease;
+  }
+
+  button:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+
+  button:not(:disabled):active {
+    transform: scale(0.95);
+  }
+
+  button:focus-visible,
+  input[type="range"]:focus-visible {
+    outline: 2px solid #22d3ee;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-backdrop-enter,
+  .ui-panel-enter,
+  .ui-banner-enter {
+    animation: none;
+  }
+
+  button,
+  button:not(:disabled):hover,
+  button:not(:disabled):active {
+    transition: none;
+    transform: none;
+  }
+}

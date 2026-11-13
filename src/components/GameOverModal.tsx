@@ -5,12 +5,14 @@ import {
   Skull,
   Home,
 } from 'lucide-react';
+import { GamepadBadge } from './GamepadBadge';
 
 interface GameOverModalProps {
   summary: RunSummary;
   score: number;
   onRestart: () => void;
   onReturnToMenu: () => void;
+  isGamepadConnected?: boolean;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -18,10 +20,11 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   score,
   onRestart,
   onReturnToMenu,
+  isGamepadConnected = false,
 }) => {
   return (
-    <div className="fixed inset-0 bg-[#050811]/55 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans text-white">
-      <div className="max-w-md w-full bg-[#090d18]/92 border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-md flex flex-col items-center text-center">
+    <div className="fixed inset-0 bg-[#050811]/55 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
+      <div data-ui-board="true" className="max-w-md w-full bg-[#090d18]/92 border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-md flex flex-col items-center text-center ui-panel-enter">
         <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 mb-3 text-rose-400">
           <Skull className="w-8 h-8" />
         </div>
@@ -73,6 +76,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           >
             <RotateCcw className="w-4 h-4" />
             <span>COBA LAGI</span>
+            <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
           </button>
 
           <button
@@ -82,6 +86,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           >
             <Home className="w-4 h-4 text-slate-300" />
             <span>MENU UTAMA</span>
+            <GamepadBadge button="B" visible={isGamepadConnected} size="sm" />
           </button>
         </div>
       </div>

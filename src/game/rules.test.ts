@@ -13,6 +13,7 @@ import {
   getComboMultiplier,
   getComboLabel,
   getBossPhaseForHp,
+  BOSS_PHASES,
   calculatePlayerDamage,
   generateDraftChoices,
   calculateRunSummary,
@@ -66,7 +67,7 @@ test('STAGE_DEFINITIONS mengonfigurasi 3 stage berurutan dengan mode instruksi d
   assert.equal(STAGE_DEFINITIONS[1].stageNumber, 1);
   assert.equal(STAGE_DEFINITIONS[1].category, 'primer');
   assert.equal(STAGE_DEFINITIONS[1].instructionMode, 'direct');
-  assert.equal(STAGE_DEFINITIONS[1].targetEliminations, 12);
+  assert.equal(STAGE_DEFINITIONS[1].targetEliminations, 10);
   assert.equal(STAGE_DEFINITIONS[1].maxConcurrentEnemies, 3);
   assert.equal(STAGE_DEFINITIONS[1].hasBossAtEnd, false);
   assert.deepEqual(STAGE_DEFINITIONS[1].colorPool, ['red', 'yellow', 'blue']);
@@ -74,7 +75,7 @@ test('STAGE_DEFINITIONS mengonfigurasi 3 stage berurutan dengan mode instruksi d
   assert.equal(STAGE_DEFINITIONS[2].stageNumber, 2);
   assert.equal(STAGE_DEFINITIONS[2].category, 'sekunder');
   assert.equal(STAGE_DEFINITIONS[2].instructionMode, 'mixing');
-  assert.equal(STAGE_DEFINITIONS[2].targetEliminations, 18);
+  assert.equal(STAGE_DEFINITIONS[2].targetEliminations, 15);
   assert.equal(STAGE_DEFINITIONS[2].maxConcurrentEnemies, 4);
   assert.equal(STAGE_DEFINITIONS[2].hasBossAtEnd, false);
   assert.deepEqual(STAGE_DEFINITIONS[2].colorPool, ['orange', 'green', 'purple']);
@@ -82,7 +83,7 @@ test('STAGE_DEFINITIONS mengonfigurasi 3 stage berurutan dengan mode instruksi d
   assert.equal(STAGE_DEFINITIONS[3].stageNumber, 3);
   assert.equal(STAGE_DEFINITIONS[3].category, 'tersier');
   assert.equal(STAGE_DEFINITIONS[3].instructionMode, 'mixing');
-  assert.equal(STAGE_DEFINITIONS[3].targetEliminations, 24);
+  assert.equal(STAGE_DEFINITIONS[3].targetEliminations, 20);
   assert.equal(STAGE_DEFINITIONS[3].maxConcurrentEnemies, 5);
   assert.equal(STAGE_DEFINITIONS[3].hasBossAtEnd, true);
   assert.equal(STAGE_DEFINITIONS[3].colorPool.length, 6);
@@ -314,6 +315,33 @@ test('InputManager mendukung toggle Gyro HP dan Haptic Feedback tanpa error di b
   im.dispose();
 });
 
+test('DesktopInput mode Full Keyboard mengarahkan kamera dengan tombol Panah dan menembak dengan Enter', () => {
+  const im = new InputManager();
+  im.setMode('desktop');
+  const desktopAny = im.desktop as unknown as {
+    isActive: boolean;
+    onKeyDown: (e: { code: string }) => void;
+    onKeyUp: (e: { code: string }) => void;
+  };
+  desktopAny.isActive = true;
+
+  desktopAny.onKeyDown({ code: 'ArrowLeft' });
+  desktopAny.onKeyDown({ code: 'ArrowUp' });
+  desktopAny.onKeyDown({ code: 'Enter' });
+
+  const cmd = im.poll({ ...TEST_SETTINGS, keyboardCameraMode: true }, 0.016);
+  assert.equal(cmd.moveX, 0);
+  assert.equal(cmd.moveZ, 0);
+  assert.ok(cmd.lookDeltaX > 0, 'ArrowLeft harus memutar kamera ke kiri (lookDeltaX > 0)');
+  assert.ok(cmd.lookDeltaY > 0, 'ArrowUp harus mendongakkan kamera (lookDeltaY > 0)');
+  assert.equal(cmd.shoot, true, 'Enter harus menembak pada mode Full Keyboard');
+
+  desktopAny.onKeyUp({ code: 'ArrowLeft' });
+  desktopAny.onKeyUp({ code: 'ArrowUp' });
+  desktopAny.onKeyUp({ code: 'Enter' });
+  im.dispose();
+});
+
 test('VRManager.checkSupport menangani lingkungan tanpa perangkat WebXR dengan aman', async () => {
   const status = await VRManager.checkSupport();
   assert.equal(status.isImmersiveVRSupported, false);
@@ -360,4 +388,20 @@ test('calculateRunSummary menghitung akurasi, MASTERED stage, dan bonus kemenang
   assert.equal(lossStage2.stagesCleared, 1);
   assert.deepEqual(lossStage2.masteredCategories, ['primer']);
   assert.equal(lossStage2.won, false);
+});
+
+test('Warna Putih dan Hitam tersedia khusus pertarungan Boss tanpa mengubah 12 warna RYB', () => {
+  assert.equal(ALL_RYB_COLORS.length, 12);
+  assert.ok(BOSS_PHASES[1].colorPool.includes('white'));
+  assert.ok(BOSS_PHASES[1].colorPool.includes('black'));
+  assert.ok(BOSS_PHASES[2].colorPool.includes('white'));
+  assert.ok(BOSS_PHASES[3].colorPool.includes('black'));
+
+  const whiteClue = buildColorInstructionClue('white', 3);
+  assert.equal(whiteClue.displayMode, 'direct');
+  assert.equal(whiteClue.directHex, '#F8FAFC');
+
+  const blackShot = validateBossCrystalShot('black', 'black', 35, false, 1.0, 0);
+  assert.equal(blackShot.isCorrectCrystal, true);
+  assert.equal(blackShot.damage, 35);
 });

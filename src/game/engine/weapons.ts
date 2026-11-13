@@ -8,8 +8,12 @@ export class WeaponRig {
   public gunGroup: THREE.Group;
   public currentWeapon: WeaponType = 'laser_rifle';
   public ammoCount: number;
+  public reserveAmmo: number;
   public isReloading: boolean = false;
   public reloadProgress: number = 0;
+
+  private ammoByWeapon: Record<WeaponType, number>;
+  private reserveByWeapon: Record<WeaponType, number>;
 
   private weaponMeshes: Map<WeaponType, THREE.Group> = new Map();
   private weaponAccentMats: Map<
@@ -18,6 +22,7 @@ export class WeaponRig {
   > = new Map();
   private crystalTintHex: string | null = null;
   private muzzleFlashLight: THREE.PointLight;
+  private muzzleTipAnchor: THREE.Object3D;
   private recoilOffset = new THREE.Vector3();
   private recoilRot = new THREE.Euler();
   private timeSinceLastShot = 0;
@@ -29,17 +34,39 @@ export class WeaponRig {
   constructor(camera: THREE.Camera) {
     this.camera = camera;
     this.gunGroup = new THREE.Group();
-    this.ammoCount = WEAPON_REGISTRY.laser_rifle.magSize;
+    this.ammoByWeapon = {
+      laser_rifle: WEAPON_REGISTRY.laser_rifle.magSize,
+      cyber_shotgun: WEAPON_REGISTRY.cyber_shotgun.magSize,
+      railgun: WEAPON_REGISTRY.railgun.magSize,
+      plasma_smg: WEAPON_REGISTRY.plasma_smg.magSize,
+    };
+    this.reserveByWeapon = {
+      laser_rifle: WEAPON_REGISTRY.laser_rifle.magSize * 3,
+      cyber_shotgun: WEAPON_REGISTRY.cyber_shotgun.magSize * 3,
+      railgun: WEAPON_REGISTRY.railgun.magSize * 3,
+      plasma_smg: WEAPON_REGISTRY.plasma_smg.magSize * 3,
+    };
+    this.ammoCount = this.ammoByWeapon.laser_rifle;
+    this.reserveAmmo = this.reserveByWeapon.laser_rifle;
 
     this.gunGroup.position.set(0.32, -0.28, -0.6);
     this.camera.add(this.gunGroup);
 
     this.muzzleFlashLight = new THREE.PointLight('#00f0ff', 0, 10);
-    this.muzzleFlashLight.position.set(0, 0.05, -0.5);
+    this.muzzleFlashLight.position.set(0, 0.02, -0.68);
     this.gunGroup.add(this.muzzleFlashLight);
+
+    this.muzzleTipAnchor = new THREE.Object3D();
+    this.muzzleTipAnchor.position.set(0, 0.02, -0.68);
+    this.gunGroup.add(this.muzzleTipAnchor);
 
     this.buildAllWeaponModels();
     this.switchWeapon('laser_rifle');
+  }
+
+  public getMuzzleWorldPosition(out: THREE.Vector3): THREE.Vector3 {
+    this.gunGroup.updateMatrixWorld(true);
+    return this.muzzleTipAnchor.getWorldPosition(out);
   }
 
   public setModifiers(fireRateMult: number, reloadTimeMult: number, magSizeBonus: number) {
@@ -163,8 +190,37 @@ export class WeaponRig {
     });
   }
 
+  public resetAllAmmo() {
+    (Object.keys(WEAPON_REGISTRY) as WeaponType[]).forEach((w) => {
+      const mag = WEAPON_REGISTRY[w].magSize + this.magSizeBonus;
+      this.ammoByWeapon[w] = mag;
+      this.reserveByWeapon[w] = WEAPON_REGISTRY[w].magSize * 3;
+    });
+    this.ammoCount = this.ammoByWeapon[this.currentWeapon];
+    this.reserveAmmo = this.reserveByWeapon[this.currentWeapon];
+    this.isReloading = false;
+    this.reloadProgress = 0;
+  }
+
+  public addAmmoSupply() {
+    (Object.keys(WEAPON_REGISTRY) as WeaponType[]).forEach((w) => {
+      const addAmount = Math.max(4, Math.round(WEAPON_REGISTRY[w].magSize * 1.5));
+      this.reserveByWeapon[w] = Math.min(
+        WEAPON_REGISTRY[w].magSize * 6,
+        this.reserveByWeapon[w] + addAmount
+      );
+    });
+    this.reserveAmmo = this.reserveByWeapon[this.currentWeapon];
+    if (this.ammoCount <= 0 && !this.isReloading && this.reserveAmmo > 0) {
+      this.startReload();
+    }
+  }
+
   public switchWeapon(type: WeaponType) {
     if (this.currentWeapon === type && this.weaponMeshes.get(type)?.visible) return;
+
+    this.ammoByWeapon[this.currentWeapon] = this.ammoCount;
+    this.reserveByWeapon[this.currentWeapon] = this.reserveAmmo;
 
     this.weaponMeshes.forEach((mesh, key) => {
       mesh.visible = key === type;
@@ -172,11 +228,22 @@ export class WeaponRig {
 
     this.currentWeapon = type;
     const def = WEAPON_REGISTRY[type];
-    this.ammoCount = def.magSize + this.magSizeBonus;
+    this.ammoCount = this.ammoByWeapon[type];
+    this.reserveAmmo = this.reserveByWeapon[type];
     this.isReloading = false;
     this.reloadProgress = 0;
     this.reloadDuration = def.reloadTime * this.reloadTimeMult;
     this.muzzleFlashLight.color.set(this.crystalTintHex || def.color);
+
+    const tipOffsets: Record<WeaponType, [number, number, number]> = {
+      laser_rifle: [0, 0.02, -0.68],
+      cyber_shotgun: [0, 0.04, -0.61],
+      railgun: [0, 0.0, -0.80],
+      plasma_smg: [0, 0.01, -0.24],
+    };
+    const [tx, ty, tz] = tipOffsets[type];
+    this.muzzleTipAnchor.position.set(tx, ty, tz);
+    this.muzzleFlashLight.position.set(tx, ty, tz);
   }
 
   /**
@@ -214,7 +281,7 @@ export class WeaponRig {
 
   public startReload() {
     const maxMag = this.getMaxMagSize();
-    if (this.isReloading || this.ammoCount >= maxMag) return;
+    if (this.isReloading || this.ammoCount >= maxMag || this.reserveAmmo <= 0) return;
     this.isReloading = true;
     this.reloadProgress = 0;
     this.reloadDuration = WEAPON_REGISTRY[this.currentWeapon].reloadTime * this.reloadTimeMult;
@@ -222,7 +289,7 @@ export class WeaponRig {
 
   public fire(isOverdrive: boolean = false): boolean {
     if (!this.canShoot(isOverdrive)) {
-      if (this.ammoCount <= 0 && !this.isReloading && !isOverdrive) {
+      if (this.ammoCount <= 0 && !this.isReloading && !isOverdrive && this.reserveAmmo > 0) {
         this.startReload();
       }
       return false;
@@ -233,6 +300,7 @@ export class WeaponRig {
 
     if (!isOverdrive) {
       this.ammoCount = Math.max(0, this.ammoCount - 1);
+      this.ammoByWeapon[this.currentWeapon] = this.ammoCount;
     }
 
     this.recoilOffset.z = def.recoil;
@@ -244,12 +312,14 @@ export class WeaponRig {
     else if (def.soundType === 'railgun') sound.playRailgun();
     else if (def.soundType === 'plasma') sound.playPlasma();
 
-    if (this.ammoCount <= 0 && !isOverdrive) {
+    if (this.ammoCount <= 0 && !isOverdrive && this.reserveAmmo > 0) {
       this.startReload();
     }
 
     return true;
   }
+
+  private static readonly ZERO_VEC = new THREE.Vector3(0, 0, 0);
 
   public update(dt: number, isMoving: boolean, time: number) {
     this.timeSinceLastShot += dt;
@@ -258,7 +328,12 @@ export class WeaponRig {
       this.reloadProgress += dt / Math.max(0.2, this.reloadDuration);
       this.gunGroup.position.y = -0.28 - Math.sin(this.reloadProgress * Math.PI) * 0.15;
       if (this.reloadProgress >= 1.0) {
-        this.ammoCount = this.getMaxMagSize();
+        const needed = Math.max(0, this.getMaxMagSize() - this.ammoCount);
+        const loaded = Math.min(needed, this.reserveAmmo);
+        this.ammoCount += loaded;
+        this.reserveAmmo = Math.max(0, this.reserveAmmo - loaded);
+        this.ammoByWeapon[this.currentWeapon] = this.ammoCount;
+        this.reserveByWeapon[this.currentWeapon] = this.reserveAmmo;
         this.isReloading = false;
         this.reloadProgress = 0;
         this.gunGroup.position.y = -0.28;
@@ -270,7 +345,7 @@ export class WeaponRig {
       this.gunGroup.position.y = -0.28 + bobY;
     }
 
-    this.recoilOffset.lerp(new THREE.Vector3(0, 0, 0), dt * 14);
+    this.recoilOffset.lerp(WeaponRig.ZERO_VEC, dt * 14);
     this.recoilRot.x = THREE.MathUtils.lerp(this.recoilRot.x, 0, dt * 14);
     this.gunGroup.position.z = -0.6 + this.recoilOffset.z;
     this.gunGroup.rotation.x = this.recoilRot.x;

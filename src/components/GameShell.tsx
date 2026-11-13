@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { CyberArena, JumpPad, HazardNode } from '../game/engine/cyberScene';
 import { WeaponRig } from '../game/engine/weapons';
-import { EnemyManager, EnemyInstance } from '../game/engine/enemies';
+import { EnemyManager, EnemyInstance, resolveCircleXZCollision } from '../game/engine/enemies';
 import { ParticleSystem } from '../game/engine/particles';
 import { VisualShotSystem } from '../game/engine/tracers';
 import { InputManager } from '../game/input/InputManager';
@@ -16,15 +16,18 @@ import { StageTransitionModal } from './StageTransitionModal';
 import { GameOverModal } from './GameOverModal';
 import { VictoryModal } from './VictoryModal';
 import { PauseModal } from './PauseModal';
+import { GamepadBadge } from './GamepadBadge';
 import {
   PlayerStats,
   WeaponType,
   GameState,
   RunSummary,
   EnemyType,
+  GameColorId,
   RYBColorId,
   ShotFeedback,
   GameSettings,
+  GraphicsQuality,
   PlatformMode,
 } from '../game/types';
 import {
@@ -80,12 +83,38 @@ const INITIAL_PLAYER_STATS: PlayerStats = {
   headshotBonusMult: 0,
 };
 
+const _scratchWishDir = new THREE.Vector3();
+const _scratchForward = new THREE.Vector3();
+const _scratchRight = new THREE.Vector3();
+const _scratchWorldWish = new THREE.Vector3();
+const _scratchRaycaster = new THREE.Raycaster();
+const _scratchScreenCenter = new THREE.Vector2(0, 0);
+const _scratchEnemyBox = new THREE.Box3();
+const _scratchEnemyCenter = new THREE.Vector3();
+const _scratchEnemySize = new THREE.Vector3();
+
+function detectOptimalQuality(): GraphicsQuality {
+  if (typeof window === 'undefined') return 'high';
+  const isMobile =
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 1 ||
+    window.innerWidth < 768;
+  const cores = navigator.hardwareConcurrency || 4;
+  const memory = (navigator as unknown as { deviceMemory?: number }).deviceMemory || 4;
+
+  if (isMobile || cores <= 4 || memory <= 4) {
+    return 'medium';
+  }
+  return 'high';
+}
+
 const DEFAULT_SETTINGS: GameSettings = {
   mouseSensitivity: 1.0,
   touchSensitivity: 1.0,
   mobileGyroEnabled: false,
   hapticsEnabled: true,
-  graphicsQuality: 'high',
+  keyboardCameraMode: true,
+  graphicsQuality: detectOptimalQuality(),
   vrTurnMode: 'snap',
   vrSnapAngle: 45,
   vrSmoothTurnSpeed: 2.0,
@@ -99,18 +128,19 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   // State utama permainan
   const [gameState, setGameState] = useState<GameState>(autostart ? 'playing' : 'title');
   const [player, setPlayer] = useState<PlayerStats>(INITIAL_PLAYER_STATS);
-  const [targetColorId, setTargetColorId] = useState<RYBColorId>('red');
+  const [targetColorId, setTargetColorId] = useState<GameColorId>('red');
   const [showHint, setShowHint] = useState<boolean>(false);
   const [wrongStreakOnTarget, setWrongStreakOnTarget] = useState<number>(0);
   const [currentWeapon, setCurrentWeapon] = useState<WeaponType>('laser_rifle');
   const [ammo, setAmmo] = useState<number>(WEAPON_REGISTRY.laser_rifle.magSize);
   const [maxAmmo, setMaxAmmo] = useState<number>(WEAPON_REGISTRY.laser_rifle.magSize);
+  const [reserveAmmo, setReserveAmmo] = useState<number>(WEAPON_REGISTRY.laser_rifle.magSize * 3);
   const [isReloading, setIsReloading] = useState<boolean>(false);
   const [reloadProgress, setReloadProgress] = useState<number>(0);
   const [bossHp, setBossHp] = useState<number | undefined>(undefined);
   const [bossMaxHp, setBossMaxHp] = useState<number>(1500);
-  const [activeCrystalColorId, setActiveCrystalColorId] = useState<RYBColorId | null>(null);
-  const activeCrystalColorIdRef = useRef<RYBColorId | null>(null);
+  const [activeCrystalColorId, setActiveCrystalColorId] = useState<GameColorId | null>(null);
+  const activeCrystalColorIdRef = useRef<GameColorId | null>(null);
 
   // Cooldown kemampuan
   const [dashCd, setDashCd] = useState<number>(0);
@@ -121,7 +151,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
   // Umpan balik & Modal
   const [shotFeedback, setShotFeedback] = useState<ShotFeedback | null>(null);
-  const [clearedStageForModal, setClearedStageForModal] = useState<1 | 2>(1);
+  const [stageModalMode, setStageModalMode] = useState<'stage_clear' | 'stage_intro'>('stage_intro');
+  const [stageModalNumber, setStageModalNumber] = useState<1 | 2 | 3>(1);
   const [runSummary, setRunSummary] = useState<RunSummary | null>(null);
   const [finalScore, setFinalScore] = useState<number>(0);
   const [showSettings, setShowSettings] = useState<boolean>(false);
@@ -130,11 +161,17 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const [hitmarkerCrit, setHitmarkerCrit] = useState<boolean>(false);
   const [hitmarkerWrong, setHitmarkerWrong] = useState<boolean>(false);
   const [playerDamageFlash, setPlayerDamageFlash] = useState<boolean>(false);
+  const [isPlayerDying, setIsPlayerDying] = useState<boolean>(false);
+  const isPlayerDyingRef = useRef<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(sound.isMuted);
   const damageFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bossVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playerDeathTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Mode Platform Otomatis (Desktop, Mobile, VR)
+  // Mode Platform Otomatis (Desktop, Mobile, VR) & Gamepad
   const [platformMode, setPlatformMode] = useState<PlatformMode>('desktop');
+  const [isGamepadConnected, setIsGamepadConnected] = useState<boolean>(false);
   const [vrComfortVignetteActive, setVrComfortVignetteActive] = useState<boolean>(false);
 
   // Pengaturan yang disimpan di localStorage
@@ -171,6 +208,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const overdriveRemainRef = useRef<number>(0);
   const isOverdriveRunning = useRef<boolean>(false);
   const spawnTimer = useRef<number>(0);
+  const lastHudTimer = useRef<number>(0);
+  const ammoRef = useRef<number>(WEAPON_REGISTRY.laser_rifle.magSize);
+  const isReloadingRef = useRef<boolean>(false);
   const runStartTime = useRef<number>(Date.now());
   const bossInstanceRef = useRef<EnemyInstance | null>(null);
   const bossDamageSinceSwitch = useRef<number>(0);
@@ -187,6 +227,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     shotFeedback,
     bossHp,
     bossMaxHp,
+    showTutorial,
+    showSettings,
   });
 
   useEffect(() => {
@@ -200,6 +242,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       shotFeedback,
       bossHp,
       bossMaxHp,
+      showTutorial,
+      showSettings,
     };
     document.body.dataset.state = gameState;
   }, [
@@ -212,7 +256,19 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     shotFeedback,
     bossHp,
     bossMaxHp,
+    showTutorial,
+    showSettings,
   ]);
+
+  const menuCallbacksRef = useRef<{
+    startRun: () => void;
+    returnToMenu: () => void;
+    continueStage: () => void;
+  }>({
+    startRun: () => {},
+    returnToMenu: () => {},
+    continueStage: () => {},
+  });
 
   useEffect(() => {
     try {
@@ -221,12 +277,15 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     if (rendererRef.current) {
       const pixelRatio =
         settings.graphicsQuality === 'low'
-          ? 1
+          ? 1.0
           : settings.graphicsQuality === 'medium'
-          ? Math.min(window.devicePixelRatio, 1.5)
-          : Math.min(window.devicePixelRatio, 2);
+          ? Math.min(window.devicePixelRatio, 1.15)
+          : Math.min(window.devicePixelRatio, 1.5);
       rendererRef.current.setPixelRatio(pixelRatio);
-      rendererRef.current.shadowMap.enabled = settings.graphicsQuality !== 'low';
+      rendererRef.current.shadowMap.enabled = settings.graphicsQuality === 'high';
+      if (arenaRef.current && 'setGraphicsQuality' in arenaRef.current) {
+        (arenaRef.current as CyberArena).setGraphicsQuality(settings.graphicsQuality);
+      }
     }
   }, [settings]);
 
@@ -286,7 +345,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
   // Pastikan di arena selalu ada minimal 1 Chromabot dengan warna target aktif
   const ensureTargetColorPresentInArena = useCallback(
-    (desiredTarget: RYBColorId, stageNum: 1 | 2 | 3) => {
+    (desiredTarget: GameColorId, stageNum: 1 | 2 | 3) => {
       const enemies = enemiesRef.current;
       if (!enemies) return;
 
@@ -427,15 +486,25 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
         if (res.killed && res.firstKillAward) {
           sound.playWaveFanfare();
-          particles.emitSpectrumExplosion(enemy.position.clone().setY(3.2), 16);
 
-          enemies.clearAll();
+          // Hapus musuh pengawal & proyektil, namun biarkan Boss di state 'dead' agar animasi ledakan klimaks 3 fase tampil penuh
+          enemies.enemies.forEach((other) => {
+            if (other !== enemy && other.state !== 'dead') {
+              other.state = 'dead';
+              other.deathTimer = 0.14;
+            }
+          });
+          enemies.projectiles.forEach((p) => {
+            enemies.scene.remove(p.mesh);
+            (p.mesh.material as THREE.Material).dispose();
+          });
+          enemies.projectiles = [];
+
           if (arenaRef.current && 'clearBossCrystals' in arenaRef.current) {
             arenaRef.current.clearBossCrystals();
           }
-          tracersRef.current?.clearAll();
           bossInstanceRef.current = null;
-          setBossHp(undefined);
+          setBossHp(0);
           activeCrystalColorIdRef.current = null;
           setActiveCrystalColorId(null);
           weaponsRef.current?.setCrystalTint(null);
@@ -463,8 +532,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             return updated;
           });
 
-          inputManagerRef.current.desktop.releasePointerLock();
-          setGameState('victory');
+          if (bossVictoryTimerRef.current) {
+            clearTimeout(bossVictoryTimerRef.current);
+          }
+          bossVictoryTimerRef.current = setTimeout(() => {
+            bossVictoryTimerRef.current = null;
+            tracersRef.current?.clearAll();
+            setBossHp(undefined);
+            inputManagerRef.current.desktop.releasePointerLock();
+            setGameState('victory');
+          }, 3100);
           return;
         }
 
@@ -495,9 +572,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
           triggerShotBanner({
             type: 'correct',
-            title: 'WARNA BOSS BERUBAH!',
-            subtitle: 'Ambil kristal warna baru yang sesuai di arena!',
-            colorHex: hitColorDef.hex,
+            title: 'TARGET BARU AKTIF!',
+            subtitle: 'Ambil kristal warna yang sesuai di arena!',
+            colorHex: getColorDef(nextBossColor).hex,
             timestamp: performance.now(),
           });
         } else {
@@ -678,9 +755,15 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
     const initialPlatform = inputManagerRef.current.detectInitialMode();
     setPlatformMode(initialPlatform);
-    inputManagerRef.current.attachAutoDetection((detectedMode) => {
-      setPlatformMode(detectedMode);
-    });
+    setIsGamepadConnected(inputManagerRef.current.isGamepadConnected);
+    inputManagerRef.current.attachAutoDetection(
+      (detectedMode) => {
+        setPlatformMode(detectedMode);
+      },
+      (gpConnected) => {
+        setIsGamepadConnected(gpConnected);
+      }
+    );
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -703,20 +786,28 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     camera.add(vrHud.mesh);
     vrHudRef.current = vrHud;
 
+    const initialPixelRatio =
+      stateRef.current.settings.graphicsQuality === 'low'
+        ? 1.0
+        : stateRef.current.settings.graphicsQuality === 'medium'
+        ? Math.min(window.devicePixelRatio, 1.15)
+        : Math.min(window.devicePixelRatio, 1.5);
+
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: stateRef.current.settings.graphicsQuality === 'high',
       powerPreference: 'high-performance',
     });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(initialPixelRatio);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = stateRef.current.settings.graphicsQuality === 'high';
     renderer.shadowMap.type = THREE.PCFShadowMap;
     rendererRef.current = renderer;
     container.appendChild(renderer.domElement);
 
     const arena = new CyberArena(scene);
+    arena.setGraphicsQuality(stateRef.current.settings.graphicsQuality);
     arenaRef.current = arena;
 
     const weapons = new WeaponRig(camera);
@@ -754,6 +845,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       }
     };
     renderer.domElement.addEventListener('click', handleCanvasClick);
+    renderer.domElement.addEventListener('mousedown', handleCanvasClick);
 
     const handleResize = () => {
       if (!container || !renderer || !camera) return;
@@ -797,13 +889,40 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         if (currentState === 'playing') {
           inputManagerRef.current.desktop.releasePointerLock();
           setGameState('paused');
-        } else if (currentState === 'paused') {
+        } else if (currentState === 'paused' && !stateRef.current.showSettings) {
           setGameState('playing');
         }
       }
 
       if (cmd.toggleHint && currentState === 'playing') {
         setShowHint((prev) => !prev);
+      }
+
+      // Navigasi Menu & Modal via Gamepad (Format Xbox: A, B, X, Y, Start)
+      if (currentState !== 'playing') {
+        const menuGp = inputManagerRef.current.pollMenuGamepad();
+        if (stateRef.current.showTutorial) {
+          if (menuGp.back) setShowTutorial(false);
+          else if (menuGp.confirm) {
+            setShowTutorial(false);
+            menuCallbacksRef.current.startRun();
+          }
+        } else if (stateRef.current.showSettings) {
+          if (menuGp.back) setShowSettings(false);
+        } else if (currentState === 'title') {
+          if (menuGp.confirm) menuCallbacksRef.current.startRun();
+          else if (menuGp.tutorial) setShowTutorial(true);
+          else if (menuGp.settings) setShowSettings(true);
+        } else if (currentState === 'paused') {
+          if (menuGp.confirm || menuGp.start) setGameState('playing');
+          else if (menuGp.settings) setShowSettings(true);
+          else if (menuGp.back) menuCallbacksRef.current.returnToMenu();
+        } else if (currentState === 'stage_transition') {
+          if (menuGp.confirm) menuCallbacksRef.current.continueStage();
+        } else if (currentState === 'gameover' || currentState === 'victory') {
+          if (menuGp.confirm) menuCallbacksRef.current.startRun();
+          else if (menuGp.back) menuCallbacksRef.current.returnToMenu();
+        }
       }
 
       if (
@@ -825,6 +944,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           );
           camera.rotation.set(-0.22, orbitAngle, 0, 'YXZ');
         }
+      } else if (currentState === 'playing' && isPlayerDyingRef.current) {
+        weapons.gunGroup.visible = false;
+        playerPos.current.y = THREE.MathUtils.lerp(playerPos.current.y, 0.48, dt * 5.5);
+        camera.position.copy(playerPos.current);
+        camera.rotation.set(
+          THREE.MathUtils.lerp(camera.rotation.x, -0.25, dt * 4),
+          cameraRot.current.yaw,
+          THREE.MathUtils.lerp(camera.rotation.z, 0.34, dt * 4.5),
+          'YXZ'
+        );
       } else if (currentState === 'playing') {
         weapons.gunGroup.visible = true;
         const pStats = stateRef.current.player;
@@ -843,32 +972,33 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
         const moveSpeed =
           12.0 * pStats.moveSpeedMult * (isOverdriveRunning.current ? 1.3 : 1.0);
-        const wishDir = new THREE.Vector3(cmd.moveX, 0, cmd.moveZ);
+        _scratchWishDir.set(cmd.moveX, 0, cmd.moveZ);
 
-        if (wishDir.lengthSq() > 0.001) {
-          if (wishDir.lengthSq() > 1) wishDir.normalize();
-          const forward = new THREE.Vector3(
+        if (_scratchWishDir.lengthSq() > 0.001) {
+          if (_scratchWishDir.lengthSq() > 1) _scratchWishDir.normalize();
+          _scratchForward.set(
             -Math.sin(cameraRot.current.yaw),
             0,
             -Math.cos(cameraRot.current.yaw)
           );
-          const right = new THREE.Vector3(
+          _scratchRight.set(
             Math.cos(cameraRot.current.yaw),
             0,
             -Math.sin(cameraRot.current.yaw)
           );
-          const worldWish = forward
-            .multiplyScalar(-wishDir.z)
-            .add(right.multiplyScalar(wishDir.x));
+          _scratchWorldWish
+            .copy(_scratchForward)
+            .multiplyScalar(-_scratchWishDir.z)
+            .addScaledVector(_scratchRight, _scratchWishDir.x);
 
           playerVel.current.x = THREE.MathUtils.lerp(
             playerVel.current.x,
-            worldWish.x * moveSpeed,
+            _scratchWorldWish.x * moveSpeed,
             dt * 10
           );
           playerVel.current.z = THREE.MathUtils.lerp(
             playerVel.current.z,
-            worldWish.z * moveSpeed,
+            _scratchWorldWish.z * moveSpeed,
             dt * 10
           );
         } else {
@@ -911,6 +1041,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
         playerPos.current.x = Math.max(-29, Math.min(29, playerPos.current.x));
         playerPos.current.z = Math.max(-29, Math.min(29, playerPos.current.z));
+        resolveCircleXZCollision(playerPos.current, 0.65, arena.colliders);
 
         arena.jumpPads.forEach((jp: JumpPad) => {
           if (
@@ -960,6 +1091,57 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           });
         }
 
+        // Pengambilan Item Khusus Arena (Darah, Perisai, Peluru)
+        arena.arenaPickups.forEach((p) => {
+          if (p.isCollected) return;
+          const distHoriz = Math.hypot(
+            playerPos.current.x - p.position.x,
+            playerPos.current.z - p.position.z
+          );
+          if (distHoriz > p.pickupRadius) return;
+
+          const curP = stateRef.current.player;
+          if (p.type === 'health' && curP.hp >= curP.maxHp) return;
+          if (p.type === 'shield' && curP.shield >= curP.maxShield) return;
+
+          p.isCollected = true;
+          p.group.visible = false;
+          p.respawnTimer = 11.0;
+
+          sound.playOverdrive();
+          particles.emit(p.position.clone().setY(1.2), 20, p.colorHex, 1.6);
+
+          if (p.type === 'health') {
+            setPlayer((prev) => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + 30) }));
+            triggerShotBanner({
+              type: 'correct',
+              title: '+30 DARAH!',
+              subtitle: 'Kesehatan dipulihkan',
+              colorHex: p.colorHex,
+              timestamp: performance.now(),
+            });
+          } else if (p.type === 'shield') {
+            setPlayer((prev) => ({ ...prev, shield: Math.min(prev.maxShield, prev.shield + 25) }));
+            triggerShotBanner({
+              type: 'correct',
+              title: '+25 PERISAI!',
+              subtitle: 'Perisai energi terisi ulang',
+              colorHex: p.colorHex,
+              timestamp: performance.now(),
+            });
+          } else {
+            weapons.addAmmoSupply();
+            setReserveAmmo(weapons.reserveAmmo);
+            triggerShotBanner({
+              type: 'correct',
+              title: 'PELURU TERISI!',
+              subtitle: 'Cadangan amunisi senjata bertambah',
+              colorHex: p.colorHex,
+              timestamp: performance.now(),
+            });
+          }
+        });
+
         if (isPresentingVR) {
           playerRig.position.set(
             playerPos.current.x,
@@ -981,7 +1163,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         );
 
         // --- 2. Menembak & Validasi Target Warna ---
-        const isMoving = wishDir.lengthSq() > 0.01;
+        const isMoving = _scratchWishDir.lengthSq() > 0.01;
         weapons.update(dt, isMoving, now / 1000);
 
         if (cmd.shoot) {
@@ -992,18 +1174,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               curSettings,
               vrManager.currentSession
             );
-            const raycaster = new THREE.Raycaster();
             const muzzlePos = new THREE.Vector3();
 
             if (isPresentingVR && cmd.vrAimRay) {
               const origin = new THREE.Vector3(...cmd.vrAimRay.origin);
               const dir = new THREE.Vector3(...cmd.vrAimRay.direction).normalize();
-              raycaster.set(origin, dir);
+              _scratchRaycaster.set(origin, dir);
               muzzlePos.copy(origin);
             } else {
-              raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-              weapons.gunGroup.getWorldPosition(muzzlePos);
-              muzzlePos.y -= 0.05;
+              _scratchRaycaster.setFromCamera(_scratchScreenCenter, camera);
+              weapons.getMuzzleWorldPosition(muzzlePos);
             }
 
             const wDef = WEAPON_REGISTRY[weapons.currentWeapon];
@@ -1017,23 +1197,23 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
             particles.emit(muzzlePos, 5, activeShotColor, 0.8);
 
-            enemies.checkProjectileInterception(muzzlePos, raycaster.ray.direction);
+            enemies.checkProjectileInterception(muzzlePos, _scratchRaycaster.ray.direction);
 
             let targetPoint = muzzlePos
               .clone()
-              .add(raycaster.ray.direction.clone().multiplyScalar(50));
+              .add(_scratchRaycaster.ray.direction.clone().multiplyScalar(50));
 
             if (weapons.currentWeapon === 'plasma_smg') {
               tracers.addPlasmaProjectile(
                 muzzlePos,
-                raycaster.ray.direction,
+                _scratchRaycaster.ray.direction,
                 wDef.damage,
                 wDef.projectileSpeed || 58,
                 activeShotColor
               );
               tracers.addLaserBeam(
                 muzzlePos,
-                muzzlePos.clone().add(raycaster.ray.direction.clone().multiplyScalar(8)),
+                muzzlePos.clone().add(_scratchRaycaster.ray.direction.clone().multiplyScalar(8)),
                 activeShotColor,
                 0.05,
                 0.07
@@ -1048,15 +1228,25 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                 );
 
               for (const enemy of activeEnemies) {
-                const enemyBox = new THREE.Box3().setFromObject(enemy.mesh);
-                if (raycaster.ray.intersectsBox(enemyBox)) {
+                const isBoss = enemy.type === 'chroma_titan';
+                const isElite = enemy.type === 'chromabot_elite';
+                const boxH = isBoss ? 4.4 : isElite ? 2.4 : 2.1;
+                const boxW = isBoss ? 3.4 : isElite ? 1.55 : 1.3;
+                _scratchEnemyCenter.set(
+                  enemy.position.x,
+                  enemy.position.y + boxH * 0.5,
+                  enemy.position.z
+                );
+                _scratchEnemySize.set(boxW, boxH, boxW);
+                _scratchEnemyBox.setFromCenterAndSize(_scratchEnemyCenter, _scratchEnemySize);
+                if (_scratchRaycaster.ray.intersectsBox(_scratchEnemyBox)) {
                   const hitPoint = new THREE.Vector3();
-                  raycaster.ray.intersectBox(enemyBox, hitPoint);
+                  _scratchRaycaster.ray.intersectBox(_scratchEnemyBox, hitPoint);
                   targetPoint.copy(hitPoint);
 
                   const isHeadshot =
                     hitPoint.y >
-                    enemy.position.y + (enemyBox.max.y - enemyBox.min.y) * 0.68;
+                    enemy.position.y + (_scratchEnemyBox.max.y - _scratchEnemyBox.min.y) * 0.68;
 
                   const shootDir = new THREE.Vector3()
                     .subVectors(enemy.position, playerPos.current)
@@ -1077,7 +1267,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                 tracers.addLaserBeam(muzzlePos, targetPoint, activeShotColor, 0.055, 0.13);
               } else if (weapons.currentWeapon === 'cyber_shotgun') {
                 for (let p = 0; p < 8; p++) {
-                  const spreadDir = raycaster.ray.direction
+                  const spreadDir = _scratchRaycaster.ray.direction
                     .clone()
                     .add(
                       new THREE.Vector3(
@@ -1099,7 +1289,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             arena.hazardNodes.forEach((node: HazardNode) => {
               if (!node.isExploded) {
                 const nodeBox = new THREE.Box3().setFromObject(node.mesh);
-                if (raycaster.ray.intersectsBox(nodeBox)) {
+                if (_scratchRaycaster.ray.intersectsBox(nodeBox)) {
                   node.isExploded = true;
                   node.mesh.visible = false;
                   sound.playEmp();
@@ -1128,13 +1318,36 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           }
         }
 
-        setDashCd(dashTimer.current);
-        setEmpCd(empTimer.current);
-        setOverdriveCd(overdriveTimer.current);
-        setAmmo(weapons.ammoCount);
-        setMaxAmmo(weapons.getMaxMagSize());
-        setIsReloading(weapons.isReloading);
-        setReloadProgress(weapons.reloadProgress);
+        // Throttle pembaruan state HUD (cooldowns & reload) ke ~20fps agar tidak memicu re-render React 60fps
+        lastHudTimer.current += dt;
+        const anyCooldownActive =
+          dashTimer.current > 0 ||
+          empTimer.current > 0 ||
+          overdriveTimer.current > 0 ||
+          weapons.isReloading;
+
+        if (lastHudTimer.current >= 0.05 || !anyCooldownActive) {
+          lastHudTimer.current = 0;
+          setDashCd(dashTimer.current);
+          setEmpCd(empTimer.current);
+          setOverdriveCd(overdriveTimer.current);
+          if (weapons.isReloading) {
+            setReloadProgress(weapons.reloadProgress);
+          }
+        }
+
+        if (weapons.isReloading !== isReloadingRef.current) {
+          isReloadingRef.current = weapons.isReloading;
+          setIsReloading(weapons.isReloading);
+          if (!weapons.isReloading) setReloadProgress(0);
+        }
+
+        if (weapons.ammoCount !== ammoRef.current) {
+          ammoRef.current = weapons.ammoCount;
+          setAmmo(weapons.ammoCount);
+          setMaxAmmo(weapons.getMaxMagSize());
+          setReserveAmmo(weapons.reserveAmmo);
+        }
 
         // --- 4. Manajemen 3 Tahap Berurutan, Chromabots, & Boss CHROMA TITAN ---
         const stageNum = stateRef.current.player.stage;
@@ -1156,7 +1369,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             const currentTarget = stateRef.current.targetColorId;
             const hasTargetBot = activeBots.some((e) => e.colorId === currentTarget);
 
-            const spawnColor: RYBColorId = !hasTargetBot
+            const spawnColor: GameColorId = !hasTargetBot
               ? currentTarget
               : stageDef.colorPool[Math.floor(Math.random() * stageDef.colorPool.length)];
 
@@ -1170,6 +1383,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               0,
               Math.sin(angle) * spawnRadius
             );
+            resolveCircleXZCollision(spawnPos, 1.5, arena.colliders);
 
             enemies.spawnEnemy(
               botType,
@@ -1184,25 +1398,31 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           if (!stageTransitionLock.current) {
             stageTransitionLock.current = true;
             sound.playWaveFanfare();
-            enemies.clearAll();
-            inputManagerRef.current.desktop.releasePointerLock();
 
             const clearedNum = stageNum as 1 | 2;
-            setClearedStageForModal(clearedNum);
-
             setPlayer((prev) => ({
               ...prev,
               score: prev.score + stageDef.stageClearBonus,
             }));
 
-            setGameState('stage_transition');
+            if (stageClearTimerRef.current) {
+              clearTimeout(stageClearTimerRef.current);
+            }
+            stageClearTimerRef.current = setTimeout(() => {
+              stageClearTimerRef.current = null;
+              enemies.clearAll();
+              inputManagerRef.current.desktop.releasePointerLock();
+              setStageModalMode('stage_clear');
+              setStageModalNumber(clearedNum);
+              setGameState('stage_transition');
+            }, 1100);
           }
         } else {
-          if (!bossInstanceRef.current) {
+          if (!bossInstanceRef.current && !bossVictoryTimerRef.current) {
             enemies.clearAll();
             sound.playBossPhaseShift();
 
-            const initialBossColor = BOSS_PHASES[1].colorPool[0];
+            const initialBossColor = selectNextTargetColor(BOSS_PHASES[1].colorPool, []);
             setTargetColorId(initialBossColor);
             setWrongStreakOnTarget(0);
             setShowHint(false);
@@ -1229,7 +1449,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               colorHex: '#22d3ee',
               timestamp: performance.now(),
             });
-          } else {
+          } else if (bossInstanceRef.current) {
             const boss = bossInstanceRef.current;
             const phaseDef = getBossPhaseForHp(boss.hp, boss.maxHp);
             if (phaseDef.phase === 3) {
@@ -1249,47 +1469,78 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           }
         }
 
-        enemies.update(dt, playerPos.current, (dmg: number) => {
-          // Efek flicker merah saat pemain terkena tembakan musuh + Haptic feedback
-          setPlayerDamageFlash(true);
-          if (damageFlashTimerRef.current) {
-            clearTimeout(damageFlashTimerRef.current);
-          }
-          damageFlashTimerRef.current = setTimeout(() => {
-            setPlayerDamageFlash(false);
-          }, 260);
-          inputManagerRef.current.triggerHaptic(
-            'playerDamage',
-            stateRef.current.settings,
-            vrManager.currentSession
-          );
-
-          setPlayer((prev: PlayerStats) => {
-            const res = calculatePlayerDamage(prev.hp, prev.shield, dmg);
-            if (res.isDead) {
-              inputManagerRef.current.desktop.releasePointerLock();
-              enemies.clearAll();
-              arena.clearBossCrystals();
-              tracers.clearAll();
-              bossInstanceRef.current = null;
-              activeCrystalColorIdRef.current = null;
-              setActiveCrystalColorId(null);
-              weapons.setCrystalTint(null);
-              setBossHp(undefined);
-              setPlayerDamageFlash(false);
-              setGameState('gameover');
-              const elapsed = (Date.now() - runStartTime.current) / 1000;
-              const summary = calculateRunSummary({ ...prev, hp: 0 }, elapsed, false);
-              setRunSummary(summary);
-              setFinalScore(summary.score);
+        enemies.update(
+          dt,
+          playerPos.current,
+          (dmg: number) => {
+            if (isPlayerDyingRef.current) return;
+            // Efek flicker merah saat pemain terkena tembakan musuh + Haptic feedback
+            setPlayerDamageFlash(true);
+            if (damageFlashTimerRef.current) {
+              clearTimeout(damageFlashTimerRef.current);
             }
-            return {
-              ...prev,
-              hp: res.newHp,
-              shield: res.newShield,
-            };
-          });
-        });
+            damageFlashTimerRef.current = setTimeout(() => {
+              setPlayerDamageFlash(false);
+            }, 260);
+            inputManagerRef.current.triggerHaptic(
+              'playerDamage',
+              stateRef.current.settings,
+              vrManager.currentSession
+            );
+
+            setPlayer((prev: PlayerStats) => {
+              const res = calculatePlayerDamage(prev.hp, prev.shield, dmg);
+              if (res.isDead && !isPlayerDyingRef.current) {
+                isPlayerDyingRef.current = true;
+                setIsPlayerDying(true);
+                inputManagerRef.current.desktop.releasePointerLock();
+                const elapsed = (Date.now() - runStartTime.current) / 1000;
+                const summary = calculateRunSummary({ ...prev, hp: 0 }, elapsed, false);
+
+                if (playerDeathTimerRef.current) {
+                  clearTimeout(playerDeathTimerRef.current);
+                }
+                playerDeathTimerRef.current = setTimeout(() => {
+                  enemies.clearAll();
+                  arena.clearBossCrystals();
+                  tracers.clearAll();
+                  bossInstanceRef.current = null;
+                  activeCrystalColorIdRef.current = null;
+                  setActiveCrystalColorId(null);
+                  weapons.setCrystalTint(null);
+                  setBossHp(undefined);
+                  setPlayerDamageFlash(false);
+                  isPlayerDyingRef.current = false;
+                  setIsPlayerDying(false);
+                  setRunSummary(summary);
+                  setFinalScore(summary.score);
+                  setGameState('gameover');
+                  playerDeathTimerRef.current = null;
+                }, 1100);
+              }
+              return {
+                ...prev,
+                hp: res.newHp,
+                shield: res.newShield,
+              };
+            });
+          },
+          (explodePos, colorHex, isBossExplode, isPreBurst) => {
+            if (!isBossExplode) {
+              particles.emit(explodePos, 32, colorHex, 2.2);
+              tracers.addHitImpactEffect(explodePos, colorHex, false, false);
+            } else if (isPreBurst) {
+              particles.emit(explodePos, 18, colorHex, 1.8);
+              sound.playProjectileImpact();
+            } else {
+              particles.emitSpectrumExplosion(explodePos, 18);
+              tracers.addHitImpactEffect(explodePos, '#22d3ee', true, false);
+              tracers.addHitImpactEffect(explodePos, '#ffffff', true, false);
+              sound.playEmp();
+            }
+          },
+          arena.colliders
+        );
 
         arena.update(now / 1000, dt);
         particles.update(dt);
@@ -1347,6 +1598,19 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       renderer.setAnimationLoop(null);
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('click', handleCanvasClick);
+      renderer.domElement.removeEventListener('mousedown', handleCanvasClick);
+      if (bossVictoryTimerRef.current) {
+        clearTimeout(bossVictoryTimerRef.current);
+        bossVictoryTimerRef.current = null;
+      }
+      if (playerDeathTimerRef.current) {
+        clearTimeout(playerDeathTimerRef.current);
+        playerDeathTimerRef.current = null;
+      }
+      if (stageClearTimerRef.current) {
+        clearTimeout(stageClearTimerRef.current);
+        stageClearTimerRef.current = null;
+      }
       inputManagerRef.current.dispose();
       vrManager.dispose();
       vrHud.dispose();
@@ -1368,6 +1632,20 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
   // Kembali ke Menu Utama dengan Ruangan 3D Bersih Tanpa Musuh & Tanpa Boss
   const handleReturnToMenu = () => {
+    if (bossVictoryTimerRef.current) {
+      clearTimeout(bossVictoryTimerRef.current);
+      bossVictoryTimerRef.current = null;
+    }
+    if (playerDeathTimerRef.current) {
+      clearTimeout(playerDeathTimerRef.current);
+      playerDeathTimerRef.current = null;
+    }
+    if (stageClearTimerRef.current) {
+      clearTimeout(stageClearTimerRef.current);
+      stageClearTimerRef.current = null;
+    }
+    isPlayerDyingRef.current = false;
+    setIsPlayerDying(false);
     enemiesRef.current?.clearAll();
     if (arenaRef.current && 'clearBossCrystals' in arenaRef.current) {
       arenaRef.current.clearBossCrystals();
@@ -1388,6 +1666,20 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
   // Mulai Misi Baru dari Stage 1 (Primer)
   const handleStartRun = () => {
+    if (bossVictoryTimerRef.current) {
+      clearTimeout(bossVictoryTimerRef.current);
+      bossVictoryTimerRef.current = null;
+    }
+    if (playerDeathTimerRef.current) {
+      clearTimeout(playerDeathTimerRef.current);
+      playerDeathTimerRef.current = null;
+    }
+    if (stageClearTimerRef.current) {
+      clearTimeout(stageClearTimerRef.current);
+      stageClearTimerRef.current = null;
+    }
+    isPlayerDyingRef.current = false;
+    setIsPlayerDying(false);
     const initialColor = STAGE_DEFINITIONS[1].colorPool[0];
     setTargetColorId(initialColor);
     setWrongStreakOnTarget(0);
@@ -1419,20 +1711,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     if (arenaRef.current && 'setStageTheme' in arenaRef.current) {
       arenaRef.current.setStageTheme(1);
     }
+    if (arenaRef.current && 'resetArenaPickups' in arenaRef.current) {
+      arenaRef.current.resetArenaPickups();
+    }
     if (enemiesRef.current) {
       enemiesRef.current.clearAll();
-      STAGE_DEFINITIONS[1].colorPool.forEach((colId, idx) => {
-        const ang = (idx / 3) * Math.PI * 2 - Math.PI / 2;
-        const pos = new THREE.Vector3(Math.cos(ang) * 20, 0, Math.sin(ang) * 20);
-        enemiesRef.current?.spawnEnemy(
-          'chromabot_normal',
-          colId,
-          pos,
-          STAGE_DEFINITIONS[1].enemyHpMult,
-          STAGE_DEFINITIONS[1].enemySpeedMult
-        );
-      });
-      enemiesRef.current.triggerTargetGracePeriod(STAGE_DEFINITIONS[1].targetGracePeriodSeconds);
     }
     if (tracersRef.current) {
       tracersRef.current.clearAll();
@@ -1440,13 +1723,91 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     if (weaponsRef.current) {
       weaponsRef.current.setCrystalTint(null);
       weaponsRef.current.switchWeapon('laser_rifle');
+      weaponsRef.current.resetAllAmmo();
       setCurrentWeapon('laser_rifle');
+      setAmmo(weaponsRef.current.ammoCount);
+      setMaxAmmo(weaponsRef.current.getMaxMagSize());
+      setReserveAmmo(weaponsRef.current.reserveAmmo);
+    }
+
+    // Tampilkan papan Stage 1 (Hint Warna Primer & Petunjuk Item) sebelum pertempuran dimulai
+    setStageModalMode('stage_intro');
+    setStageModalNumber(1);
+    setGameState('stage_transition');
+  };
+
+  const handleContinueFromStageTransition = () => {
+    if (stageModalMode === 'stage_clear') {
+      const nextStage = Math.min(3, stageModalNumber + 1) as 2 | 3;
+      const nextStageDef = STAGE_DEFINITIONS[nextStage];
+      const firstTarget = nextStageDef.colorPool[0];
+
+      setTargetColorId(firstTarget);
+      setWrongStreakOnTarget(0);
+      setShowHint(false);
+
+      setPlayer((prev) => ({
+        ...prev,
+        stage: nextStage,
+        stageKills: 0,
+      }));
+
+      spawnTimer.current = 0;
+      bossInstanceRef.current = null;
+      bossDamageSinceSwitch.current = 0;
+      stageTransitionLock.current = false;
+      setBossHp(undefined);
+      setShotFeedback(null);
+
+      if (arenaRef.current && 'setStageTheme' in arenaRef.current) {
+        arenaRef.current.setStageTheme(nextStage);
+      }
+
+      setStageModalMode('stage_intro');
+      setStageModalNumber(nextStage);
+      setGameState('stage_transition');
+      return;
+    }
+
+    // stage_intro -> mulai pertempuran pada stageModalNumber
+    const activeStage = stageModalNumber;
+    const activeStageDef = STAGE_DEFINITIONS[activeStage];
+    const firstTarget = activeStageDef.colorPool[0];
+    setTargetColorId(firstTarget);
+    setWrongStreakOnTarget(0);
+    setShowHint(false);
+
+    if (arenaRef.current && 'resetArenaPickups' in arenaRef.current) {
+      arenaRef.current.resetArenaPickups();
+    }
+
+    if (enemiesRef.current) {
+      enemiesRef.current.clearAll();
+      const initialWaveColors = [
+        firstTarget,
+        ...activeStageDef.colorPool.filter((c) => c !== firstTarget).slice(0, 2),
+      ];
+      initialWaveColors.forEach((colId, idx) => {
+        const ang = (idx / initialWaveColors.length) * Math.PI * 2;
+        const pos = new THREE.Vector3(Math.cos(ang) * 21, 0, Math.sin(ang) * 21);
+        if (arenaRef.current && 'colliders' in arenaRef.current) {
+          resolveCircleXZCollision(pos, 1.5, arenaRef.current.colliders);
+        }
+        enemiesRef.current?.spawnEnemy(
+          'chromabot_normal',
+          colId,
+          pos,
+          activeStageDef.enemyHpMult,
+          activeStageDef.enemySpeedMult
+        );
+      });
+      enemiesRef.current.triggerTargetGracePeriod(activeStageDef.targetGracePeriodSeconds);
     }
 
     setGameState('playing');
     document.body.dataset.state = 'playing';
-
     if (
+      activeStage === 1 &&
       inputManagerRef.current.mode === 'vr' &&
       vrManagerRef.current &&
       !rendererRef.current?.xr.isPresenting
@@ -1457,57 +1818,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     }
   };
 
-  const handleContinueFromStageTransition = () => {
-    const nextStage = Math.min(3, player.stage + 1) as 1 | 2 | 3;
-    const nextStageDef = STAGE_DEFINITIONS[nextStage];
-    const firstTarget = nextStageDef.colorPool[0];
-
-    setTargetColorId(firstTarget);
-    setWrongStreakOnTarget(0);
-    setShowHint(false);
-
-    setPlayer((prev) => ({
-      ...prev,
-      stage: nextStage,
-      stageKills: 0,
-    }));
-
-    spawnTimer.current = 0;
-    bossInstanceRef.current = null;
-    bossDamageSinceSwitch.current = 0;
-    stageTransitionLock.current = false;
-    setBossHp(undefined);
-    setShotFeedback(null);
-
-    if (arenaRef.current && 'setStageTheme' in arenaRef.current) {
-      arenaRef.current.setStageTheme(nextStage);
-    }
-
-    if (enemiesRef.current) {
-      enemiesRef.current.clearAll();
-      // Spawn Chromabots awal (pastikan warna target pertama ada di arena)
-      const initialWaveColors = [
-        firstTarget,
-        ...nextStageDef.colorPool.filter((c) => c !== firstTarget).slice(0, 2),
-      ];
-      initialWaveColors.forEach((colId, idx) => {
-        const ang = (idx / initialWaveColors.length) * Math.PI * 2;
-        const pos = new THREE.Vector3(Math.cos(ang) * 21, 0, Math.sin(ang) * 21);
-        enemiesRef.current?.spawnEnemy(
-          'chromabot_normal',
-          colId,
-          pos,
-          nextStageDef.enemyHpMult,
-          nextStageDef.enemySpeedMult
-        );
-      });
-      enemiesRef.current.triggerTargetGracePeriod(nextStageDef.targetGracePeriodSeconds);
-    }
-
-    setGameState('playing');
-    if (inputManagerRef.current.mode === 'desktop') {
-      inputManagerRef.current.desktop.requestPointerLock();
-    }
+  menuCallbacksRef.current = {
+    startRun: handleStartRun,
+    returnToMenu: handleReturnToMenu,
+    continueStage: handleContinueFromStageTransition,
   };
 
   const currentBossPhase =
@@ -1522,6 +1836,107 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     return () => clearTimeout(t);
   }, [shotFeedback]);
 
+  // Navigasi Keyboard untuk Menu & Modal (Esc: kembali/lanjutkan, Panah: pindah tombol, Enter: konfirmasi)
+  useEffect(() => {
+    const isMenuActive = gameState !== 'playing' || showSettings || showTutorial;
+    if (!isMenuActive) return;
+
+    const getActiveBoard = (): HTMLElement | null => {
+      const boards = document.querySelectorAll<HTMLElement>('[data-ui-board="true"]');
+      return boards.length > 0 ? boards[boards.length - 1] : null;
+    };
+
+    const getFocusableControls = (board: HTMLElement): HTMLElement[] =>
+      Array.from(
+        board.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input[type="range"]:not(:disabled)'
+        )
+      ).filter((el) => el.offsetParent !== null);
+
+    // Fokus otomatis pada tombol utama saat papan berpindah
+    const focusTimer = setTimeout(() => {
+      const board = getActiveBoard();
+      if (!board) return;
+      const controls = getFocusableControls(board);
+      if (controls.length > 0 && !board.contains(document.activeElement)) {
+        const defaultBtn =
+          controls.find((el) => el.tagName === 'BUTTON' && el.className.includes('bg-cyan-400')) ||
+          controls.find((el) => el.tagName === 'BUTTON') ||
+          controls[0];
+        defaultBtn?.focus();
+      }
+    }, 30);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const board = getActiveBoard();
+      if (!board) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (showSettings) {
+          setShowSettings(false);
+        } else if (showTutorial) {
+          setShowTutorial(false);
+        } else if (gameState === 'paused') {
+          setGameState('playing');
+          if (inputManagerRef.current.mode === 'desktop') {
+            inputManagerRef.current.desktop.requestPointerLock();
+          }
+        } else if (gameState === 'gameover' || gameState === 'victory') {
+          menuCallbacksRef.current.returnToMenu();
+        }
+        return;
+      }
+
+      const controls = getFocusableControls(board);
+      if (controls.length === 0) return;
+
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isRangeInput =
+        activeEl?.tagName === 'INPUT' && (activeEl as HTMLInputElement).type === 'range';
+
+      if (
+        e.key === 'ArrowDown' ||
+        e.key === 'ArrowUp' ||
+        (!isRangeInput && (e.key === 'ArrowRight' || e.key === 'ArrowLeft'))
+      ) {
+        e.preventDefault();
+        const currentIdx = activeEl ? controls.indexOf(activeEl) : -1;
+        const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
+        const nextIdx =
+          currentIdx === -1
+            ? step > 0
+              ? 0
+              : controls.length - 1
+            : (currentIdx + step + controls.length) % controls.length;
+        controls[nextIdx]?.focus();
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        if (activeEl && activeEl.tagName === 'BUTTON' && board.contains(activeEl)) {
+          e.preventDefault();
+          activeEl.click();
+        } else if (!isRangeInput) {
+          const primaryBtn =
+            controls.find(
+              (el) => el.tagName === 'BUTTON' && el.className.includes('bg-cyan-400')
+            ) || controls.find((el) => el.tagName === 'BUTTON');
+          if (primaryBtn) {
+            e.preventDefault();
+            primaryBtn.click();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      clearTimeout(focusTimer);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [gameState, showSettings, showTutorial]);
+
   return (
     <div className="relative w-full h-screen bg-slate-950 overflow-hidden select-none font-sans">
       {/* Container Kanvas 3D Three.js */}
@@ -1531,9 +1946,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           MAIN MENU MINIMALIS & KONTRAS TINGGI (BERLATAR ARENA 3D)
          ==================================================================== */}
       {gameState === 'title' && (
-        <div className="absolute inset-0 bg-[#050811]/60 backdrop-blur-xs flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
+        <div className="absolute inset-0 bg-[#050811]/60 backdrop-blur-xs flex flex-col items-center justify-center p-6 z-30 overflow-y-auto ui-backdrop-enter">
           {/* Kartu Utama Tengah */}
-          <div className="bg-[#090d18]/92 border border-white/15 px-8 py-10 md:px-12 md:py-12 rounded-3xl shadow-2xl backdrop-blur-md flex flex-col items-center text-center max-w-md w-full">
+          <div data-ui-board="true" className="bg-[#090d18]/92 border border-white/15 px-8 py-10 md:px-12 md:py-12 rounded-3xl shadow-2xl backdrop-blur-md flex flex-col items-center text-center max-w-md w-full ui-panel-enter">
             {/* Tiga Kotak Polos Warna Primer RYB */}
             <div className="flex items-center gap-3 mb-5">
               <span className="w-5 h-5 rounded-md bg-[#EF233C] border border-white/80 shadow-sm" />
@@ -1560,6 +1975,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               >
                 <Play className="w-5 h-5 fill-current" />
                 <span>MULAI MISI</span>
+                <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
               </button>
 
               <div className="grid grid-cols-2 gap-3 w-full">
@@ -1570,6 +1986,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                 >
                   <BookOpen className="w-4 h-4 text-cyan-400" />
                   <span>CARA MAIN</span>
+                  <GamepadBadge button="X" visible={isGamepadConnected} size="sm" />
                 </button>
 
                 <button
@@ -1579,6 +1996,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                 >
                   <Sliders className="w-4 h-4 text-cyan-400" />
                   <span>PENGATURAN</span>
+                  <GamepadBadge button="Y" visible={isGamepadConnected} size="sm" />
                 </button>
               </div>
             </div>
@@ -1599,6 +2017,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             currentWeapon={currentWeapon}
             ammo={ammo}
             maxAmmo={maxAmmo}
+            reserveAmmo={reserveAmmo}
             isReloading={isReloading}
             reloadProgress={reloadProgress}
             bossHp={bossHp}
@@ -1615,6 +2034,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             overdriveRemaining={overdriveRemaining}
             shotFeedback={shotFeedback}
             platformMode={platformMode}
+            isGamepadConnected={isGamepadConnected}
             vrComfortVignetteActive={vrComfortVignetteActive}
             onSwitchWeapon={(type) => {
               weaponsRef.current?.switchWeapon(type);
@@ -1638,7 +2058,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             playerDamageFlash={playerDamageFlash}
           />
 
-          {platformMode === 'mobile' && (
+          {platformMode === 'mobile' && !isGamepadConnected && (
             <MobileTouchControls
               mobileInput={inputManagerRef.current.mobile}
               currentWeapon={currentWeapon}
@@ -1658,9 +2078,22 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       {/* === MODAL TRANSISI EDUKASI ANTARSTAGE === */}
       {gameState === 'stage_transition' && (
         <StageTransitionModal
-          clearedStageNumber={clearedStageForModal}
-          stageScoreBonus={STAGE_DEFINITIONS[clearedStageForModal].stageClearBonus}
+          mode={stageModalMode}
+          stageNumber={stageModalNumber}
+          stageScoreBonus={STAGE_DEFINITIONS[stageModalNumber].stageClearBonus}
           onContinue={handleContinueFromStageTransition}
+          isGamepadConnected={isGamepadConnected}
+        />
+      )}
+
+      {/* === TRANSISI LAYAR MERAH SAAT PEMAIN KALAH === */}
+      {isPlayerDying && (
+        <div
+          className="fixed inset-0 z-40 pointer-events-none bg-red-600/80 animate-pulse transition-opacity duration-700"
+          style={{
+            background:
+              'radial-gradient(circle at center, rgba(220, 38, 38, 0.72) 0%, rgba(127, 29, 29, 0.94) 100%)',
+          }}
         />
       )}
 
@@ -1671,6 +2104,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           score={finalScore}
           onRestart={handleStartRun}
           onReturnToMenu={handleReturnToMenu}
+          isGamepadConnected={isGamepadConnected}
         />
       )}
 
@@ -1681,6 +2115,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           score={finalScore}
           onRestart={handleStartRun}
           onReturnToMenu={handleReturnToMenu}
+          isGamepadConnected={isGamepadConnected}
         />
       )}
 
@@ -1701,6 +2136,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             setIsMuted(m);
           }}
           isMuted={isMuted}
+          isGamepadConnected={isGamepadConnected}
         />
       )}
 
@@ -1708,6 +2144,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       {showTutorial && (
         <TutorialModal
           platformMode={platformMode}
+          isGamepadConnected={isGamepadConnected}
           onClose={() => setShowTutorial(false)}
           onStartMission={() => {
             setShowTutorial(false);
@@ -1727,6 +2164,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             setIsMuted(m);
           }}
           onClose={() => setShowSettings(false)}
+          isGamepadConnected={isGamepadConnected}
         />
       )}
     </div>

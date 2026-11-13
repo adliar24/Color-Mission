@@ -2,9 +2,9 @@ import React from 'react';
 import {
   BossPhaseDef,
   ColorInstructionClue,
+  GameColorId,
   PlatformMode,
   PlayerStats,
-  RYBColorId,
   ShotFeedback,
   WeaponType,
 } from '../game/types';
@@ -23,10 +23,11 @@ import {
   Heart,
   HelpCircle,
 } from 'lucide-react';
+import { GamepadBadge } from './GamepadBadge';
 
 interface PlayingHUDProps {
   player: PlayerStats;
-  targetColorId: RYBColorId;
+  targetColorId: GameColorId;
   instructionClue?: ColorInstructionClue;
   showHint?: boolean;
   wrongStreakOnTarget?: number;
@@ -34,12 +35,13 @@ interface PlayingHUDProps {
   currentWeapon: WeaponType;
   ammo: number;
   maxAmmo: number;
+  reserveAmmo?: number;
   isReloading: boolean;
   reloadProgress: number;
   bossHp?: number;
   bossMaxHp?: number;
   bossPhase?: BossPhaseDef;
-  activeCrystalColorId?: RYBColorId | null;
+  activeCrystalColorId?: GameColorId | null;
   dashCooldown: number;
   dashMaxCooldown: number;
   empCooldown: number;
@@ -50,6 +52,7 @@ interface PlayingHUDProps {
   overdriveRemaining: number;
   shotFeedback: ShotFeedback | null;
   platformMode: PlatformMode;
+  isGamepadConnected?: boolean;
   vrComfortVignetteActive?: boolean;
   onSwitchWeapon: (type: WeaponType) => void;
   onPause: () => void;
@@ -72,6 +75,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
   currentWeapon,
   ammo,
   maxAmmo,
+  reserveAmmo = 0,
   isReloading,
   reloadProgress,
   bossHp,
@@ -84,6 +88,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
   overdriveRemaining,
   shotFeedback,
   platformMode,
+  isGamepadConnected = false,
   vrComfortVignetteActive = false,
   onSwitchWeapon,
   onPause,
@@ -155,7 +160,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
          ==================================================================== */}
       <div className="absolute top-4 left-4 right-4 md:top-6 md:left-7 md:right-7 flex items-start justify-between gap-4">
         {/* Kiri Atas: Stage & Bar Progres */}
-        <div className="bg-[#090d18]/90 border border-white/12 px-4 py-3 rounded-2xl backdrop-blur-md min-w-[170px] md:min-w-[200px] shadow-xl">
+        <div className="bg-[#090d18]/95 border border-white/12 px-4 py-3 rounded-2xl min-w-[170px] md:min-w-[200px] shadow-xl">
           <div className="flex items-center justify-between gap-3 mb-2">
             <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-400">
               {isBossActive ? 'CHROMA TITAN' : `STAGE ${player.stage}`}
@@ -169,9 +174,8 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
 
           <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
             <div
-              className={`h-full transition-all duration-200 ${
-                isBossActive ? 'bg-rose-500' : 'bg-cyan-400'
-              }`}
+              className={`h-full transition-all duration-200 ${isBossActive ? 'bg-rose-500' : 'bg-cyan-400'
+                }`}
               style={{
                 width: `${isBossActive ? bossHpPercent : stageProgressPercent}%`,
               }}
@@ -181,7 +185,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
 
         {/* Kanan Atas: Skor, Kombo & Kontrol */}
         <div data-ui="true" className="flex items-center gap-2.5 pointer-events-auto">
-          <div className="bg-[#090d18]/90 border border-white/12 px-4 py-2.5 rounded-2xl backdrop-blur-md flex items-center gap-4 shadow-xl">
+          <div className="bg-[#090d18]/95 border border-white/12 px-4 py-2.5 rounded-2xl flex items-center gap-4 shadow-xl">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                 SKOR
@@ -233,11 +237,12 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           <button
             type="button"
             onClick={onPause}
-            className="bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 p-3 rounded-2xl text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl"
+            className="bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 p-3 rounded-2xl text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl flex items-center gap-1.5"
             title="Jeda [Esc]"
             aria-label="Jeda"
           >
             <Pause className="w-4 h-4 text-cyan-400" />
+            <GamepadBadge button="START" visible={isGamepadConnected} size="sm" />
           </button>
         </div>
       </div>
@@ -248,7 +253,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       <div className="absolute top-20 md:top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
         <div
           data-ui="true"
-          className="bg-[#090d18]/92 border border-white/15 px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto flex flex-col items-center"
+          className="bg-[#090d18]/95 border border-white/15 px-5 py-3 rounded-2xl shadow-2xl pointer-events-auto flex flex-col items-center"
         >
           {clue.displayMode === 'direct' ? (
             /* STAGE 1 — SATU KOTAK POLOS BERWARNA */
@@ -291,13 +296,13 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
                     type="button"
                     onClick={onToggleHint}
                     title="Petunjuk [H]"
-                    className={`ml-1 p-2 rounded-xl border transition-colors cursor-pointer ${
-                      showHint
+                    className={`ml-1 p-2 rounded-xl border transition-colors cursor-pointer flex items-center gap-1 ${showHint
                         ? 'bg-cyan-400 text-slate-950 border-cyan-300'
                         : 'bg-white/5 border-white/15 text-slate-300 hover:text-white'
-                    }`}
+                      }`}
                   >
                     <HelpCircle className="w-4 h-4" />
+                    <GamepadBadge button="BACK" visible={isGamepadConnected} size="sm" />
                   </button>
                 )}
               </div>
@@ -347,11 +352,11 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
         {/* Umpan Balik Tembakan Singkat & Padat */}
         {shotFeedback && (
           <div
-            className={`px-4 py-1.5 rounded-xl border text-xs md:text-sm font-extrabold tracking-wide shadow-xl backdrop-blur-md flex items-center gap-2 ${
-              shotFeedback.type === 'wrong'
+            key={shotFeedback.timestamp}
+            className={`px-4 py-1.5 rounded-xl border text-xs md:text-sm font-extrabold tracking-wide shadow-xl flex items-center gap-2 ui-banner-enter ${shotFeedback.type === 'wrong'
                 ? 'bg-[#090d18]/95 border-rose-500 text-rose-400'
                 : 'bg-[#090d18]/95 border-emerald-400 text-emerald-300'
-            }`}
+              }`}
           >
             {shotFeedback.type !== 'wrong' && (
               <span
@@ -363,8 +368,8 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
               {isBossActive
                 ? shotFeedback.title
                 : shotFeedback.type === 'wrong'
-                ? 'SALAH!'
-                : 'TEPAT!'}
+                  ? 'SALAH!'
+                  : 'TEPAT!'}
             </span>
             {shotFeedback.points && (
               <span className="text-white tabular-nums">+{shotFeedback.points}</span>
@@ -387,24 +392,22 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           {hitmarkerActive && (
             <>
               <div
-                className={`absolute inset-0 flex items-center justify-center scale-150 transition-transform ${
-                  hitmarkerWrong
+                className={`absolute inset-0 flex items-center justify-center scale-150 transition-transform ${hitmarkerWrong
                     ? 'text-rose-500'
                     : hitmarkerCrit
-                    ? 'text-cyan-300'
-                    : 'text-emerald-400'
-                }`}
+                      ? 'text-cyan-300'
+                      : 'text-emerald-400'
+                  }`}
               >
                 <Crosshair className="w-7 h-7 stroke-[2.5]" />
               </div>
               <div
-                className={`absolute w-11 h-11 rounded-full border-2 animate-ping ${
-                  hitmarkerWrong
+                className={`absolute w-11 h-11 rounded-full border-2 animate-ping ${hitmarkerWrong
                     ? 'border-rose-500'
                     : hitmarkerCrit
-                    ? 'border-cyan-300'
-                    : 'border-emerald-400'
-                }`}
+                      ? 'border-cyan-300'
+                      : 'border-emerald-400'
+                  }`}
               />
             </>
           )}
@@ -415,13 +418,12 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           BAGIAN BAWAH KIRI: HP, SHIELD & KEMAMPUAN
          ==================================================================== */}
       <div
-        className={`absolute flex flex-col gap-2 pointer-events-auto ${
-          platformMode === 'mobile'
+        className={`absolute flex flex-col gap-2 pointer-events-auto ${platformMode === 'mobile'
             ? 'top-20 left-3 scale-90 origin-top-left'
             : 'bottom-6 left-7'
-        }`}
+          }`}
       >
-        <div className="bg-[#090d18]/90 border border-white/12 px-4 py-3.5 rounded-2xl min-w-[200px] md:min-w-[230px] shadow-xl backdrop-blur-md">
+        <div className="bg-[#090d18]/95 border border-white/12 px-4 py-3.5 rounded-2xl min-w-[200px] md:min-w-[230px] shadow-xl">
           {/* HP */}
           <div className="flex items-center justify-between text-xs mb-1">
             <div className="flex items-center gap-1.5 text-slate-300 font-bold">
@@ -457,36 +459,48 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           </div>
 
           {/* Indikator Singkat Kemampuan */}
-          {platformMode !== 'mobile' && (
+          {(platformMode !== 'mobile' || isGamepadConnected) && (
             <div className="grid grid-cols-3 gap-1.5 mt-3 pt-2.5 border-t border-white/10 text-[11px] font-bold">
-              <div className="bg-white/5 px-2 py-1 rounded-lg text-center">
-                <span className="text-slate-400 block text-[9px]">SHIFT</span>
+              <div className="bg-white/5 px-2 py-1 rounded-lg text-center flex flex-col items-center gap-0.5">
+                {isGamepadConnected ? (
+                  <GamepadBadge button="LB" visible size="sm" />
+                ) : (
+                  <span className="text-slate-400 block text-[9px]">SHIFT</span>
+                )}
                 <span className={dashCooldown <= 0 ? 'text-cyan-400' : 'text-slate-500 tabular-nums'}>
                   {dashCooldown <= 0 ? 'DASH' : `${dashCooldown.toFixed(0)}s`}
                 </span>
               </div>
-              <div className="bg-white/5 px-2 py-1 rounded-lg text-center">
-                <span className="text-slate-400 block text-[9px]">Q</span>
+              <div className="bg-white/5 px-2 py-1 rounded-lg text-center flex flex-col items-center gap-0.5">
+                {isGamepadConnected ? (
+                  <GamepadBadge button="RB" visible size="sm" />
+                ) : (
+                  <span className="text-slate-400 block text-[9px]">Q</span>
+                )}
                 <span className={empCooldown <= 0 ? 'text-cyan-400' : 'text-slate-500 tabular-nums'}>
                   {empCooldown <= 0 ? 'EMP' : `${empCooldown.toFixed(0)}s`}
                 </span>
               </div>
-              <div className="bg-white/5 px-2 py-1 rounded-lg text-center">
-                <span className="text-slate-400 block text-[9px]">E</span>
+              <div className="bg-white/5 px-2 py-1 rounded-lg text-center flex flex-col items-center gap-0.5">
+                {isGamepadConnected ? (
+                  <GamepadBadge button="LT" visible size="sm" />
+                ) : (
+                  <span className="text-slate-400 block text-[9px]">E</span>
+                )}
                 <span
                   className={
                     overdriveActive
                       ? 'text-amber-300 tabular-nums'
                       : overdriveCooldown <= 0
-                      ? 'text-cyan-400'
-                      : 'text-slate-500 tabular-nums'
+                        ? 'text-cyan-400'
+                        : 'text-slate-500 tabular-nums'
                   }
                 >
                   {overdriveActive
                     ? `${overdriveRemaining.toFixed(0)}s`
                     : overdriveCooldown <= 0
-                    ? 'TURBO'
-                    : `${overdriveCooldown.toFixed(0)}s`}
+                      ? 'TURBO'
+                      : `${overdriveCooldown.toFixed(0)}s`}
                 </span>
               </div>
             </div>
@@ -499,34 +513,38 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
          ==================================================================== */}
       <div
         data-ui="true"
-        className={`absolute flex flex-col items-end gap-2 pointer-events-auto ${
-          platformMode === 'mobile'
+        className={`absolute flex flex-col items-end gap-2 pointer-events-auto ${platformMode === 'mobile'
             ? 'top-20 right-3 scale-90 origin-top-right'
             : 'bottom-6 right-7'
-        }`}
+          }`}
       >
-        <div className="bg-[#090d18]/90 border border-white/12 px-5 py-3.5 rounded-2xl flex flex-col items-end min-w-[180px] md:min-w-[210px] shadow-xl backdrop-blur-md">
+        <div className="bg-[#090d18]/95 border border-white/12 px-5 py-3.5 rounded-2xl flex flex-col items-end min-w-[180px] md:min-w-[210px] shadow-xl">
           <div className="flex items-baseline justify-between w-full">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-              AMMO
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <span>AMMO</span>
+              <GamepadBadge button="X" visible={isGamepadConnected} size="sm" />
             </span>
             <div className="flex items-baseline gap-1.5">
               <span
-                className={`text-3xl md:text-4xl font-black tabular-nums leading-none ${
-                  overdriveActive
+                className={`text-3xl md:text-4xl font-black tabular-nums leading-none ${overdriveActive
                     ? 'text-cyan-300'
                     : ammo <= Math.max(2, Math.floor(maxAmmo * 0.2))
-                    ? 'text-rose-400'
-                    : 'text-white'
-                }`}
+                      ? 'text-rose-400'
+                      : 'text-white'
+                  }`}
               >
                 {overdriveActive ? '∞' : ammo}
               </span>
               <span className="text-sm font-bold tabular-nums text-slate-400">
-                / {maxAmmo}
+                / {overdriveActive ? '∞' : reserveAmmo}
               </span>
             </div>
           </div>
+          {!overdriveActive && ammo === 0 && reserveAmmo === 0 && (
+            <span className="text-[11px] font-extrabold text-rose-400 tracking-wide mt-1">
+              PELURU HABIS · AMBIL ITEM PELURU
+            </span>
+          )}
 
           {isReloading && (
             <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mt-2">
@@ -537,27 +555,29 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             </div>
           )}
 
-          {platformMode !== 'mobile' && (
-            <div className="grid grid-cols-4 gap-1.5 w-full mt-3 pt-2.5 border-t border-white/10">
-              {(['laser_rifle', 'cyber_shotgun', 'railgun', 'plasma_smg'] as WeaponType[]).map(
-                (wId, idx) => {
-                  const isSelected = currentWeapon === wId;
-                  return (
-                    <button
-                      key={wId}
-                      type="button"
-                      onClick={() => onSwitchWeapon(wId)}
-                      className={`py-1 rounded-lg text-xs font-extrabold transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-cyan-400 text-slate-950'
-                          : 'bg-white/5 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                }
-              )}
+          {(platformMode !== 'mobile' || isGamepadConnected) && (
+            <div className="flex items-center gap-1.5 w-full mt-3 pt-2.5 border-t border-white/10">
+              {isGamepadConnected && <GamepadBadge button="Y" visible size="sm" />}
+              <div className="grid grid-cols-4 gap-1.5 flex-1">
+                {(['laser_rifle', 'cyber_shotgun', 'railgun', 'plasma_smg'] as WeaponType[]).map(
+                  (wId, idx) => {
+                    const isSelected = currentWeapon === wId;
+                    return (
+                      <button
+                        key={wId}
+                        type="button"
+                        onClick={() => onSwitchWeapon(wId)}
+                        className={`py-1 rounded-lg text-xs font-extrabold transition-colors cursor-pointer ${isSelected
+                            ? 'bg-cyan-400 text-slate-950'
+                            : 'bg-white/5 text-slate-400 hover:text-white'
+                          }`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
             </div>
           )}
         </div>

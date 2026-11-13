@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PlayerStats, RYBColorId, ShotFeedback } from '../types';
+import { GameColorId, PlayerStats, ShotFeedback } from '../types';
 import { buildColorInstructionClue, STAGE_DEFINITIONS } from '../rules';
 
 /**
@@ -41,7 +41,7 @@ export class VRWorldHUD {
     nowMs: number,
     isVRActive: boolean,
     player: PlayerStats,
-    targetColorId: RYBColorId,
+    targetColorId: GameColorId,
     ammo: number,
     maxAmmo: number,
     bossHp: number | undefined,

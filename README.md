@@ -20,7 +20,7 @@ Game Web 3D First-Person Shooter (FPS) Edukatif Teori Warna Pigmen RYB (**Merah,
 
 1. Instal dependensi:
    ```bash
-   npm install --legacy-peer-deps
+   npm install
    ```
 2. Jalankan server pengembangan:
    ```bash

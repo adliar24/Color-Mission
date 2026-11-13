@@ -1,7 +1,66 @@
 import * as THREE from 'three';
-import { BossPhase, EnemyDef, EnemyType, RYBColorId } from '../types';
+import { BossPhase, EnemyDef, EnemyType, GameColorId } from '../types';
 import { ENEMY_ARCHETYPES, getColorDef, getBossPhaseForHp } from '../rules';
+import { ALL_RYB_COLORS } from '../colors';
 import { sound } from '../audio';
+
+const _scratchToPlayer = new THREE.Vector3();
+const _scratchDir = new THREE.Vector3();
+const _scratchSideDir = new THREE.Vector3();
+const _scratchPlayerCenter = new THREE.Vector3();
+
+export function disposeHierarchy(obj: THREE.Object3D) {
+  obj.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      const mesh = child as THREE.Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) {
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach((m) => m.dispose());
+        } else {
+          mesh.material.dispose();
+        }
+      }
+    }
+  });
+}
+
+export function resolveCircleXZCollision(
+  pos: THREE.Vector3,
+  radius: number,
+  colliders: THREE.Box3[]
+) {
+  for (let i = 0; i < colliders.length; i++) {
+    const box = colliders[i];
+    if (pos.y > box.max.y + 0.5) continue;
+
+    const cx = Math.max(box.min.x, Math.min(pos.x, box.max.x));
+    const cz = Math.max(box.min.z, Math.min(pos.z, box.max.z));
+    const dx = pos.x - cx;
+    const dz = pos.z - cz;
+    const distSq = dx * dx + dz * dz;
+
+    if (distSq < radius * radius) {
+      if (distSq > 0.00001) {
+        const dist = Math.sqrt(distSq);
+        const push = radius - dist;
+        pos.x += (dx / dist) * push;
+        pos.z += (dz / dist) * push;
+      } else {
+        // Pusat berada tepat di dalam box: dorong keluar ke sisi terdekat
+        const dLeft = Math.abs(pos.x - box.min.x);
+        const dRight = Math.abs(box.max.x - pos.x);
+        const dTop = Math.abs(pos.z - box.min.z);
+        const dBottom = Math.abs(box.max.z - pos.z);
+        const minD = Math.min(dLeft, dRight, dTop, dBottom);
+        if (minD === dLeft) pos.x = box.min.x - radius;
+        else if (minD === dRight) pos.x = box.max.x + radius;
+        else if (minD === dTop) pos.z = box.min.z - radius;
+        else pos.z = box.max.z + radius;
+      }
+    }
+  }
+}
 
 export interface ArticulatedRig {
   bodyGroup: THREE.Group;
@@ -18,7 +77,7 @@ export interface ArticulatedRig {
 export interface EnemyInstance {
   id: string;
   type: EnemyType;
-  colorId: RYBColorId;
+  colorId: GameColorId;
   mesh: THREE.Group;
   rig: ArticulatedRig;
   hp: number;
@@ -37,6 +96,7 @@ export interface EnemyInstance {
   hitReactionTimer: number;
   wrongHitFlash: number;
   deathTimer: number;
+  bossDeathBurstAccum?: number;
   isStunned: number;
   preferredDist: number;
   scoreAwarded: boolean;
@@ -80,7 +140,7 @@ export class EnemyManager {
 
   public spawnEnemy(
     type: EnemyType,
-    colorId: RYBColorId,
+    colorId: GameColorId,
     spawnPos: THREE.Vector3,
     hpMult: number = 1.0,
     speedMult: number = 1.0
@@ -147,8 +207,11 @@ export class EnemyManager {
   /**
    * Mengubah identitas warna RYB pada Chromabot atau COLOR CORE milik CHROMA TITAN secara konsisten.
    */
-  public setEnemyColor(enemy: EnemyInstance, newColorId: RYBColorId) {
+  public setEnemyColor(enemy: EnemyInstance, newColorId: GameColorId) {
     enemy.colorId = newColorId;
+    // Boss CHROMA TITAN mempertahankan warna netralnya agar tidak membocorkan warna target
+    if (enemy.type === 'chroma_titan') return;
+
     const cDef = getColorDef(newColorId);
 
     enemy.armorMaterials.forEach((mat) => {
@@ -169,7 +232,7 @@ export class EnemyManager {
    */
   private buildStylizedCharacter(
     type: EnemyType,
-    colorId: RYBColorId,
+    colorId: GameColorId,
     def: EnemyDef
   ): {
     group: THREE.Group;
@@ -490,16 +553,16 @@ export class EnemyManager {
     });
 
     const coreAccentArmorMat = new THREE.MeshStandardMaterial({
-      color: cDef.hex,
-      emissive: cDef.hex,
-      emissiveIntensity: 0.55,
+      color: '#64748b',
+      emissive: '#475569',
+      emissiveIntensity: 0.45,
       roughness: 0.25,
-      metalness: 0.25,
+      metalness: 0.35,
     });
     armorMaterials.push(coreAccentArmorMat);
 
     const corePureMat = new THREE.MeshBasicMaterial({
-      color: cDef.hex,
+      color: '#cbd5e1',
     });
     emissiveBasicMaterials.push(corePureMat);
 
@@ -707,7 +770,14 @@ export class EnemyManager {
   public update(
     dt: number,
     playerPos: THREE.Vector3,
-    onPlayerHurt: (dmg: number) => void
+    onPlayerHurt: (dmg: number) => void,
+    onEnemyExplode?: (
+      pos: THREE.Vector3,
+      colorHex: string,
+      isBoss: boolean,
+      isPreBurst: boolean
+    ) => void,
+    colliders?: THREE.Box3[]
   ) {
     if (this.targetGraceTimer > 0) {
       this.targetGraceTimer = Math.max(0, this.targetGraceTimer - dt);
@@ -749,20 +819,91 @@ export class EnemyManager {
       // === 2. ANIMASI MATI / HANCUR ===
       if (e.state === 'dead') {
         e.deathTimer += dt;
-        const maxDeathTime = isBoss ? 0.95 : 0.42;
-        const p = Math.min(1, e.deathTimer / maxDeathTime);
+        const cDef = getColorDef(e.colorId);
 
-        // Tubuh roboh ke belakang dengan artikulasi lengan terangkat
-        e.rig.bodyGroup.rotation.x = -p * 1.15;
-        e.rig.leftArmPivot.rotation.x = -p * 1.4;
-        e.rig.rightArmPivot.rotation.x = -p * 1.4;
-        e.mesh.scale.setScalar(Math.max(0.01, 1 - p * 0.85));
+        if (!isBoss) {
+          // Musuh kecil: Overload flash & getar singkat, lalu meledak menjadi partikel & fragmen warna
+          const explodeTime = 0.14;
+          const p = Math.min(1, e.deathTimer / explodeTime);
 
-        if (e.deathTimer >= maxDeathTime) {
-          this.scene.remove(e.mesh);
-          this.enemies.splice(i, 1);
+          e.rig.bodyGroup.position.x = (Math.random() - 0.5) * 0.16;
+          e.rig.bodyGroup.position.z = (Math.random() - 0.5) * 0.16;
+          e.rig.bodyGroup.position.y = p * 0.18;
+          e.mesh.scale.setScalar(1 + p * 0.18);
+
+          e.armorMaterials.forEach((m) => {
+            m.emissive.set('#ffffff');
+            m.emissiveIntensity = 0.7 + p * 1.6;
+          });
+
+          if (e.deathTimer >= explodeTime) {
+            const burstPos = _scratchPlayerCenter.copy(e.position).setY(1.1);
+            this.spawnDeathDebris(burstPos, cDef.hex, e.type === 'chromabot_elite' ? 10 : 7, 1.35, 1.0);
+            onEnemyExplode?.(burstPos, cDef.hex, false, false);
+            this.scene.remove(e.mesh);
+            disposeHierarchy(e.mesh);
+            this.enemies.splice(i, 1);
+          }
+          continue;
+        } else {
+          // BOSS CHROMA TITAN: Sekuens kematian epik 3 fase (~1.85 detik)
+          const maxDeathTime = 1.85;
+          if (e.deathTimer < 1.25) {
+            // Fase 1: Destabilisasi, getar hebat, putaran gyro liar, ledakan beruntun
+            const p1 = e.deathTimer / 1.25;
+            e.rig.bodyGroup.position.x = (Math.random() - 0.5) * 0.36;
+            e.rig.bodyGroup.position.z = (Math.random() - 0.5) * 0.36;
+            e.rig.bodyGroup.rotation.x = -Math.sin(e.deathTimer * 8) * 0.1 - p1 * 0.25;
+            e.rig.leftArmPivot.rotation.z = -0.3 - Math.sin(e.deathTimer * 14) * 0.25;
+            e.rig.rightArmPivot.rotation.z = 0.3 + Math.sin(e.deathTimer * 14) * 0.25;
+
+            if (e.rig.coreRingOuter) e.rig.coreRingOuter.rotation.z += dt * 14;
+            if (e.rig.coreRingInner) e.rig.coreRingInner.rotation.z -= dt * 18;
+
+            const colorIdx = Math.floor(e.deathTimer * 12) % ALL_RYB_COLORS.length;
+            const flashHex = ALL_RYB_COLORS[colorIdx].hex;
+            e.armorMaterials.forEach((m) => {
+              m.emissive.set(flashHex);
+              m.emissiveIntensity = 0.9;
+            });
+
+            e.bossDeathBurstAccum = (e.bossDeathBurstAccum || 0) + dt;
+            if (e.bossDeathBurstAccum >= 0.22) {
+              e.bossDeathBurstAccum = 0;
+              const burstPos = _scratchPlayerCenter.set(
+                e.position.x + (Math.random() - 0.5) * 2.4,
+                1.4 + Math.random() * 2.4,
+                e.position.z + (Math.random() - 0.5) * 2.4
+              );
+              this.spawnDeathDebris(burstPos, flashHex, 4, 1.1, 1.15);
+              onEnemyExplode?.(burstPos, flashHex, true, true);
+            }
+          } else if (e.deathTimer < maxDeathTime) {
+            // Fase 2: Overcharge lift & inti dada membesar putih-cyan sebelum klimaks
+            const p2 = (e.deathTimer - 1.25) / (maxDeathTime - 1.25);
+            e.rig.bodyGroup.position.x = (Math.random() - 0.5) * 0.18;
+            e.rig.bodyGroup.position.z = (Math.random() - 0.5) * 0.18;
+            e.rig.bodyGroup.position.y = p2 * 1.1;
+            e.rig.bodyGroup.rotation.x = -0.25 - p2 * 0.2;
+            e.rig.chestCore.scale.setScalar(1 + p2 * 1.5);
+            if (e.rig.coreRingOuter) e.rig.coreRingOuter.rotation.z += dt * 22;
+            if (e.rig.coreRingInner) e.rig.coreRingInner.rotation.z -= dt * 26;
+
+            e.armorMaterials.forEach((m) => {
+              m.emissive.set('#ffffff');
+              m.emissiveIntensity = 0.9 + p2 * 1.8;
+            });
+          } else {
+            // Fase 3: Klimaks Ledakan Spektrum 12 Warna + Fragmen Besar
+            const climaxPos = _scratchPlayerCenter.copy(e.position).setY(3.0);
+            this.spawnBossDeathDebris(climaxPos);
+            onEnemyExplode?.(climaxPos, cDef.hex, true, false);
+            this.scene.remove(e.mesh);
+            disposeHierarchy(e.mesh);
+            this.enemies.splice(i, 1);
+          }
+          continue;
         }
-        continue;
       }
 
       // Stun dari EMP Shockwave
@@ -817,19 +958,29 @@ export class EnemyManager {
       if (e.rig.coreRingInner) e.rig.coreRingInner.rotation.z -= dt * 2.0;
 
       // === 4. NAVIGASI & PERGERAKAN BERBOBOT ===
-      const toPlayer = new THREE.Vector3().subVectors(playerPos, e.position);
-      toPlayer.y = 0;
-      const dist = toPlayer.length();
-      const dir = dist > 0.001 ? toPlayer.clone().normalize() : new THREE.Vector3(0, 0, 1);
+      _scratchToPlayer.subVectors(playerPos, e.position);
+      _scratchToPlayer.y = 0;
+      const dist = _scratchToPlayer.length();
+      if (dist > 0.001) {
+        _scratchDir.copy(_scratchToPlayer).divideScalar(dist);
+      } else {
+        _scratchDir.set(0, 0, 1);
+      }
+      const dir = _scratchDir;
 
       if (dist > 0.1) {
         const targetYaw = Math.atan2(dir.x, dir.z);
-        e.mesh.rotation.y = targetYaw;
+        let diff = targetYaw - e.mesh.rotation.y;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        e.mesh.rotation.y += diff * Math.min(1, dt * 10);
       }
 
       const minThreshold = e.preferredDist - 2.5;
       const maxThreshold = e.preferredDist + 4.0;
       let moveVelocity = 0;
+      let lateralAmount = 0;
+      let forwardAmount = 0;
 
       if (isBoss) {
         // Pergerakan Dinamis CHROMA TITAN: mengejar, menjaga tekanan, dan strafing menyamping secara agresif
@@ -838,7 +989,8 @@ export class EnemyManager {
           bossPhaseInfo.phase === 3 ? 1.45 : bossPhaseInfo.phase === 2 ? 1.22 : 1.0;
         const bossSpeed = e.speed * phaseSpeedBoost;
 
-        const sideDir = new THREE.Vector3(-dir.z, 0, dir.x);
+        _scratchSideDir.set(-dir.z, 0, dir.x);
+        const sideDir = _scratchSideDir;
         const weaveWave = Math.sin(e.idlePhase * 0.85);
         const surgeFactor = Math.abs(Math.sin(e.idlePhase * 0.42)) > 0.82 ? 1.55 : 1.0;
         const lateralSpeed =
@@ -859,39 +1011,75 @@ export class EnemyManager {
         e.position.addScaledVector(dir, forwardSpeed * dt);
         e.position.addScaledVector(sideDir, lateralSpeed * dt);
         moveVelocity = Math.hypot(forwardSpeed, lateralSpeed);
-      } else if (dist < minThreshold) {
-        e.position.addScaledVector(dir, -e.speed * dt);
-        moveVelocity = e.speed;
-      } else if (dist > maxThreshold) {
-        e.position.addScaledVector(dir, e.speed * dt);
-        moveVelocity = e.speed;
+        lateralAmount = lateralSpeed / Math.max(1, bossSpeed);
+        forwardAmount = forwardSpeed / Math.max(1, bossSpeed);
       } else {
-        const sideDir = new THREE.Vector3(-dir.z, 0, dir.x);
-        const strafeDir = Math.sin(e.idlePhase * 0.7 + i * 1.9);
-        const strafeSpeed = e.speed * 0.55;
-        e.position.addScaledVector(sideDir, strafeDir * strafeSpeed * dt);
-        moveVelocity = Math.abs(strafeDir) * strafeSpeed;
+        _scratchSideDir.set(-dir.z, 0, dir.x);
+        const sideDir = _scratchSideDir;
+        const strafeDir = Math.sin(e.idlePhase * 0.85 + i * 1.9);
+
+        if (dist < minThreshold) {
+          e.position.addScaledVector(dir, -e.speed * dt);
+          e.position.addScaledVector(sideDir, strafeDir * e.speed * 0.35 * dt);
+          moveVelocity = e.speed;
+          forwardAmount = -0.8;
+          lateralAmount = strafeDir * 0.35;
+        } else if (dist > maxThreshold) {
+          // Maju sambil zigzag halus agar gerakan terlihat lincah & dinamis
+          e.position.addScaledVector(dir, e.speed * dt);
+          e.position.addScaledVector(sideDir, strafeDir * e.speed * 0.4 * dt);
+          moveVelocity = e.speed * 1.05;
+          forwardAmount = 1.0;
+          lateralAmount = strafeDir * 0.4;
+        } else {
+          const strafeSpeed = e.speed * 0.72;
+          e.position.addScaledVector(sideDir, strafeDir * strafeSpeed * dt);
+          moveVelocity = Math.abs(strafeDir) * strafeSpeed;
+          lateralAmount = strafeDir * 0.72;
+        }
+      }
+
+      // Kolisi tiang & rintangan arena agar musuh tidak menembus tiang
+      if (colliders && colliders.length > 0) {
+        resolveCircleXZCollision(e.position, isBoss ? 1.85 : 0.78, colliders);
       }
 
       e.position.x = Math.max(-26, Math.min(26, e.position.x));
       e.position.z = Math.max(-26, Math.min(26, e.position.z));
       e.position.y = 0;
 
-      // === 5. ANIMASI WALKING & IDLE BERARTIKULASI ===
+      // === 5. ANIMASI WALKING, BANKING & IDLE BERARTIKULASI ===
       e.idlePhase += dt * 2.4;
       const isWalking = moveVelocity > 0.15;
 
+      // Kemiringan tubuh (body banking saat strafing & condong saat maju)
+      const targetLeanX = forwardAmount * (isBoss ? 0.08 : 0.14);
+      const targetBankZ = -lateralAmount * (isBoss ? 0.09 : 0.16);
+      if (e.hitReactionTimer <= 0) {
+        e.rig.bodyGroup.rotation.x = THREE.MathUtils.lerp(
+          e.rig.bodyGroup.rotation.x,
+          targetLeanX,
+          dt * 8
+        );
+      }
+      e.rig.bodyGroup.rotation.z = THREE.MathUtils.lerp(
+        e.rig.bodyGroup.rotation.z,
+        targetBankZ,
+        dt * 8
+      );
+
       if (isWalking) {
-        const strideFreq = isBoss ? 4.2 : 6.8;
+        const strideFreq = isBoss ? 4.4 : 7.2;
         e.walkPhase += dt * strideFreq * (moveVelocity / Math.max(0.8, e.speed));
-        const legSwing = Math.sin(e.walkPhase) * (isBoss ? 0.36 : 0.52);
+        const legSwing = Math.sin(e.walkPhase) * (isBoss ? 0.38 : 0.56);
 
         e.rig.leftLegPivot.rotation.x = legSwing;
         e.rig.rightLegPivot.rotation.x = -legSwing;
 
-        // Bobbing langkah kaki ber-bobot (naik saat kaki mengayun, turun saat menapak)
-        const stepBob = Math.abs(Math.cos(e.walkPhase)) * (isBoss ? 0.12 : 0.065);
+        // Bobbing langkah kaki & sedikit gelengan kepala/bahu yang dinamis
+        const stepBob = Math.abs(Math.cos(e.walkPhase)) * (isBoss ? 0.14 : 0.085);
         e.rig.bodyGroup.position.y = stepBob * baseScale;
+        e.rig.headPivot.rotation.z = Math.sin(e.walkPhase) * 0.06;
       } else {
         // Kembali ke posisi berdiri seimbang + nafas halus (Idle)
         e.rig.leftLegPivot.rotation.x = THREE.MathUtils.lerp(
@@ -904,7 +1092,8 @@ export class EnemyManager {
           0,
           dt * 8
         );
-        e.rig.bodyGroup.position.y = Math.sin(e.idlePhase) * 0.03 * baseScale;
+        e.rig.bodyGroup.position.y = Math.sin(e.idlePhase) * 0.04 * baseScale;
+        e.rig.headPivot.rotation.z = Math.sin(e.idlePhase * 0.7) * 0.04;
       }
 
       // === 6. ANIMASI ATTACK & COOLDOWN SERANGAN ===
@@ -978,8 +1167,9 @@ export class EnemyManager {
       proj.mesh.rotation.x += proj.rotationSpeed.x * dt;
       proj.mesh.rotation.y += proj.rotationSpeed.y * dt;
 
-      const playerCenter = playerPos.clone().setY(1.1);
-      const distToPlayer = proj.position.distanceTo(playerCenter);
+      _scratchPlayerCenter.copy(playerPos);
+      _scratchPlayerCenter.y = 1.1;
+      const distToPlayer = proj.position.distanceTo(_scratchPlayerCenter);
       const hitRadius = proj.radius + 0.72;
 
       if (distToPlayer <= hitRadius) {
@@ -1129,6 +1319,72 @@ export class EnemyManager {
     }
   }
 
+  private spawnDeathDebris(
+    pos: THREE.Vector3,
+    colorHex: string,
+    count: number,
+    speedMult: number = 1.0,
+    scale: number = 1.0
+  ) {
+    for (let i = 0; i < count; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: i % 3 === 0 ? '#ffffff' : colorHex,
+      });
+      const fragMesh = new THREE.Mesh(this.sharedFragGeo, mat);
+      fragMesh.position.set(
+        pos.x + (Math.random() - 0.5) * 0.6,
+        pos.y + (Math.random() - 0.5) * 0.6,
+        pos.z + (Math.random() - 0.5) * 0.6
+      );
+      fragMesh.scale.setScalar(scale * (0.75 + Math.random() * 0.65));
+      this.scene.add(fragMesh);
+
+      const angle = Math.random() * Math.PI * 2;
+      const horiz = (2.5 + Math.random() * 6.5) * speedMult;
+      const vel = new THREE.Vector3(
+        Math.cos(angle) * horiz,
+        (2.5 + Math.random() * 5.5) * speedMult,
+        Math.sin(angle) * horiz
+      );
+
+      this.fragments.push({
+        mesh: fragMesh,
+        vel,
+        life: 0.45 + Math.random() * 0.25,
+      });
+    }
+  }
+
+  private spawnBossDeathDebris(pos: THREE.Vector3) {
+    const count = 22;
+    for (let i = 0; i < count; i++) {
+      const col = ALL_RYB_COLORS[i % ALL_RYB_COLORS.length].hex;
+      const mat = new THREE.MeshBasicMaterial({ color: col });
+      const fragMesh = new THREE.Mesh(this.sharedFragGeo, mat);
+      fragMesh.position.set(
+        pos.x + (Math.random() - 0.5) * 1.6,
+        pos.y + (Math.random() - 0.5) * 1.6,
+        pos.z + (Math.random() - 0.5) * 1.6
+      );
+      fragMesh.scale.setScalar(1.3 + Math.random() * 1.4);
+      this.scene.add(fragMesh);
+
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.3;
+      const horiz = 6 + Math.random() * 10;
+      const vel = new THREE.Vector3(
+        Math.cos(angle) * horiz,
+        4 + Math.random() * 9,
+        Math.sin(angle) * horiz
+      );
+
+      this.fragments.push({
+        mesh: fragMesh,
+        vel,
+        life: 0.65 + Math.random() * 0.35,
+      });
+    }
+  }
+
   public checkProjectileInterception(rayOrigin: THREE.Vector3, rayDir: THREE.Vector3): boolean {
     const ray = new THREE.Ray(rayOrigin, rayDir);
     for (let s = this.projectiles.length - 1; s >= 0; s--) {
@@ -1202,7 +1458,10 @@ export class EnemyManager {
   }
 
   public clearAll() {
-    this.enemies.forEach((e) => this.scene.remove(e.mesh));
+    this.enemies.forEach((e) => {
+      this.scene.remove(e.mesh);
+      disposeHierarchy(e.mesh);
+    });
     this.projectiles.forEach((p) => {
       this.scene.remove(p.mesh);
       (p.mesh.material as THREE.Material).dispose();

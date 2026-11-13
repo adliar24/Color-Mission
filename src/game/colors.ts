@@ -1,6 +1,8 @@
 import {
   ColorCategory,
   ColorInstructionClue,
+  GameColorId,
+  NeutralColorId,
   RYBColorDef,
   RYBColorId,
 } from './types';
@@ -195,6 +197,41 @@ export const RYB_COLOR_REGISTRY: Record<RYBColorId, RYBColorDef> = {
 
 export const ALL_RYB_COLORS: RYBColorDef[] = Object.values(RYB_COLOR_REGISTRY);
 
+export const BOSS_NEUTRAL_COLORS: Record<NeutralColorId, RYBColorDef> = {
+  white: {
+    id: 'white',
+    nameId: 'Putih',
+    nameEn: 'White',
+    category: 'primer',
+    categoryLabelId: 'Netral Boss',
+    hex: '#F8FAFC',
+    emissiveHex: '#E2E8F0',
+    recipeTextId: 'Cahaya murni',
+    shortDescId: 'Warna netral putih murni khusus pertarungan CHROMA TITAN.',
+    conceptualHintId: 'Cari Kristal Putih terang di arena.',
+    memoryHintId: 'TARGET BOSS: Ambil Kristal Putih untuk menembus pelindung.',
+  },
+  black: {
+    id: 'black',
+    nameId: 'Hitam',
+    nameEn: 'Black',
+    category: 'primer',
+    categoryLabelId: 'Netral Boss',
+    hex: '#18181B',
+    emissiveHex: '#3F3F46',
+    recipeTextId: 'Bayangan pekat',
+    shortDescId: 'Warna netral hitam pekat khusus pertarungan CHROMA TITAN.',
+    conceptualHintId: 'Cari Kristal Hitam gelap di arena.',
+    memoryHintId: 'TARGET BOSS: Ambil Kristal Hitam untuk menembus pelindung.',
+  },
+};
+
+export const ALL_BOSS_COLORS: RYBColorDef[] = [
+  ...ALL_RYB_COLORS,
+  BOSS_NEUTRAL_COLORS.white,
+  BOSS_NEUTRAL_COLORS.black,
+];
+
 export const PRIMARY_COLOR_IDS: RYBColorId[] = ['red', 'yellow', 'blue'];
 export const SECONDARY_COLOR_IDS: RYBColorId[] = ['orange', 'green', 'purple'];
 export const TERTIARY_COLOR_IDS: RYBColorId[] = [
@@ -206,7 +243,10 @@ export const TERTIARY_COLOR_IDS: RYBColorId[] = [
   'red_purple',
 ];
 
-export function getColorDef(id: RYBColorId): RYBColorDef {
+export function getColorDef(id: GameColorId): RYBColorDef {
+  if (id === 'white' || id === 'black') {
+    return BOSS_NEUTRAL_COLORS[id];
+  }
   return RYB_COLOR_REGISTRY[id];
 }
 
@@ -227,7 +267,7 @@ export function getColorIdsByCategory(category: ColorCategory): RYBColorId[] {
  *   tanpa membocorkan nama ataupun swatch warna hasil pencampuran sebelum pemain berhasil mengeliminasi target!
  */
 export function buildColorInstructionClue(
-  targetColorId: RYBColorId,
+  targetColorId: GameColorId,
   stageNumber: 1 | 2 | 3
 ): ColorInstructionClue {
   const targetDef = getColorDef(targetColorId);
@@ -271,12 +311,12 @@ export function buildColorInstructionClue(
 /**
  * Memilih warna target berikutnya dari kumpulan warna yang tersedia di arena atau dari pool stage.
  */
-export function selectNextTargetColor(
-  allowedPool: RYBColorId[],
-  activeEnemyColors: RYBColorId[],
-  previousTarget?: RYBColorId,
+export function selectNextTargetColor<T extends GameColorId = GameColorId>(
+  allowedPool: T[],
+  activeEnemyColors: T[],
+  previousTarget?: T,
   randomFn: () => number = Math.random
-): RYBColorId {
+): T {
   const validEnemyColors = activeEnemyColors.filter((c) => allowedPool.includes(c));
   const sourcePool = validEnemyColors.length > 0 ? validEnemyColors : allowedPool;
 

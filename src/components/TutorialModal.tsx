@@ -2,15 +2,18 @@ import React from 'react';
 import { Play, X } from 'lucide-react';
 import { getColorsByCategory } from '../game/rules';
 import { PlatformMode } from '../game/types';
+import { GamepadBadge } from './GamepadBadge';
 
 interface TutorialModalProps {
   platformMode?: PlatformMode;
+  isGamepadConnected?: boolean;
   onClose: () => void;
   onStartMission: () => void;
 }
 
 export const TutorialModal: React.FC<TutorialModalProps> = ({
   platformMode = 'desktop',
+  isGamepadConnected = false,
   onClose,
   onStartMission,
 }) => {
@@ -19,16 +22,17 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
   const tersierColors = getColorsByCategory('tersier');
 
   return (
-    <div className="fixed inset-0 bg-[#050811]/88 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans text-white">
-      <div className="max-w-xl w-full bg-[#090d18] border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl">
+    <div className="fixed inset-0 bg-[#050811]/88 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
+      <div data-ui-board="true" className="max-w-xl w-full bg-[#090d18] border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl ui-panel-enter">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-black tracking-tight uppercase">CARA BERMAIN</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/6 hover:bg-white/12 text-slate-300 hover:text-white cursor-pointer"
+            className="p-2 rounded-xl bg-white/6 hover:bg-white/12 text-slate-300 hover:text-white cursor-pointer flex items-center gap-1.5"
           >
+            <GamepadBadge button="B" visible={isGamepadConnected} size="sm" />
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -108,21 +112,29 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
 
         {/* Kontrol Singkat (Otomatis Menyesuaikan Perangkat) */}
         <div className="bg-white/4 border border-white/10 px-4 py-3.5 rounded-2xl text-xs font-bold text-slate-200 text-center mb-6">
-          {platformMode === 'desktop' && (
+          {isGamepadConnected ? (
             <span>
-              WASD / Stik Kiri Gerak · Mouse / Stik Kanan Bidik · Klik Kiri / RT Tembak · R / X
-              Reload · Shift / B Dash
+              Analog Kiri Gerak · Analog Kanan Bidik · RT Tembak · A Lompat · X Reload · LB Dash · RB EMP · Y Senjata
             </span>
-          )}
-          {platformMode === 'mobile' && (
-            <span>
-              Joystick Kiri Gerak · Geser Layar Kanan Bidik · Tombol Kanan Tembak & Skill
-            </span>
-          )}
-          {platformMode === 'vr' && (
-            <span>
-              Analog Kiri Gerak · Trigger Kanan Tembak · Grip Kanan Reload · Grip Kiri Dash
-            </span>
+          ) : (
+            <>
+              {platformMode === 'desktop' && (
+                <span>
+                  WASD / Stik Kiri Gerak · Mouse / Stik Kanan Bidik · Klik Kiri / RT Tembak · R / X
+                  Reload · Shift / B Dash
+                </span>
+              )}
+              {platformMode === 'mobile' && (
+                <span>
+                  Joystick Kiri Gerak · Geser Layar Kanan Bidik · Tombol Kanan Tembak & Skill
+                </span>
+              )}
+              {platformMode === 'vr' && (
+                <span>
+                  Analog Kiri Gerak · Trigger Kanan Tembak · Grip Kanan Reload · Grip Kiri Dash
+                </span>
+              )}
+            </>
           )}
         </div>
 
@@ -134,6 +146,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
         >
           <Play className="w-4 h-4 fill-current" />
           <span>MULAI MISI</span>
+          <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
         </button>
       </div>
     </div>

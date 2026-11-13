@@ -26,8 +26,11 @@ export type RYBColorId =
   | 'blue_purple'
   | 'red_purple';
 
+export type NeutralColorId = 'white' | 'black';
+export type GameColorId = RYBColorId | NeutralColorId;
+
 export interface RYBColorDef {
-  id: RYBColorId;
+  id: GameColorId;
   nameId: string; // Nama Bahasa Indonesia (misal: "Merah", "Jingga", "Merah-Jingga")
   nameEn: string;
   category: ColorCategory;
@@ -44,19 +47,19 @@ export interface RYBColorDef {
 export type InstructionDisplayMode = 'direct' | 'mixing';
 
 export interface ColorInstructionClue {
-  targetColorId: RYBColorId;
+  targetColorId: GameColorId;
   displayMode: InstructionDisplayMode;
   // Hanya digunakan bila displayMode === 'direct' (Stage 1)
   directNameId?: string;
   directHex?: string;
   // Digunakan bila displayMode === 'mixing' (Stage 2 & Stage 3)
   ingredient1?: {
-    id: RYBColorId;
+    id: GameColorId;
     nameId: string;
     hex: string;
   };
   ingredient2?: {
-    id: RYBColorId;
+    id: GameColorId;
     nameId: string;
     hex: string;
   };
@@ -111,7 +114,7 @@ export interface BossPhaseDef {
   phase: BossPhase;
   title: string;
   category: ColorCategory;
-  colorPool: RYBColorId[];
+  colorPool: GameColorId[];
   hpThresholdMax: number;
   hpThresholdMin: number;
   shootCooldownMult: number;
@@ -211,6 +214,7 @@ export interface GameSettings {
   touchSensitivity: number;
   mobileGyroEnabled: boolean;
   hapticsEnabled: boolean;
+  keyboardCameraMode?: boolean;
   graphicsQuality: GraphicsQuality;
   vrTurnMode: VRTurnMode;
   vrSnapAngle: number;

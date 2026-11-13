@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+
+const _scratchVROrigin = new THREE.Vector3();
+const _scratchVRQuat = new THREE.Quaternion();
+const _scratchVRDir = new THREE.Vector3();
 import {
   GameSettings,
   GameplayInputCommand,
@@ -26,6 +30,10 @@ export class DesktopInput {
   public isPointerLocked = false;
   private domElement: HTMLElement | null = null;
   private isActive = false;
+  private suppressNextUnlockPause = false;
+  private unadjustedUnsupported = false;
+  private lastMouseClientX: number | null = null;
+  private lastMouseClientY: number | null = null;
 
   // State Gamepad Desktop
   private prevGamepadButtons: Record<string, boolean> = {};
@@ -51,6 +59,7 @@ export class DesktopInput {
     }
     if (typeof document !== 'undefined') {
       document.addEventListener('pointerlockchange', this.onPointerLockChange);
+      document.addEventListener('pointerlockerror', this.onPointerLockError);
     }
   }
 
@@ -65,6 +74,7 @@ export class DesktopInput {
     }
     if (typeof document !== 'undefined') {
       document.removeEventListener('pointerlockchange', this.onPointerLockChange);
+      document.removeEventListener('pointerlockerror', this.onPointerLockError);
     }
     this.keysPressed.clear();
     this.isMouseDown = false;
@@ -72,10 +82,13 @@ export class DesktopInput {
 
   public releasePointerLock() {
     if (typeof document !== 'undefined' && document.pointerLockElement) {
+      this.suppressNextUnlockPause = true;
       document.exitPointerLock?.();
     }
     this.isPointerLocked = false;
     this.isMouseDown = false;
+    this.lastMouseClientX = null;
+    this.lastMouseClientY = null;
   }
 
   public requestPointerLock() {
@@ -84,9 +97,33 @@ export class DesktopInput {
       this.domElement &&
       document.pointerLockElement !== this.domElement
     ) {
+      this.suppressNextUnlockPause = false;
       try {
-        this.domElement.requestPointerLock?.();
-      } catch {}
+        if (!this.unadjustedUnsupported) {
+          const req = (
+            this.domElement as HTMLElement & {
+              requestPointerLock?: (options?: {
+                unadjustedMovement?: boolean;
+              }) => Promise<void> | void;
+            }
+          ).requestPointerLock?.({ unadjustedMovement: true });
+          if (req && typeof (req as Promise<void>).catch === 'function') {
+            (req as Promise<void>).catch(() => {
+              this.unadjustedUnsupported = true;
+              try {
+                this.domElement?.requestPointerLock?.();
+              } catch {}
+            });
+          }
+        } else {
+          this.domElement.requestPointerLock?.();
+        }
+      } catch {
+        this.unadjustedUnsupported = true;
+        try {
+          this.domElement.requestPointerLock?.();
+        } catch {}
+      }
     }
   }
 
@@ -137,28 +174,65 @@ export class DesktopInput {
     }
     if (e.button === 0) {
       this.isMouseDown = true;
+      this.lastMouseClientX = e.clientX;
+      this.lastMouseClientY = e.clientY;
     }
   };
 
   private onMouseUp = (e: MouseEvent) => {
     if (e.button === 0) {
       this.isMouseDown = false;
+      this.lastMouseClientX = null;
+      this.lastMouseClientY = null;
     }
   };
 
   private onMouseMove = (e: MouseEvent) => {
     if (!this.isActive) return;
-    if (this.isPointerLocked || e.buttons === 1) {
+    if (this.isPointerLocked) {
       this.lookAccumX += e.movementX;
       this.lookAccumY += e.movementY;
+      return;
+    }
+
+    if (e.buttons === 1) {
+      let dx = e.movementX;
+      let dy = e.movementY;
+      if (dx === 0 && dy === 0 && this.lastMouseClientX !== null && this.lastMouseClientY !== null) {
+        dx = e.clientX - this.lastMouseClientX;
+        dy = e.clientY - this.lastMouseClientY;
+      }
+      this.lastMouseClientX = e.clientX;
+      this.lastMouseClientY = e.clientY;
+      this.lookAccumX += dx;
+      this.lookAccumY += dy;
+    }
+  };
+
+  private onPointerLockError = () => {
+    if (!this.unadjustedUnsupported && this.domElement) {
+      this.unadjustedUnsupported = true;
+      try {
+        this.domElement.requestPointerLock?.();
+      } catch {}
     }
   };
 
   private onPointerLockChange = () => {
-    this.isPointerLocked =
+    const wasLocked = this.isPointerLocked;
+    const nowLocked =
       !!this.domElement &&
       typeof document !== 'undefined' &&
       document.pointerLockElement === this.domElement;
+    this.isPointerLocked = nowLocked;
+
+    if (wasLocked && !nowLocked) {
+      if (this.suppressNextUnlockPause) {
+        this.suppressNextUnlockPause = false;
+      } else {
+        this.pendingPause = true;
+      }
+    }
   };
 
   private wasGamepadJustPressed(key: string, pressed: boolean | undefined): boolean {
@@ -168,22 +242,152 @@ export class DesktopInput {
     return now && !prev;
   }
 
+  public pollGamepadOnly(settings: GameSettings, dt: number = 0.016): GameplayInputCommand | null {
+    if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
+      return null;
+    }
+    try {
+      const gamepads = navigator.getGamepads();
+      for (const gp of gamepads) {
+        if (!gp || !gp.connected) continue;
+
+        let moveX = 0;
+        let moveZ = 0;
+        let lookDeltaX = 0;
+        let lookDeltaY = 0;
+        let jump = false;
+        let shoot = false;
+        let reload = false;
+        let dash = false;
+        let emp = false;
+        let overdrive = false;
+        let pause = false;
+        let toggleHint = false;
+        let weaponSwitch: WeaponType | null = null;
+
+        // Analog Kiri (Gerak)
+        const lx = gp.axes[0] || 0;
+        const ly = gp.axes[1] || 0;
+        if (Math.abs(lx) > 0.16) moveX += lx;
+        if (Math.abs(ly) > 0.16) moveZ += ly;
+
+        // D-Pad Gerak Cadangan
+        if (gp.buttons[14]?.pressed) moveX -= 1;
+        if (gp.buttons[15]?.pressed) moveX += 1;
+        if (gp.buttons[12]?.pressed) moveZ -= 1;
+        if (gp.buttons[13]?.pressed) moveZ += 1;
+
+        // Analog Kanan (Kamera)
+        const rx = gp.axes[2] || 0;
+        const ry = gp.axes[3] || 0;
+        const gpLookSpeed = 2.6 * settings.mouseSensitivity;
+        if (Math.abs(rx) > 0.14) lookDeltaX -= rx * gpLookSpeed * dt;
+        if (Math.abs(ry) > 0.14) lookDeltaY -= ry * gpLookSpeed * dt;
+
+        // RT / R2 (buttons[7]) -> Menembak
+        if (gp.buttons[7]?.pressed || (gp.buttons[7]?.value ?? 0) > 0.35) {
+          shoot = true;
+        }
+        // A / Cross (buttons[0]) -> Lompat
+        if (gp.buttons[0]?.pressed) {
+          jump = true;
+        }
+        // B / Circle (buttons[1]) -> Dash
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b1`, gp.buttons[1]?.pressed)) {
+          dash = true;
+        }
+        // X / Square (buttons[2]) -> Reload
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b2`, gp.buttons[2]?.pressed)) {
+          reload = true;
+        }
+        // Y / Triangle (buttons[3]) -> Ganti Senjata
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b3`, gp.buttons[3]?.pressed)) {
+          this.gamepadWeaponIdx = (this.gamepadWeaponIdx + 1) % this.weaponsOrder.length;
+          weaponSwitch = this.weaponsOrder[this.gamepadWeaponIdx];
+        }
+        // LB / L1 (buttons[4]) -> Dash
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b4`, gp.buttons[4]?.pressed)) {
+          dash = true;
+        }
+        // RB / R1 (buttons[5]) -> EMP
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b5`, gp.buttons[5]?.pressed)) {
+          emp = true;
+        }
+        // LT / L2 (buttons[6]) -> Overdrive
+        if (
+          this.wasGamepadJustPressed(
+            `gp_${gp.index}_b6`,
+            gp.buttons[6]?.pressed || (gp.buttons[6]?.value ?? 0) > 0.5
+          )
+        ) {
+          overdrive = true;
+        }
+        // Back / Select (buttons[8]) -> Petunjuk
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b8`, gp.buttons[8]?.pressed)) {
+          toggleHint = true;
+        }
+        // Start / Options (buttons[9]) -> Pause
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b9`, gp.buttons[9]?.pressed)) {
+          pause = true;
+        }
+
+        return {
+          moveX: Math.max(-1, Math.min(1, moveX)),
+          moveZ: Math.max(-1, Math.min(1, moveZ)),
+          lookDeltaX,
+          lookDeltaY,
+          jump,
+          shoot,
+          reload,
+          dash,
+          emp,
+          overdrive,
+          pause,
+          toggleHint,
+          weaponSwitch,
+        };
+      }
+    } catch {}
+    return null;
+  }
+
   public poll(settings: GameSettings, dt: number = 0.016): GameplayInputCommand {
     let moveX = 0;
     let moveZ = 0;
-    if (this.keysPressed.has('KeyA') || this.keysPressed.has('ArrowLeft')) moveX -= 1;
-    if (this.keysPressed.has('KeyD') || this.keysPressed.has('ArrowRight')) moveX += 1;
-    if (this.keysPressed.has('KeyW') || this.keysPressed.has('ArrowUp')) moveZ -= 1;
-    if (this.keysPressed.has('KeyS') || this.keysPressed.has('ArrowDown')) moveZ += 1;
+    const isFullKeyboard = settings.keyboardCameraMode !== false;
 
-    const sens = 0.0038 * settings.mouseSensitivity;
+    if (this.keysPressed.has('KeyA') || (!isFullKeyboard && this.keysPressed.has('ArrowLeft'))) {
+      moveX -= 1;
+    }
+    if (this.keysPressed.has('KeyD') || (!isFullKeyboard && this.keysPressed.has('ArrowRight'))) {
+      moveX += 1;
+    }
+    if (this.keysPressed.has('KeyW') || (!isFullKeyboard && this.keysPressed.has('ArrowUp'))) {
+      moveZ -= 1;
+    }
+    if (this.keysPressed.has('KeyS') || (!isFullKeyboard && this.keysPressed.has('ArrowDown'))) {
+      moveZ += 1;
+    }
+
+    const sens = 0.0055 * settings.mouseSensitivity;
     let lookDeltaX = -this.lookAccumX * sens;
     let lookDeltaY = -this.lookAccumY * sens;
     this.lookAccumX = 0;
     this.lookAccumY = 0;
 
+    if (isFullKeyboard) {
+      const kbdLookSpeed = 2.3 * settings.mouseSensitivity;
+      if (this.keysPressed.has('ArrowLeft')) lookDeltaX += kbdLookSpeed * dt;
+      if (this.keysPressed.has('ArrowRight')) lookDeltaX -= kbdLookSpeed * dt;
+      if (this.keysPressed.has('ArrowUp')) lookDeltaY += kbdLookSpeed * dt;
+      if (this.keysPressed.has('ArrowDown')) lookDeltaY -= kbdLookSpeed * dt;
+    }
+
     let jump = this.keysPressed.has('Space');
-    let shoot = this.isMouseDown;
+    let shoot =
+      this.isMouseDown ||
+      (isFullKeyboard &&
+        (this.keysPressed.has('Enter') || this.keysPressed.has('NumpadEnter')));
     let reload = this.pendingReload;
     let dash = this.pendingDash;
     let emp = this.pendingEmp;
@@ -192,81 +396,22 @@ export class DesktopInput {
     let toggleHint = this.pendingToggleHint;
     let weaponSwitch = this.pendingWeapon;
 
-    // Poll Gamepad Desktop (Xbox / PlayStation / Standard Gamepad)
-    if (typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function') {
-      try {
-        const gamepads = navigator.getGamepads();
-        for (const gp of gamepads) {
-          if (!gp || !gp.connected) continue;
-
-          // Analog Kiri (Gerak)
-          const lx = gp.axes[0] || 0;
-          const ly = gp.axes[1] || 0;
-          if (Math.abs(lx) > 0.16) moveX += lx;
-          if (Math.abs(ly) > 0.16) moveZ += ly;
-
-          // D-Pad Gerak Cadangan
-          if (gp.buttons[14]?.pressed) moveX -= 1;
-          if (gp.buttons[15]?.pressed) moveX += 1;
-          if (gp.buttons[12]?.pressed) moveZ -= 1;
-          if (gp.buttons[13]?.pressed) moveZ += 1;
-
-          // Analog Kanan (Kamera)
-          const rx = gp.axes[2] || 0;
-          const ry = gp.axes[3] || 0;
-          const gpLookSpeed = 2.6 * settings.mouseSensitivity;
-          if (Math.abs(rx) > 0.14) lookDeltaX -= rx * gpLookSpeed * dt;
-          if (Math.abs(ry) > 0.14) lookDeltaY -= ry * gpLookSpeed * dt;
-
-          // RT / R2 (buttons[7]) -> Menembak
-          if (gp.buttons[7]?.pressed || (gp.buttons[7]?.value ?? 0) > 0.35) {
-            shoot = true;
-          }
-          // A / Cross (buttons[0]) -> Lompat
-          if (gp.buttons[0]?.pressed) {
-            jump = true;
-          }
-          // B / Circle (buttons[1]) -> Dash
-          if (this.wasGamepadJustPressed(`gp_${gp.index}_b1`, gp.buttons[1]?.pressed)) {
-            dash = true;
-          }
-          // X / Square (buttons[2]) -> Reload
-          if (this.wasGamepadJustPressed(`gp_${gp.index}_b2`, gp.buttons[2]?.pressed)) {
-            reload = true;
-          }
-          // Y / Triangle (buttons[3]) -> Ganti Senjata
-          if (this.wasGamepadJustPressed(`gp_${gp.index}_b3`, gp.buttons[3]?.pressed)) {
-            this.gamepadWeaponIdx = (this.gamepadWeaponIdx + 1) % this.weaponsOrder.length;
-            weaponSwitch = this.weaponsOrder[this.gamepadWeaponIdx];
-          }
-          // LB / L1 (buttons[4]) -> Dash / EMP
-          if (this.wasGamepadJustPressed(`gp_${gp.index}_b4`, gp.buttons[4]?.pressed)) {
-            dash = true;
-          }
-          // RB / R1 (buttons[5]) -> EMP
-          if (this.wasGamepadJustPressed(`gp_${gp.index}_b5`, gp.buttons[5]?.pressed)) {
-            emp = true;
-          }
-          // LT / L2 (buttons[6]) -> Overdrive
-          if (
-            this.wasGamepadJustPressed(
-              `gp_${gp.index}_b6`,
-              gp.buttons[6]?.pressed || (gp.buttons[6]?.value ?? 0) > 0.5
-            )
-          ) {
-            overdrive = true;
-          }
-          // Back / Select (buttons[8]) -> Petunjuk
-          if (this.wasGamepadJustPressed(`gp_${gp.index}_b8`, gp.buttons[8]?.pressed)) {
-            toggleHint = true;
-          }
-          // Start / Options (buttons[9]) -> Pause
-          if (this.wasGamepadJustPressed(`gp_${gp.index}_b9`, gp.buttons[9]?.pressed)) {
-            pause = true;
-          }
-          break;
-        }
-      } catch {}
+    // Poll Gamepad (Xbox / PlayStation / Standard Gamepad)
+    const gpCmd = this.pollGamepadOnly(settings, dt);
+    if (gpCmd) {
+      moveX += gpCmd.moveX;
+      moveZ += gpCmd.moveZ;
+      lookDeltaX += gpCmd.lookDeltaX;
+      lookDeltaY += gpCmd.lookDeltaY;
+      if (gpCmd.jump) jump = true;
+      if (gpCmd.shoot) shoot = true;
+      if (gpCmd.reload) reload = true;
+      if (gpCmd.dash) dash = true;
+      if (gpCmd.emp) emp = true;
+      if (gpCmd.overdrive) overdrive = true;
+      if (gpCmd.toggleHint) toggleHint = true;
+      if (gpCmd.pause) pause = true;
+      if (gpCmd.weaponSwitch) weaponSwitch = gpCmd.weaponSwitch;
     }
 
     moveX = Math.max(-1, Math.min(1, moveX));
@@ -624,14 +769,12 @@ export class VRInput {
 
     let vrAimRay: GameplayInputCommand['vrAimRay'] = null;
     if (rightController) {
-      const origin = new THREE.Vector3();
-      const quat = new THREE.Quaternion();
-      rightController.getWorldPosition(origin);
-      rightController.getWorldQuaternion(quat);
-      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(quat).normalize();
+      rightController.getWorldPosition(_scratchVROrigin);
+      rightController.getWorldQuaternion(_scratchVRQuat);
+      _scratchVRDir.set(0, 0, -1).applyQuaternion(_scratchVRQuat).normalize();
       vrAimRay = {
-        origin: [origin.x, origin.y, origin.z],
-        direction: [dir.x, dir.y, dir.z],
+        origin: [_scratchVROrigin.x, _scratchVROrigin.y, _scratchVROrigin.z],
+        direction: [_scratchVRDir.x, _scratchVRDir.y, _scratchVRDir.z],
       };
     }
 
@@ -664,16 +807,53 @@ export class VRInput {
 /**
  * 4. INPUT MANAGER TERPUSAT + HAPTIC / VIBRATION FEEDBACK (DESKTOP GAMEPAD, MOBILE, VR)
  */
+export interface MenuGamepadCommand {
+  confirm: boolean;
+  back: boolean;
+  tutorial: boolean;
+  settings: boolean;
+  start: boolean;
+}
+
 export class InputManager {
   public mode: PlatformMode = 'desktop';
+  public isGamepadConnected: boolean = false;
   public desktop = new DesktopInput();
   public mobile = new MobileInput();
   public vr = new VRInput();
   private onModeChangeCallback?: (mode: PlatformMode) => void;
+  private onGamepadChangeCallback?: (connected: boolean) => void;
   private autoDetectionAttached = false;
+  private menuPrevButtons: Record<number, boolean> = {};
 
   constructor() {
     this.detectInitialMode();
+    this.syncGamepadConnection(false);
+  }
+
+  public syncGamepadConnection(notify: boolean = true): boolean {
+    let connected = false;
+    if (typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function') {
+      try {
+        const gamepads = navigator.getGamepads();
+        for (const gp of gamepads) {
+          if (gp && gp.connected) {
+            connected = true;
+            break;
+          }
+        }
+      } catch {}
+    }
+    if (connected !== this.isGamepadConnected) {
+      this.isGamepadConnected = connected;
+      if (connected && this.mode === 'mobile') {
+        this.mobile.reset();
+      }
+      if (notify) {
+        this.onGamepadChangeCallback?.(connected);
+      }
+    }
+    return connected;
   }
 
   public detectInitialMode(): PlatformMode {
@@ -711,8 +891,13 @@ export class InputManager {
    * Memantau interaksi dan kapabilitas perangkat secara cerdas & real-time
    * (Layar Sentuh, Mouse/Keyboard/Gamepad, dan Headset WebXR VR)
    */
-  public attachAutoDetection(onModeChange: (mode: PlatformMode) => void) {
+  public attachAutoDetection(
+    onModeChange: (mode: PlatformMode) => void,
+    onGamepadChange?: (connected: boolean) => void
+  ) {
     this.onModeChangeCallback = onModeChange;
+    this.onGamepadChangeCallback = onGamepadChange;
+    this.syncGamepadConnection(true);
     if (this.autoDetectionAttached || typeof window === 'undefined') return;
     this.autoDetectionAttached = true;
 
@@ -720,6 +905,7 @@ export class InputManager {
     window.addEventListener('touchstart', this.handleSmartTouchStart, { passive: true });
     window.addEventListener('keydown', this.handleSmartKeyDown, { passive: true });
     window.addEventListener('gamepadconnected', this.handleSmartGamepadConnected);
+    window.addEventListener('gamepaddisconnected', this.handleSmartGamepadDisconnected);
 
     // Jika berada di browser headset VR yang mendukung immersive-vr, otomatis sesuaikan ke mode VR
     if (typeof navigator !== 'undefined' && 'xr' in navigator && navigator.xr) {
@@ -744,6 +930,7 @@ export class InputManager {
     window.removeEventListener('touchstart', this.handleSmartTouchStart);
     window.removeEventListener('keydown', this.handleSmartKeyDown);
     window.removeEventListener('gamepadconnected', this.handleSmartGamepadConnected);
+    window.removeEventListener('gamepaddisconnected', this.handleSmartGamepadDisconnected);
   }
 
   private handleSmartPointerDown = (e: PointerEvent) => {
@@ -777,12 +964,17 @@ export class InputManager {
   };
 
   private handleSmartGamepadConnected = () => {
+    this.syncGamepadConnection(true);
     if (this.mode === 'vr') return;
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
     const isPhoneUA = /Android|iPhone|iPod|Mobile/i.test(ua);
     if (!isPhoneUA && this.mode !== 'desktop') {
       this.setMode('desktop');
     }
+  };
+
+  private handleSmartGamepadDisconnected = () => {
+    this.syncGamepadConnection(true);
   };
 
   public setMode(newMode: PlatformMode) {
@@ -803,13 +995,71 @@ export class InputManager {
     xrSession: XRSession | null = null,
     rightController: THREE.Group | null = null
   ): GameplayInputCommand {
+    this.syncGamepadConnection(true);
+
     if (this.mode === 'vr' && xrSession) {
       return this.vr.poll(xrSession, rightController, dt, settings);
     }
     if (this.mode === 'mobile') {
-      return this.mobile.poll(settings);
+      const mobileCmd = this.mobile.poll(settings);
+      if (this.isGamepadConnected) {
+        const gpCmd = this.desktop.pollGamepadOnly(settings, dt);
+        if (gpCmd) {
+          return {
+            moveX: Math.max(-1, Math.min(1, mobileCmd.moveX + gpCmd.moveX)),
+            moveZ: Math.max(-1, Math.min(1, mobileCmd.moveZ + gpCmd.moveZ)),
+            lookDeltaX: mobileCmd.lookDeltaX + gpCmd.lookDeltaX,
+            lookDeltaY: mobileCmd.lookDeltaY + gpCmd.lookDeltaY,
+            jump: mobileCmd.jump || gpCmd.jump,
+            shoot: mobileCmd.shoot || gpCmd.shoot,
+            reload: mobileCmd.reload || gpCmd.reload,
+            dash: mobileCmd.dash || gpCmd.dash,
+            emp: mobileCmd.emp || gpCmd.emp,
+            overdrive: mobileCmd.overdrive || gpCmd.overdrive,
+            pause: mobileCmd.pause || gpCmd.pause,
+            toggleHint: mobileCmd.toggleHint || gpCmd.toggleHint,
+            weaponSwitch: gpCmd.weaponSwitch ?? mobileCmd.weaponSwitch,
+          };
+        }
+      }
+      return mobileCmd;
     }
     return this.desktop.poll(settings, dt);
+  }
+
+  private wasMenuButtonJustPressed(idx: number, pressed: boolean | undefined): boolean {
+    const now = !!pressed;
+    const prev = !!this.menuPrevButtons[idx];
+    this.menuPrevButtons[idx] = now;
+    return now && !prev;
+  }
+
+  public pollMenuGamepad(): MenuGamepadCommand {
+    this.syncGamepadConnection(true);
+    const empty: MenuGamepadCommand = {
+      confirm: false,
+      back: false,
+      tutorial: false,
+      settings: false,
+      start: false,
+    };
+    if (!this.isGamepadConnected || typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
+      return empty;
+    }
+    try {
+      const gamepads = navigator.getGamepads();
+      for (const gp of gamepads) {
+        if (!gp || !gp.connected) continue;
+        return {
+          confirm: this.wasMenuButtonJustPressed(0, gp.buttons[0]?.pressed),
+          back: this.wasMenuButtonJustPressed(1, gp.buttons[1]?.pressed),
+          tutorial: this.wasMenuButtonJustPressed(2, gp.buttons[2]?.pressed),
+          settings: this.wasMenuButtonJustPressed(3, gp.buttons[3]?.pressed),
+          start: this.wasMenuButtonJustPressed(9, gp.buttons[9]?.pressed),
+        };
+      }
+    } catch {}
+    return empty;
   }
 
   /**

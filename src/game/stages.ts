@@ -10,7 +10,7 @@ export const STAGE_DEFINITIONS: Record<1 | 2 | 3, StageDef> = {
     categoryLabel: 'Primer',
     instructionMode: 'direct',
     colorPool: PRIMARY_COLOR_IDS,
-    targetEliminations: 12,
+    targetEliminations: 10,
     hasBossAtEnd: false,
     maxConcurrentEnemies: 3, // Arena lapang dan tenang untuk pengenalan dasar
     spawnIntervalSeconds: 2.0,
@@ -38,7 +38,7 @@ export const STAGE_DEFINITIONS: Record<1 | 2 | 3, StageDef> = {
     categoryLabel: 'Sekunder',
     instructionMode: 'mixing',
     colorPool: SECONDARY_COLOR_IDS,
-    targetEliminations: 18,
+    targetEliminations: 15,
     hasBossAtEnd: false,
     maxConcurrentEnemies: 4, // Dibatasi 4 musuh aktif agar pemain punya ruang menganalisis petunjuk warna
     spawnIntervalSeconds: 1.8,
@@ -66,7 +66,7 @@ export const STAGE_DEFINITIONS: Record<1 | 2 | 3, StageDef> = {
     categoryLabel: 'Tersier',
     instructionMode: 'mixing',
     colorPool: TERTIARY_COLOR_IDS,
-    targetEliminations: 24,
+    targetEliminations: 20,
     hasBossAtEnd: true,
     bossMaxHp: 1400,
     maxConcurrentEnemies: 5, // Dibatasi maksimal 5 musuh aktif agar 6 warna tersier mudah diamati
@@ -93,36 +93,36 @@ export const STAGE_DEFINITIONS: Record<1 | 2 | 3, StageDef> = {
 export const BOSS_PHASES: Record<BossPhase, BossPhaseDef> = {
   1: {
     phase: 1,
-    title: 'Fase 1 — Primer',
+    title: 'Fase 1 — Primer & Netral',
     category: 'primer',
-    colorPool: PRIMARY_COLOR_IDS,
+    colorPool: [...PRIMARY_COLOR_IDS, 'white', 'black'],
     hpThresholdMax: 1.0,
     hpThresholdMin: 0.66,
     shootCooldownMult: 1.15, // Pola serangan dasar yang mudah dipelajari
     projectileSpeedMult: 0.9,
-    description: 'Color Core menampilkan warna Primer (Merah, Kuning, Biru) dengan pola serangan terukur.',
+    description: 'Color Core menampilkan warna Primer (Merah, Kuning, Biru) serta Putih & Hitam.',
   },
   2: {
     phase: 2,
-    title: 'Fase 2 — Sekunder',
+    title: 'Fase 2 — Sekunder & Netral',
     category: 'sekunder',
-    colorPool: SECONDARY_COLOR_IDS,
+    colorPool: [...SECONDARY_COLOR_IDS, 'white', 'black'],
     hpThresholdMax: 0.66,
     hpThresholdMin: 0.33,
     shootCooldownMult: 0.95,
     projectileSpeedMult: 1.0,
-    description: 'Color Core beralih ke tantangan pencampuran Sekunder (Jingga, Hijau, Ungu).',
+    description: 'Color Core beralih ke tantangan pencampuran Sekunder serta Putih & Hitam.',
   },
   3: {
     phase: 3,
-    title: 'Fase 3 — Tersier',
+    title: 'Fase 3 — Tersier & Netral',
     category: 'tersier',
-    colorPool: TERTIARY_COLOR_IDS,
+    colorPool: [...TERTIARY_COLOR_IDS, 'white', 'black'],
     hpThresholdMax: 0.33,
     hpThresholdMin: 0.0,
     shootCooldownMult: 0.85,
     projectileSpeedMult: 1.08,
-    description: 'Color Core menguji penguasaan 6 warna Tersier hingga CHROMA TITAN tumbang.',
+    description: 'Color Core menguji penguasaan 6 warna Tersier serta Putih & Hitam hingga CHROMA TITAN tumbang.',
   },
 };
 

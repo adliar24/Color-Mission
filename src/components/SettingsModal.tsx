@@ -2,6 +2,7 @@ import React from 'react';
 import { GameSettings, GraphicsQuality, VRMovementMode, VRTurnMode } from '../game/types';
 import { MobileInput } from '../game/input/InputManager';
 import { X, Volume2, VolumeX, Check } from 'lucide-react';
+import { GamepadBadge } from './GamepadBadge';
 
 interface SettingsModalProps {
   settings: GameSettings;
@@ -9,6 +10,7 @@ interface SettingsModalProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onClose: () => void;
+  isGamepadConnected?: boolean;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -17,6 +19,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isMuted,
   onToggleMute,
   onClose,
+  isGamepadConnected = false,
 }) => {
   const handleToggleGyro = async () => {
     const nextState = !settings.mobileGyroEnabled;
@@ -30,16 +33,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-[#050811]/88 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans text-white">
-      <div className="max-w-md w-full bg-[#090d18] border border-white/15 rounded-3xl p-6 md:p-7 shadow-2xl max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-[#050811]/88 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
+      <div data-ui-board="true" className="max-w-md w-full bg-[#090d18] border border-white/15 rounded-3xl p-6 md:p-7 shadow-2xl max-h-[92vh] overflow-y-auto ui-panel-enter">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-2xl font-black tracking-tight uppercase">PENGATURAN</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/6 hover:bg-white/12 text-slate-300 hover:text-white cursor-pointer"
+            className="p-2 rounded-xl bg-white/6 hover:bg-white/12 text-slate-300 hover:text-white cursor-pointer flex items-center gap-1.5"
           >
+            <GamepadBadge button="B" visible={isGamepadConnected} size="sm" />
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -101,6 +105,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 }`}
               >
                 {settings.mobileGyroEnabled ? 'AKTIF' : 'MATI'}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-200 block">
+                  FULL KEYBOARD (TANPA MOUSE)
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Gerak: WASD · Kamera: Panah · Tembak: Enter
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onUpdateSettings({
+                    ...settings,
+                    keyboardCameraMode: settings.keyboardCameraMode === false,
+                  })
+                }
+                className={`px-4 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer shrink-0 ${
+                  settings.keyboardCameraMode !== false
+                    ? 'bg-cyan-400 text-slate-950'
+                    : 'bg-white/6 border border-white/10 text-slate-400'
+                }`}
+              >
+                {settings.keyboardCameraMode !== false ? 'AKTIF' : 'MATI'}
               </button>
             </div>
 

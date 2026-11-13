@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import {
-  ALL_RYB_COLORS,
+  ALL_BOSS_COLORS,
   PRIMARY_COLOR_IDS,
   SECONDARY_COLOR_IDS,
   TERTIARY_COLOR_IDS,
   getColorDef,
 } from '../colors';
-import { RYBColorId } from '../types';
+import { GameColorId, GraphicsQuality } from '../types';
 
 export interface HazardNode {
   mesh: THREE.Group;
@@ -24,12 +24,27 @@ export interface JumpPad {
   radius: number;
 }
 
+export type ArenaPickupType = 'health' | 'shield' | 'ammo';
+
+export interface ArenaPickupNode {
+  id: string;
+  type: ArenaPickupType;
+  colorHex: string;
+  group: THREE.Group;
+  itemMesh: THREE.Group;
+  position: THREE.Vector3;
+  isCollected: boolean;
+  respawnTimer: number;
+  pickupRadius: number;
+}
+
 export interface BossCrystalNode {
   id: string;
-  colorId: RYBColorId;
+  colorId: GameColorId;
   colorHex: string;
   group: THREE.Group;
   crystalMesh: THREE.Mesh;
+  beamMesh: THREE.Mesh;
   ringMesh: THREE.Mesh;
   position: THREE.Vector3;
   isCollected: boolean;
@@ -42,12 +57,16 @@ export class CyberArena {
   public hazardNodes: HazardNode[] = [];
   public jumpPads: JumpPad[] = [];
   public bossCrystals: BossCrystalNode[] = [];
+  public arenaPickups: ArenaPickupNode[] = [];
   public colliders: THREE.Box3[] = [];
   private rimMaterials: THREE.MeshBasicMaterial[] = [];
   private pillarStripeMaterials: THREE.MeshBasicMaterial[] = [];
   private pillarBeacons: THREE.Mesh[] = [];
+  private cornerLights: THREE.PointLight[] = [];
   private stagePropsGroup: THREE.Group;
   private gridTexture: THREE.CanvasTexture | null = null;
+  private currentBossTargetColorId: GameColorId = 'red';
+  private currentBossPhasePool: GameColorId[] = [];
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -60,6 +79,7 @@ export class CyberArena {
     this.buildPillars();
     this.buildJumpPads();
     this.spawnHazardNodes();
+    this.spawnArenaPickups();
     this.setStageTheme(1);
   }
 
@@ -105,6 +125,14 @@ export class CyberArena {
       const cornerLight = new THREE.PointLight('#e0f2fe', 1.3, 35);
       cornerLight.position.set(x, y, z);
       this.scene.add(cornerLight);
+      this.cornerLights.push(cornerLight);
+    });
+  }
+
+  public setGraphicsQuality(quality: GraphicsQuality) {
+    const showCorners = quality !== 'low';
+    this.cornerLights.forEach((light) => {
+      light.visible = showCorners;
     });
   }
 
@@ -420,43 +448,132 @@ export class CyberArena {
   }
 
   /**
-   * Memunculkan 4 Kristal Warna 3D di arena saat melawan CHROMA TITAN.
-   * Salah satu kristal DIJAMIN memiliki warna yang sama dengan Color Core Boss saat ini (`targetColorId`).
+   * Menghasilkan posisi kristal acak yang tersebar di arena, menjaga jarak antar-kristal
+   * dan menghindari tiang maupun dinding arena.
    */
-  public spawnBossCrystals(targetColorId: RYBColorId, phaseColorPool: RYBColorId[]) {
-    this.clearBossCrystals();
+  public generateSpreadCrystalPosition(existingPositions: THREE.Vector3[]): THREE.Vector3 {
+    const minSpacingSq = 8.0 * 8.0;
+    const pillarMargin = 1.9;
 
-    // Pilih 1 warna target yang benar + 3 warna pengecoh unik
+    for (let attempt = 0; attempt < 35; attempt++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 7.0 + Math.random() * 16.0;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+
+      // Hindari tiang & dinding arena
+      let insideCollider = false;
+      for (const box of this.colliders) {
+        if (
+          x >= box.min.x - pillarMargin &&
+          x <= box.max.x + pillarMargin &&
+          z >= box.min.z - pillarMargin &&
+          z <= box.max.z + pillarMargin
+        ) {
+          insideCollider = true;
+          break;
+        }
+      }
+      if (insideCollider) continue;
+
+      let tooClose = false;
+      for (const other of existingPositions) {
+        const dx = x - other.x;
+        const dz = z - other.z;
+        if (dx * dx + dz * dz < minSpacingSq) {
+          tooClose = true;
+          break;
+        }
+      }
+      if (!tooClose) {
+        return new THREE.Vector3(x, 0, z);
+      }
+    }
+
+    const fallbackAngle = Math.random() * Math.PI * 2;
+    return new THREE.Vector3(Math.cos(fallbackAngle) * 11, 0, Math.sin(fallbackAngle) * 11);
+  }
+
+  /**
+   * Mengacak ulang posisi & warna kristal saat respawn agar lokasi dan warna selalu dinamis.
+   */
+  public randomizeCrystalOnRespawn(crystal: BossCrystalNode) {
+    const otherPositions = this.bossCrystals
+      .filter((c) => c !== crystal)
+      .map((c) => c.position);
+    const nextPos = this.generateSpreadCrystalPosition(otherPositions);
+    crystal.position.copy(nextPos);
+    crystal.group.position.copy(nextPos);
+
+    const hasActiveTargetCrystal = this.bossCrystals.some(
+      (c) => c !== crystal && !c.isCollected && c.colorId === this.currentBossTargetColorId
+    );
+
+    let nextColorId: GameColorId;
+    if (!hasActiveTargetCrystal) {
+      nextColorId = this.currentBossTargetColorId;
+    } else {
+      const pool =
+        this.currentBossPhasePool.length > 0
+          ? this.currentBossPhasePool
+          : ALL_BOSS_COLORS.map((c) => c.id);
+      const otherColors = this.bossCrystals
+        .filter((c) => c !== crystal && !c.isCollected)
+        .map((c) => c.colorId);
+      const unused = pool.filter((c) => !otherColors.includes(c));
+      const pickFrom = unused.length > 0 ? unused : pool;
+      nextColorId = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+    }
+
+    const colDef = getColorDef(nextColorId);
+    crystal.colorId = nextColorId;
+    crystal.colorHex = colDef.hex;
+
+    const crystalMat = crystal.crystalMesh.material as THREE.MeshStandardMaterial;
+    crystalMat.color.set(colDef.hex);
+    crystalMat.emissive.set(colDef.hex);
+
+    const beamMat = crystal.beamMesh.material as THREE.MeshBasicMaterial;
+    beamMat.color.set(colDef.hex);
+  }
+
+  /**
+   * Memunculkan 5 Kristal Warna 3D tersebar acak di arena saat melawan CHROMA TITAN.
+   * Salah satu kristal DIJAMIN memiliki warna yang sama dengan target Boss saat ini (`targetColorId`).
+   */
+  public spawnBossCrystals(targetColorId: GameColorId, phaseColorPool: GameColorId[]) {
+    this.clearBossCrystals();
+    this.currentBossTargetColorId = targetColorId;
+    this.currentBossPhasePool = [...phaseColorPool];
+
+    // Pilih 1 warna target yang benar + 4 warna pengecoh unik (termasuk Putih / Hitam)
     const distractors = phaseColorPool.filter((c) => c !== targetColorId);
-    const extraFallbacks = ALL_RYB_COLORS.map((c) => c.id).filter(
+    const extraFallbacks = ALL_BOSS_COLORS.map((c) => c.id).filter(
       (c) => c !== targetColorId && !distractors.includes(c)
     );
     const candidatePool = [...distractors, ...extraFallbacks];
 
-    const chosenColors: RYBColorId[] = [targetColorId];
-    while (chosenColors.length < 4 && candidatePool.length > 0) {
+    const chosenColors: GameColorId[] = [targetColorId];
+    while (chosenColors.length < 5 && candidatePool.length > 0) {
       const idx = Math.floor(Math.random() * candidatePool.length);
       chosenColors.push(candidatePool.splice(idx, 1)[0]);
     }
 
-    // 4 titik strategis di arena yang mudah dilihat dan dijangkau pemain
-    const crystalLocations = [
-      new THREE.Vector3(-10.5, 0, -7.5),
-      new THREE.Vector3(10.5, 0, -7.5),
-      new THREE.Vector3(-10.5, 0, 9.5),
-      new THREE.Vector3(10.5, 0, 9.5),
-    ];
-
-    // Acak urutan posisi agar lokasi kristal yang benar selalu menantang
-    for (let i = crystalLocations.length - 1; i > 0; i--) {
+    // Acak urutan warna agar kristal target tidak selalu di indeks pertama
+    for (let i = chosenColors.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      const temp = crystalLocations[i];
-      crystalLocations[i] = crystalLocations[j];
-      crystalLocations[j] = temp;
+      const tmp = chosenColors[i];
+      chosenColors[i] = chosenColors[j];
+      chosenColors[j] = tmp;
+    }
+
+    const crystalLocations: THREE.Vector3[] = [];
+    for (let i = 0; i < chosenColors.length; i++) {
+      crystalLocations.push(this.generateSpreadCrystalPosition(crystalLocations));
     }
 
     chosenColors.forEach((colorId, i) => {
-      const pos = crystalLocations[i % crystalLocations.length];
+      const pos = crystalLocations[i];
       const colDef = getColorDef(colorId);
       const group = new THREE.Group();
       group.position.copy(pos);
@@ -530,12 +647,123 @@ export class CyberArena {
         colorHex: colDef.hex,
         group,
         crystalMesh,
+        beamMesh,
         ringMesh,
         position: pos.clone(),
         isCollected: false,
         respawnTimer: 0,
         pickupRadius: 2.5,
       });
+    });
+  }
+
+  public spawnArenaPickups() {
+    this.arenaPickups.forEach((p) => {
+      this.scene.remove(p.group);
+    });
+    this.arenaPickups = [];
+
+    const pickupSpecs: { type: ArenaPickupType; colorHex: string }[] = [
+      { type: 'health', colorHex: '#22c55e' },
+      { type: 'shield', colorHex: '#3b82f6' },
+      { type: 'ammo', colorHex: '#94a3b8' },
+      { type: 'ammo', colorHex: '#94a3b8' },
+    ];
+
+    const usedPositions: THREE.Vector3[] = [];
+    pickupSpecs.forEach((spec, idx) => {
+      const pos = this.generateSpreadCrystalPosition(usedPositions);
+      usedPositions.push(pos.clone());
+
+      const group = new THREE.Group();
+      group.position.copy(pos);
+
+      const floorRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.7, 0.96, 24),
+        new THREE.MeshBasicMaterial({
+          color: spec.colorHex,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.7,
+        })
+      );
+      floorRing.rotation.x = -Math.PI / 2;
+      floorRing.position.y = 0.04;
+      group.add(floorRing);
+
+      const itemMesh = new THREE.Group();
+      itemMesh.position.y = 1.25;
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: spec.colorHex,
+        emissive: spec.colorHex,
+        emissiveIntensity: 0.45,
+        roughness: 0.25,
+        metalness: 0.35,
+      });
+
+      if (spec.type === 'health') {
+        // Bentuk Plus (+) warna hijau
+        const hBar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.28, 0.28), mat);
+        const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.9, 0.28), mat);
+        itemMesh.add(hBar, vBar);
+      } else if (spec.type === 'shield') {
+        // Bentuk Perisai warna biru
+        const shieldPlate = new THREE.Mesh(new THREE.OctahedronGeometry(0.58, 0), mat);
+        shieldPlate.scale.set(0.95, 1.2, 0.35);
+        const shieldRim = new THREE.Mesh(
+          new THREE.TorusGeometry(0.55, 0.06, 8, 6),
+          new THREE.MeshBasicMaterial({ color: '#93c5fd' })
+        );
+        itemMesh.add(shieldPlate, shieldRim);
+      } else {
+        // Bentuk Peluru / Kotak Amunisi warna abu-abu
+        const crate = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.42, 0.44), mat);
+        const bulletMat = new THREE.MeshStandardMaterial({
+          color: '#cbd5e1',
+          emissive: '#64748b',
+          emissiveIntensity: 0.3,
+          roughness: 0.2,
+          metalness: 0.75,
+        });
+        for (let b = -1; b <= 1; b++) {
+          const shell = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.075, 0.085, 0.42, 10),
+            bulletMat
+          );
+          shell.position.set(b * 0.19, 0.28, 0);
+          itemMesh.add(shell);
+        }
+        itemMesh.add(crate);
+      }
+
+      group.add(itemMesh);
+      this.scene.add(group);
+
+      this.arenaPickups.push({
+        id: `pickup_${idx}_${spec.type}`,
+        type: spec.type,
+        colorHex: spec.colorHex,
+        group,
+        itemMesh,
+        position: pos.clone(),
+        isCollected: false,
+        respawnTimer: 0,
+        pickupRadius: 2.1,
+      });
+    });
+  }
+
+  public resetArenaPickups() {
+    const usedPositions: THREE.Vector3[] = [];
+    this.arenaPickups.forEach((p) => {
+      const nextPos = this.generateSpreadCrystalPosition(usedPositions);
+      usedPositions.push(nextPos.clone());
+      p.position.copy(nextPos);
+      p.group.position.copy(nextPos);
+      p.isCollected = false;
+      p.respawnTimer = 0;
+      p.group.visible = true;
     });
   }
 
@@ -551,6 +779,7 @@ export class CyberArena {
         if (c.respawnTimer > 0) {
           c.respawnTimer -= dt;
           if (c.respawnTimer <= 0) {
+            this.randomizeCrystalOnRespawn(c);
             c.isCollected = false;
             c.group.visible = true;
           }
@@ -564,6 +793,29 @@ export class CyberArena {
       c.ringMesh.position.y = 1.65 + bob;
       c.ringMesh.rotation.x = Math.PI / 3 + Math.sin(time * 1.5 + idx) * 0.35;
       c.ringMesh.rotation.y = -time * 1.4;
+    });
+
+    // Animasi berputar & melayang pada Item Darah, Perisai, dan Peluru
+    this.arenaPickups.forEach((p, idx) => {
+      if (p.isCollected) {
+        if (p.respawnTimer > 0) {
+          p.respawnTimer -= dt;
+          if (p.respawnTimer <= 0) {
+            const otherPositions = this.arenaPickups
+              .filter((other) => other !== p)
+              .map((other) => other.position);
+            const nextPos = this.generateSpreadCrystalPosition(otherPositions);
+            p.position.copy(nextPos);
+            p.group.position.copy(nextPos);
+            p.isCollected = false;
+            p.group.visible = true;
+          }
+        }
+        return;
+      }
+
+      p.itemMesh.position.y = 1.25 + Math.sin(time * 2.6 + idx * 1.1) * 0.16;
+      p.itemMesh.rotation.y = time * 2.2 + idx * 0.8;
     });
   }
 
