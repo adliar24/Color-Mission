@@ -33,11 +33,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-[#050811]/88 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
-      <div data-ui-board="true" className="max-w-md w-full bg-[#090d18] border border-white/15 rounded-3xl p-6 md:p-7 shadow-2xl max-h-[92vh] overflow-y-auto ui-panel-enter">
+    <div className="fixed inset-0 bg-[#050811]/92 flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
+      <div data-ui-board="true" className="max-w-md sm:max-w-3xl w-full bg-[#090d18] border border-white/15 rounded-3xl p-5 md:p-6 shadow-2xl ui-panel-enter">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-2xl font-black tracking-tight uppercase">PENGATURAN</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight uppercase">PENGATURAN</h2>
           <button
             type="button"
             onClick={onClose}
@@ -48,9 +48,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
-        <div className="space-y-3.5 text-sm">
-          {/* Audio, Getaran & Grafis */}
-          <div className="bg-white/4 border border-white/10 p-4 rounded-2xl space-y-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          {/* Kolom Kiri: Audio, Getaran, Kontrol & Grafis */}
+          <div className="bg-white/4 border border-white/10 p-3.5 rounded-2xl space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
                 SUARA
@@ -166,8 +166,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Sensitivitas */}
-          <div className="bg-white/4 border border-white/10 p-4 rounded-2xl space-y-3">
+          {/* Kolom Kanan: Sensitivitas & VR */}
+          <div className="flex flex-col gap-3">
+            {/* Sensitivitas */}
+            <div className="bg-white/4 border border-white/10 p-3.5 rounded-2xl space-y-2.5">
             <div>
               <div className="flex justify-between text-xs font-bold mb-1">
                 <span className="text-slate-300">SENSITIVITAS MOUSE / GAMEPAD</span>
@@ -215,8 +217,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* VR Meta Quest */}
-          <div className="bg-white/4 border border-white/10 p-4 rounded-2xl space-y-3">
+            {/* VR Meta Quest */}
+            <div className="bg-white/4 border border-white/10 p-3.5 rounded-2xl space-y-2.5 flex-1 flex flex-col justify-center">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-300">PUTARAN VR</span>
               <div className="flex gap-1.5">
@@ -269,12 +271,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
           </div>
+          </div>
         </div>
 
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-12 mt-5 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full h-11 mt-4 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer"
         >
           <Check className="w-4 h-4" />
           <span>SIMPAN</span>
