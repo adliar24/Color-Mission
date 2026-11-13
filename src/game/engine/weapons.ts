@@ -64,10 +64,10 @@ export class WeaponRig {
         controller.add(this.gunGroup);
       }
       if (isHandTracking) {
-        // Mode tangan kosong: anchor berada di telapak tangan & sudah mengarah ke targetRaySpace yang stabil
+        // Mode tangan kosong: putar 90° di sumbu Z agar senjata tegak sesuai posisi tangan memegang senjata sungguhan
         this.gunGroup.scale.setScalar(0.45);
-        this.gunGroup.position.set(0, 0.02, -0.04);
-        this.gunGroup.rotation.set(0, 0, 0);
+        this.gunGroup.position.set(0.015, 0, -0.04);
+        this.gunGroup.rotation.set(0, 0, Math.PI / 2);
       } else {
         // Mode controller fisik: posisi grip tepat di genggaman controller
         this.gunGroup.scale.setScalar(0.5);
