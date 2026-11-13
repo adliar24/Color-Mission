@@ -139,24 +139,53 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       {/* ====================================================================
           BAGIAN ATAS: STAGE, SKOR & UTILITAS
          ==================================================================== */}
-      <div className="absolute top-4 left-4 right-4 md:top-6 md:left-7 md:right-7 flex items-start justify-between gap-4">
+      <div
+        className={`absolute flex items-start justify-between ${
+          platformMode === 'mobile'
+            ? 'top-2.5 left-3 right-3 gap-2'
+            : 'top-4 left-4 right-4 md:top-6 md:left-7 md:right-7 gap-4'
+        }`}
+      >
         {/* Kiri Atas: Stage & Bar Progres */}
-        <div className="bg-[#090d18]/95 border border-white/12 px-4 py-3 rounded-2xl min-w-[170px] md:min-w-[200px] shadow-xl">
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-400">
+        <div
+          className={`bg-[#090d18]/92 border border-white/12 shadow-xl ${
+            platformMode === 'mobile'
+              ? 'px-2.5 py-1.5 rounded-xl min-w-[116px]'
+              : 'px-4 py-3 rounded-2xl min-w-[170px] md:min-w-[200px]'
+          }`}
+        >
+          <div
+            className={`flex items-center justify-between ${
+              platformMode === 'mobile' ? 'gap-2 mb-1' : 'gap-3 mb-2'
+            }`}
+          >
+            <span
+              className={`font-extrabold uppercase tracking-wider text-cyan-400 ${
+                platformMode === 'mobile' ? 'text-[10px]' : 'text-xs'
+              }`}
+            >
               {isBossActive ? 'CHROMA TITAN' : `STAGE ${player.stage}`}
             </span>
-            <span className="text-sm font-bold tabular-nums text-white">
+            <span
+              className={`font-bold tabular-nums text-white ${
+                platformMode === 'mobile' ? 'text-xs' : 'text-sm'
+              }`}
+            >
               {isBossActive
                 ? `${Math.max(0, Math.round(bossHp || 0))}`
                 : `${player.stageKills} / ${stageDef.targetEliminations}`}
             </span>
           </div>
 
-          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+          <div
+            className={`w-full bg-white/10 rounded-full overflow-hidden ${
+              platformMode === 'mobile' ? 'h-1.5' : 'h-2'
+            }`}
+          >
             <div
-              className={`h-full transition-all duration-200 ${isBossActive ? 'bg-rose-500' : 'bg-cyan-400'
-                }`}
+              className={`h-full transition-all duration-200 ${
+                isBossActive ? 'bg-rose-500' : 'bg-cyan-400'
+              }`}
               style={{
                 width: `${isBossActive ? bossHpPercent : stageProgressPercent}%`,
               }}
@@ -165,25 +194,52 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
         </div>
 
         {/* Kanan Atas: Skor, Kombo & Kontrol */}
-        <div data-ui="true" className="flex items-center gap-2.5 pointer-events-auto">
-          <div className="bg-[#090d18]/95 border border-white/12 px-4 py-2.5 rounded-2xl flex items-center gap-4 shadow-xl">
+        <div
+          data-ui="true"
+          className={`flex items-center pointer-events-auto ${
+            platformMode === 'mobile' ? 'gap-1.5' : 'gap-2.5'
+          }`}
+        >
+          <div
+            className={`bg-[#090d18]/92 border border-white/12 flex items-center shadow-xl ${
+              platformMode === 'mobile'
+                ? 'px-2.5 py-1.5 rounded-xl gap-2.5'
+                : 'px-4 py-2.5 rounded-2xl gap-4'
+            }`}
+          >
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              <span
+                className={`font-bold uppercase tracking-wider text-slate-400 block ${
+                  platformMode === 'mobile' ? 'text-[9px]' : 'text-[10px]'
+                }`}
+              >
                 SKOR
               </span>
-              <span className="text-lg md:text-xl font-extrabold tabular-nums text-white leading-none">
+              <span
+                className={`font-extrabold tabular-nums text-white leading-none ${
+                  platformMode === 'mobile' ? 'text-sm' : 'text-lg md:text-xl'
+                }`}
+              >
                 {player.score.toLocaleString('id-ID')}
               </span>
             </div>
 
             {player.combo > 0 && (
               <>
-                <div className="h-6 w-px bg-white/12" />
+                <div className="h-5 w-px bg-white/12" />
                 <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  <span
+                    className={`font-bold uppercase tracking-wider text-slate-400 block ${
+                      platformMode === 'mobile' ? 'text-[9px]' : 'text-[10px]'
+                    }`}
+                  >
                     KOMBO
                   </span>
-                  <span className="text-base md:text-lg font-extrabold tabular-nums text-cyan-400 leading-none">
+                  <span
+                    className={`font-extrabold tabular-nums text-cyan-400 leading-none ${
+                      platformMode === 'mobile' ? 'text-xs' : 'text-base md:text-lg'
+                    }`}
+                  >
                     {player.combo}x{comboMult > 1 ? ` (x${comboMult})` : ''}
                   </span>
                 </div>
@@ -204,7 +260,9 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           <button
             type="button"
             onClick={onToggleMute}
-            className="bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 p-3 rounded-2xl text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl"
+            className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl ${
+              platformMode === 'mobile' ? 'p-2 rounded-xl' : 'p-3 rounded-2xl'
+            }`}
             title="Suara [M]"
             aria-label={isMuted ? 'Aktifkan Suara' : 'Bisukan Suara'}
           >
@@ -218,7 +276,9 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           <button
             type="button"
             onClick={onPause}
-            className="bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 p-3 rounded-2xl text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl flex items-center gap-1.5"
+            className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl flex items-center gap-1.5 ${
+              platformMode === 'mobile' ? 'p-2 rounded-xl' : 'p-3 rounded-2xl'
+            }`}
             title="Jeda [Esc]"
             aria-label="Jeda"
           >
@@ -231,44 +291,94 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       {/* ====================================================================
           BAGIAN TENGAH ATAS: KOTAK WARNA POLOS (TANPA TEKS NAMA WARNA)
          ==================================================================== */}
-      <div className="absolute top-20 md:top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+      <div
+        className={`absolute left-1/2 -translate-x-1/2 flex flex-col items-center ${
+          platformMode === 'mobile' ? 'top-2.5 gap-1.5' : 'top-20 md:top-6 gap-2'
+        }`}
+      >
         <div
           data-ui="true"
-          className="bg-[#090d18]/95 border border-white/15 px-5 py-3 rounded-2xl shadow-2xl pointer-events-auto flex flex-col items-center"
+          className={`bg-[#090d18]/92 border border-white/15 shadow-2xl pointer-events-auto flex flex-col items-center ${
+            platformMode === 'mobile'
+              ? 'px-2.5 py-1.5 rounded-xl'
+              : 'px-5 py-3 rounded-2xl'
+          }`}
         >
           {clue.displayMode === 'direct' ? (
             /* STAGE 1 — SATU KOTAK POLOS BERWARNA */
-            <div className="flex items-center gap-3.5">
-              <span className="text-xs font-extrabold uppercase tracking-widest text-slate-300">
+            <div
+              className={`flex items-center ${
+                platformMode === 'mobile' ? 'gap-2' : 'gap-3.5'
+              }`}
+            >
+              <span
+                className={`font-extrabold uppercase tracking-widest text-slate-300 ${
+                  platformMode === 'mobile' ? 'text-[10px]' : 'text-xs'
+                }`}
+              >
                 TARGET
               </span>
               <div
-                className="w-12 h-12 md:w-14 md:h-14 rounded-xl border-2 border-white shadow-lg"
+                className={`border-2 border-white shadow-lg ${
+                  platformMode === 'mobile'
+                    ? 'w-7 h-7 rounded-lg'
+                    : 'w-12 h-12 md:w-14 md:h-14 rounded-xl'
+                }`}
                 style={{ backgroundColor: clue.directHex }}
               />
             </div>
           ) : (
             /* STAGE 2 & STAGE 3 — DUA KOTAK POLOS BERWARNA + TANDA ? */
             <div className="flex flex-col items-center">
-              <div className="flex items-center gap-3 md:gap-3.5">
+              <div
+                className={`flex items-center ${
+                  platformMode === 'mobile' ? 'gap-1.5' : 'gap-3 md:gap-3.5'
+                }`}
+              >
                 {/* Kotak Polos Warna 1 */}
                 <div
-                  className="w-11 h-11 md:w-13 md:h-13 rounded-xl border-2 border-white shadow-md"
+                  className={`border-2 border-white shadow-md ${
+                    platformMode === 'mobile'
+                      ? 'w-7 h-7 rounded-lg'
+                      : 'w-11 h-11 md:w-13 md:h-13 rounded-xl'
+                  }`}
                   style={{ backgroundColor: clue.ingredient1?.hex }}
                 />
 
-                <span className="text-xl md:text-2xl font-black text-cyan-400">+</span>
+                <span
+                  className={`font-black text-cyan-400 ${
+                    platformMode === 'mobile' ? 'text-sm' : 'text-xl md:text-2xl'
+                  }`}
+                >
+                  +
+                </span>
 
                 {/* Kotak Polos Warna 2 */}
                 <div
-                  className="w-11 h-11 md:w-13 md:h-13 rounded-xl border-2 border-white shadow-md"
+                  className={`border-2 border-white shadow-md ${
+                    platformMode === 'mobile'
+                      ? 'w-7 h-7 rounded-lg'
+                      : 'w-11 h-11 md:w-13 md:h-13 rounded-xl'
+                  }`}
                   style={{ backgroundColor: clue.ingredient2?.hex }}
                 />
 
-                <span className="text-xl md:text-2xl font-black text-slate-400">=</span>
+                <span
+                  className={`font-black text-slate-400 ${
+                    platformMode === 'mobile' ? 'text-sm' : 'text-xl md:text-2xl'
+                  }`}
+                >
+                  =
+                </span>
 
                 {/* Kotak Misteri ? */}
-                <div className="w-11 h-11 md:w-13 md:h-13 rounded-xl bg-white/5 border-2 border-cyan-400/70 flex items-center justify-center text-xl font-black text-cyan-300">
+                <div
+                  className={`bg-white/5 border-2 border-cyan-400/70 flex items-center justify-center font-black text-cyan-300 ${
+                    platformMode === 'mobile'
+                      ? 'w-7 h-7 rounded-lg text-sm'
+                      : 'w-11 h-11 md:w-13 md:h-13 rounded-xl text-xl'
+                  }`}
+                >
                   ?
                 </div>
 
@@ -277,12 +387,17 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
                     type="button"
                     onClick={onToggleHint}
                     title="Petunjuk [H]"
-                    className={`ml-1 p-2 rounded-xl border transition-colors cursor-pointer flex items-center gap-1 ${showHint
+                    className={`border transition-colors cursor-pointer flex items-center gap-1 ${
+                      platformMode === 'mobile'
+                        ? 'ml-0.5 p-1.5 rounded-lg'
+                        : 'ml-1 p-2 rounded-xl'
+                    } ${
+                      showHint
                         ? 'bg-cyan-400 text-slate-950 border-cyan-300'
                         : 'bg-white/5 border-white/15 text-slate-300 hover:text-white'
-                      }`}
+                    }`}
                   >
-                    <HelpCircle className="w-4 h-4" />
+                    <HelpCircle className={platformMode === 'mobile' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
                     <GamepadBadge button="BACK" visible={isGamepadConnected} size="sm" />
                   </button>
                 )}
@@ -404,26 +519,47 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       </div>
 
       {/* ====================================================================
-          BAGIAN BAWAH KIRI: HP, SHIELD & KEMAMPUAN
+          BAGIAN BAWAH KIRI: HP & SHIELD
          ==================================================================== */}
       <div
-        className={`absolute flex flex-col gap-2 pointer-events-auto ${platformMode === 'mobile'
-            ? 'top-20 left-3 scale-90 origin-top-left'
-            : 'bottom-6 left-7'
-          }`}
+        className={`absolute flex flex-col gap-2 pointer-events-auto ${
+          platformMode === 'mobile' ? 'top-14 left-3' : 'bottom-6 left-7'
+        }`}
       >
-        <div className="bg-[#090d18]/95 border border-white/12 px-4 py-3.5 rounded-2xl min-w-[200px] md:min-w-[230px] shadow-xl">
+        <div
+          className={`bg-[#090d18]/92 border border-white/12 shadow-xl ${
+            platformMode === 'mobile'
+              ? 'px-2.5 py-1.5 rounded-xl min-w-[116px]'
+              : 'px-4 py-3.5 rounded-2xl min-w-[200px] md:min-w-[230px]'
+          }`}
+        >
           {/* HP */}
-          <div className="flex items-center justify-between text-xs mb-1">
-            <div className="flex items-center gap-1.5 text-slate-300 font-bold">
-              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+          <div
+            className={`flex items-center justify-between mb-0.5 ${
+              platformMode === 'mobile' ? 'text-[10px]' : 'text-xs mb-1'
+            }`}
+          >
+            <div className="flex items-center gap-1 text-slate-300 font-bold">
+              <Heart
+                className={`text-rose-500 fill-rose-500 ${
+                  platformMode === 'mobile' ? 'w-3 h-3' : 'w-3.5 h-3.5'
+                }`}
+              />
               <span>HP</span>
             </div>
-            <span className="font-extrabold tabular-nums text-white text-sm">
+            <span
+              className={`font-extrabold tabular-nums text-white ${
+                platformMode === 'mobile' ? 'text-xs' : 'text-sm'
+              }`}
+            >
               {Math.round(player.hp)}
             </span>
           </div>
-          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-2.5">
+          <div
+            className={`w-full bg-white/10 rounded-full overflow-hidden ${
+              platformMode === 'mobile' ? 'h-1.5 mb-1.5' : 'h-2 mb-2.5'
+            }`}
+          >
             <div
               className="h-full bg-rose-500 transition-all duration-150"
               style={{ width: `${hpPercent}%` }}
@@ -431,16 +567,32 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           </div>
 
           {/* SHIELD */}
-          <div className="flex items-center justify-between text-xs mb-1">
-            <div className="flex items-center gap-1.5 text-slate-300 font-bold">
-              <Shield className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400/30" />
+          <div
+            className={`flex items-center justify-between mb-0.5 ${
+              platformMode === 'mobile' ? 'text-[10px]' : 'text-xs mb-1'
+            }`}
+          >
+            <div className="flex items-center gap-1 text-slate-300 font-bold">
+              <Shield
+                className={`text-cyan-400 fill-cyan-400/30 ${
+                  platformMode === 'mobile' ? 'w-3 h-3' : 'w-3.5 h-3.5'
+                }`}
+              />
               <span>SHIELD</span>
             </div>
-            <span className="font-extrabold tabular-nums text-white text-sm">
+            <span
+              className={`font-extrabold tabular-nums text-white ${
+                platformMode === 'mobile' ? 'text-xs' : 'text-sm'
+              }`}
+            >
               {Math.round(player.shield)}
             </span>
           </div>
-          <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div
+            className={`w-full bg-white/10 rounded-full overflow-hidden ${
+              platformMode === 'mobile' ? 'h-1' : 'h-1.5'
+            }`}
+          >
             <div
               className="h-full bg-cyan-400 transition-all duration-150"
               style={{ width: `${shieldPercent}%` }}
@@ -454,20 +606,29 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
          ==================================================================== */}
       <div
         data-ui="true"
-        className={`absolute flex flex-col items-end gap-2 pointer-events-auto ${platformMode === 'mobile'
-            ? 'top-20 right-3 scale-90 origin-top-right'
-            : 'bottom-6 right-7'
-          }`}
+        className={`absolute flex flex-col items-end gap-2 pointer-events-auto ${
+          platformMode === 'mobile' ? 'top-14 right-3' : 'bottom-6 right-7'
+        }`}
       >
-        <div className="bg-[#090d18]/95 border border-white/12 px-5 py-3.5 rounded-2xl flex flex-col items-end min-w-[160px] md:min-w-[190px] shadow-xl">
-          <div className="flex items-baseline justify-between w-full gap-3">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+        <div
+          className={`bg-[#090d18]/92 border border-white/12 flex flex-col items-end shadow-xl ${
+            platformMode === 'mobile'
+              ? 'px-3 py-1.5 rounded-xl min-w-[96px]'
+              : 'px-5 py-3.5 rounded-2xl min-w-[160px] md:min-w-[190px]'
+          }`}
+        >
+          <div className="flex items-baseline justify-between w-full gap-2.5">
+            <span
+              className={`font-extrabold uppercase tracking-wider text-slate-400 ${
+                platformMode === 'mobile' ? 'text-[10px]' : 'text-xs'
+              }`}
+            >
               PELURU
             </span>
             <span
-              className={`text-3xl md:text-4xl font-black tabular-nums leading-none ${
-                ammo <= 8 ? 'text-rose-400' : 'text-white'
-              }`}
+              className={`font-black tabular-nums leading-none ${
+                platformMode === 'mobile' ? 'text-xl' : 'text-3xl md:text-4xl'
+              } ${ammo <= 8 ? 'text-rose-400' : 'text-white'}`}
             >
               {ammo}
             </span>
