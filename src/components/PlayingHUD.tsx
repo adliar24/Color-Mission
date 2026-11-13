@@ -22,6 +22,8 @@ import {
   Shield,
   Heart,
   HelpCircle,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { GamepadBadge } from './GamepadBadge';
 
@@ -46,6 +48,8 @@ interface PlayingHUDProps {
   onSwitchWeapon: (type: WeaponType) => void;
   onPause: () => void;
   onToggleMute: () => void;
+  onToggleFullscreen?: () => void;
+  isFullscreen?: boolean;
   onExitVR?: () => void;
   isMuted: boolean;
   hitmarkerActive: boolean;
@@ -74,6 +78,8 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
   onSwitchWeapon,
   onPause,
   onToggleMute,
+  onToggleFullscreen,
+  isFullscreen = false,
   onExitVR,
   isMuted,
   hitmarkerActive,
@@ -272,6 +278,24 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
               <Volume2 className="w-4 h-4 text-cyan-400" />
             )}
           </button>
+
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl ${
+                platformMode === 'mobile' ? 'p-2 rounded-xl' : 'p-3 rounded-2xl'
+              }`}
+              title={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+              aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-4 h-4 text-slate-300" />
+              ) : (
+                <Maximize2 className="w-4 h-4 text-cyan-400" />
+              )}
+            </button>
+          )}
 
           <button
             type="button"

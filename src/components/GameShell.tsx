@@ -51,6 +51,8 @@ import {
   BookOpen,
   Sliders,
   Maximize2,
+  Minimize2,
+  RotateCw,
 } from 'lucide-react';
 
 interface GameShellProps {
@@ -140,6 +142,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const [activeCrystalColorId, setActiveCrystalColorId] = useState<GameColorId | null>(null);
   const activeCrystalColorIdRef = useRef<GameColorId | null>(null);
   const [mobileFullscreenConfirmed, setMobileFullscreenConfirmed] = useState<boolean>(false);
+  const [mobileOrientation, setMobileOrientation] = useState<'landscape' | 'portrait'>('landscape');
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // Umpan balik & Modal
   const [shotFeedback, setShotFeedback] = useState<ShotFeedback | null>(null);
@@ -1850,6 +1854,55 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     };
   }, [gameState, showSettings, showTutorial]);
 
+  useEffect(() => {
+    const syncFullscreen = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    syncFullscreen();
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreen);
+  }, []);
+
+  const enterFullscreenAndLock = useCallback(async (orientation?: 'landscape' | 'portrait') => {
+    try {
+      if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+        try {
+          await document.documentElement.requestFullscreen({
+            navigationUI: 'hide',
+          } as FullscreenOptions);
+        } catch {
+          await document.documentElement.requestFullscreen();
+        }
+      }
+    } catch {}
+    if (orientation) {
+      setMobileOrientation(orientation);
+      try {
+        const ori = screen.orientation as unknown as {
+          lock?: (o: string) => Promise<void>;
+        };
+        if (ori?.lock) {
+          await ori.lock(orientation);
+        }
+      } catch {}
+    }
+  }, []);
+
+  const handleToggleFullscreen = useCallback(async () => {
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {}
+    } else {
+      await enterFullscreenAndLock(platformMode === 'mobile' ? mobileOrientation : undefined);
+    }
+  }, [enterFullscreenAndLock, mobileOrientation, platformMode]);
+
+  const handleToggleMobileOrientation = useCallback(async () => {
+    const nextOri = mobileOrientation === 'landscape' ? 'portrait' : 'landscape';
+    await enterFullscreenAndLock(nextOri);
+  }, [enterFullscreenAndLock, mobileOrientation]);
+
   return (
     <div className="fixed inset-0 w-full h-dvh bg-slate-950 overflow-hidden select-none font-sans">
       {/* Container Kanvas 3D Three.js */}
@@ -1877,25 +1930,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               <button
                 type="button"
                 onClick={async () => {
-                  try {
-                    if (document.documentElement.requestFullscreen) {
-                      try {
-                        await document.documentElement.requestFullscreen({
-                          navigationUI: 'hide',
-                        } as FullscreenOptions);
-                      } catch {
-                        await document.documentElement.requestFullscreen();
-                      }
-                    }
-                  } catch {}
-                  try {
-                    const orientation = screen.orientation as unknown as {
-                      lock?: (orientation: string) => Promise<void>;
-                    };
-                    if (orientation?.lock) {
-                      await orientation.lock('landscape');
-                    }
-                  } catch {}
+                  await enterFullscreenAndLock('landscape');
                   setMobileFullscreenConfirmed(true);
                 }}
                 className="py-3.5 px-4 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-black uppercase tracking-wide flex flex-col items-center justify-center gap-1.5 shadow-lg cursor-pointer"
@@ -1907,25 +1942,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               <button
                 type="button"
                 onClick={async () => {
-                  try {
-                    if (document.documentElement.requestFullscreen) {
-                      try {
-                        await document.documentElement.requestFullscreen({
-                          navigationUI: 'hide',
-                        } as FullscreenOptions);
-                      } catch {
-                        await document.documentElement.requestFullscreen();
-                      }
-                    }
-                  } catch {}
-                  try {
-                    const orientation = screen.orientation as unknown as {
-                      lock?: (orientation: string) => Promise<void>;
-                    };
-                    if (orientation?.lock) {
-                      await orientation.lock('portrait');
-                    }
-                  } catch {}
+                  await enterFullscreenAndLock('portrait');
                   setMobileFullscreenConfirmed(true);
                 }}
                 className="py-3.5 px-4 rounded-2xl bg-white/10 hover:bg-white/18 border border-white/20 text-white text-xs font-black uppercase tracking-wide flex flex-col items-center justify-center gap-1.5 shadow-lg cursor-pointer"
@@ -2006,6 +2023,36 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                   <GamepadBadge button="Y" visible={isGamepadConnected} size="sm" />
                 </button>
               </div>
+
+              <div
+                className={`grid gap-3 w-full ${
+                  platformMode === 'mobile' ? 'grid-cols-2' : 'grid-cols-1'
+                }`}
+              >
+                {platformMode === 'mobile' && (
+                  <button
+                    type="button"
+                    onClick={handleToggleMobileOrientation}
+                    className="h-11 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-xs font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <RotateCw className="w-4 h-4 text-cyan-400" />
+                    <span>{mobileOrientation === 'landscape' ? 'LANDSCAPE' : 'PORTRAIT'}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleToggleFullscreen}
+                  className="h-11 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-xs font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  {isFullscreen ? (
+                    <Minimize2 className="w-4 h-4 text-slate-300" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4 text-cyan-400" />
+                  )}
+                  <span>{isFullscreen ? 'KELUAR FULLSCREEN' : 'LAYAR PENUH'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2045,6 +2092,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               const m = sound.toggleMute();
               setIsMuted(m);
             }}
+            onToggleFullscreen={handleToggleFullscreen}
+            isFullscreen={isFullscreen}
             onExitVR={() => {
               vrManagerRef.current?.exitVR();
             }}
