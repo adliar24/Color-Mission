@@ -40,8 +40,9 @@ const _vCamRight = new THREE.Vector3();
 const _vToCam = new THREE.Vector3();
 const _vPalmNormal = new THREE.Vector3();
 const _vHandFwd = new THREE.Vector3();
-const _vThumbOffset = new THREE.Vector3();
+const _vLocalThumb = new THREE.Vector3();
 const _qWrist = new THREE.Quaternion();
+const _qWristInv = new THREE.Quaternion();
 
 /**
  * Pengenal gestur WebXR Hand Tracking bergaya Meta Horizon OS:
@@ -59,9 +60,9 @@ export class VRHandGestures {
   private leftPinchFacingFace = false;
 
   private isLeftFist = false;
-  private thumbAnchorRight = 0;
-  private thumbAnchorFwd = 0;
+  private thumbAnchorLocal = new THREE.Vector3();
   private snapTurnCooldown = 0;
+  private snapTurnWaitNeutral = false;
   private teleportArmed = false;
   private armedTarget = new THREE.Vector3();
 
@@ -188,26 +189,26 @@ export class VRHandGestures {
       const isFacingFace = camera && fingersOpen ? _vPalmNormal.dot(_vToCam) > 0.72 : false;
       const leftPinchDist = _vThumb.distanceTo(_vIndex);
 
-      // === 2A. KEPAL IBU JARI KE ATAS (Gaya Meta Quest VR Home: Dorong Ibu Jari = Teleport Arc, Geser Kiri/Kanan = Snap Turn) ===
+      // === 2A. KEPAL IBU JARI KE ATAS (Gaya Meta Quest VR Home: Dorong Ibu Jari = Teleport Arc, Geser Kiri/Kanan = Snap Turn 1x per geseran) ===
       if (fistNow) {
-        _vThumbOffset.subVectors(_vThumb, _vIndexMcp);
-        const curRight = _vThumbOffset.dot(_vCamRight);
-        const curFwd = _vThumbOffset.dot(_vCamFwd);
+        _qWristInv.copy(_qWrist).invert();
+        _vLocalThumb.subVectors(_vThumb, _vIndexMcp).applyQuaternion(_qWristInv);
 
         if (!this.isLeftFist) {
           this.isLeftFist = true;
-          this.thumbAnchorRight = curRight;
-          this.thumbAnchorFwd = curFwd;
+          this.thumbAnchorLocal.copy(_vLocalThumb);
           this.teleportArmed = false;
+          this.snapTurnWaitNeutral = false;
         } else {
-          const dx = curRight - this.thumbAnchorRight;
-          const dz = curFwd - this.thumbAnchorFwd;
-          const deadzone = 0.014;
-          const maxRange = 0.04;
+          // Di ruang lokal wrist kiri: +X = arah ibu jari (kanan), -Z = arah jari (depan)
+          const dx = _vLocalThumb.x - this.thumbAnchorLocal.x;
+          const dzForward = -( _vLocalThumb.z - this.thumbAnchorLocal.z );
+          const deadzone = 0.022;
+          const maxRange = 0.048;
 
-          // Dorong ibu jari ke depan -> Tampilkan Teleport Arc + Ring di lantai, lepas/tarik kembali -> Teleport!
-          if (dz > deadzone) {
-            const pushNorm = THREE.MathUtils.clamp((dz - deadzone) / (maxRange - deadzone), 0.15, 1);
+          // Dorong ibu jari ke depan -> Teleport Arc + Ring di lantai, tarik kembali -> Teleport!
+          if (dzForward > deadzone) {
+            const pushNorm = THREE.MathUtils.clamp((dzForward - deadzone) / (maxRange - deadzone), 0.15, 1);
             _vHandFwd.subVectors(_vIndexMcp, _vWrist);
             _vHandFwd.y = 0;
             if (_vHandFwd.lengthSq() < 0.0001) {
@@ -239,42 +240,33 @@ export class VRHandGestures {
             this.teleportArmed = true;
             this.armedTarget.copy(this.teleportTargetOut);
           } else {
-            if (this.teleportArmed && dz < 0.008) {
+            if (this.teleportArmed && dzForward < 0.01) {
               teleportCommit = this.armedTarget.clone();
               this.teleportArmed = false;
             }
-            if (dz < -deadzone) {
+            if (dzForward < -deadzone) {
               const backNorm = THREE.MathUtils.clamp(
-                (Math.abs(dz) - deadzone) / (maxRange - deadzone),
+                (Math.abs(dzForward) - deadzone) / (maxRange - deadzone),
                 0,
                 1
               );
-              moveZ = backNorm;
+              moveZ = backNorm * 0.7;
             }
           }
 
-          // Geser ibu jari kanan/kiri -> Snap / Smooth Turn (panah kiri/kanan Meta Quest)
-          if (Math.abs(dx) > deadzone) {
-            const normX = THREE.MathUtils.clamp(
-              (Math.abs(dx) - deadzone) / (maxRange - deadzone),
-              0,
-              1
-            );
-            const signedX = dx > 0 ? normX : -normX;
-            if (settings.vrTurnMode === 'snap') {
-              if (Math.abs(signedX) > 0.38 && this.snapTurnCooldown <= 0) {
-                const snapRad = THREE.MathUtils.degToRad(settings.vrSnapAngle);
-                lookDeltaX = signedX > 0 ? -snapRad : snapRad;
-                this.snapTurnCooldown = 0.34;
-              }
-            } else {
-              lookDeltaX = -signedX * settings.vrSmoothTurnSpeed * dt;
-            }
+          // Geser ibu jari kiri/kanan -> Snap Turn 1x per geseran (wajib kembali ke tengah dulu agar tidak muter-muter)
+          if (Math.abs(dx) < 0.012) {
+            this.snapTurnWaitNeutral = false;
+          } else if (!this.snapTurnWaitNeutral && this.snapTurnCooldown <= 0 && Math.abs(dx) > deadzone) {
+            const snapRad = THREE.MathUtils.degToRad(settings.vrSnapAngle || 30);
+            lookDeltaX = dx > 0 ? -snapRad : snapRad;
+            this.snapTurnCooldown = 0.45;
+            this.snapTurnWaitNeutral = true;
           }
 
           virtualStick.active = !teleportPreview.active;
           virtualStick.x = THREE.MathUtils.clamp(dx / maxRange, -1, 1);
-          virtualStick.y = THREE.MathUtils.clamp(-dz / maxRange, -1, 1);
+          virtualStick.y = THREE.MathUtils.clamp(-dzForward / maxRange, -1, 1);
         }
       } else {
         if (this.teleportArmed) {
@@ -282,6 +274,7 @@ export class VRHandGestures {
           this.teleportArmed = false;
         }
         this.isLeftFist = false;
+        this.snapTurnWaitNeutral = false;
       }
 
       // === 2B. CUBIT TANGAN KIRI (Ganti Senjata / Tahan menghadap wajah untuk Pause) ===

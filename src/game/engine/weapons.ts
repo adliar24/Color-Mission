@@ -64,10 +64,10 @@ export class WeaponRig {
         controller.add(this.gunGroup);
       }
       if (isHandTracking) {
-        // Mode tangan kosong (mount pada sendi wrist): putar 90° Z agar tegak saat tangan menggenggam senjata
+        // Mode tangan kosong: miring natural (~45°) di genggaman tangan kanan seperti memegang senjata asli
         this.gunGroup.scale.setScalar(0.45);
-        this.gunGroup.position.set(0.02, -0.015, -0.1);
-        this.gunGroup.rotation.set(-0.08, 0, Math.PI / 2);
+        this.gunGroup.position.set(0.01, 0.005, -0.075);
+        this.gunGroup.rotation.set(-0.1, 0, 0.78);
       } else {
         // Mode controller fisik: posisi grip tepat di genggaman controller
         this.gunGroup.scale.setScalar(0.5);
