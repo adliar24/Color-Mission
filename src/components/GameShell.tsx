@@ -1252,13 +1252,27 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         }
 
         if (handGestures?.teleportCommit && vrManager.isHandTrackingLeft) {
-          playerPos.current.x = THREE.MathUtils.clamp(handGestures.teleportCommit.x, -28.5, 28.5);
-          playerPos.current.z = THREE.MathUtils.clamp(handGestures.teleportCommit.z, -28.5, 28.5);
+          const camWorld = new THREE.Vector3();
+          const rigWorld = new THREE.Vector3();
+          camera.getWorldPosition(camWorld);
+          playerRig.getWorldPosition(rigWorld);
+          const offsetX = camWorld.x - rigWorld.x;
+          const offsetZ = camWorld.z - rigWorld.z;
+          playerPos.current.x = THREE.MathUtils.clamp(
+            handGestures.teleportCommit.x - offsetX,
+            -28.5,
+            28.5
+          );
+          playerPos.current.z = THREE.MathUtils.clamp(
+            handGestures.teleportCommit.z - offsetZ,
+            -28.5,
+            28.5
+          );
           playerVel.current.x = 0;
           playerVel.current.z = 0;
           sound.playDash();
           particles.emit(
-            new THREE.Vector3(playerPos.current.x, 0.35, playerPos.current.z),
+            new THREE.Vector3(handGestures.teleportCommit.x, 0.35, handGestures.teleportCommit.z),
             16,
             '#38bdf8',
             1.4

@@ -66,6 +66,9 @@ export class VRHandGestures {
   private teleportOriginOut = new THREE.Vector3();
   private teleportVelOut = new THREE.Vector3();
   private teleportTargetOut = new THREE.Vector3();
+  private hasSmoothedTeleport = false;
+  private smoothTpOrigin = new THREE.Vector3();
+  private smoothTpDir = new THREE.Vector3();
 
   private static getJoint(hand: XRHandWithJoints | null, name: string): THREE.Object3D | null {
     if (!hand || !hand.joints) return null;
@@ -111,9 +114,9 @@ export class VRHandGestures {
       rIndex.getWorldPosition(_vIndex);
       const pinchDist = _vThumb.distanceTo(_vIndex);
       if (this.isRightPinching) {
-        if (pinchDist > 0.038) this.isRightPinching = false;
+        if (pinchDist > 0.048) this.isRightPinching = false;
       } else {
-        if (pinchDist < 0.025) this.isRightPinching = true;
+        if (pinchDist < 0.034) this.isRightPinching = true;
       }
     } else {
       this.isRightPinching = false;
@@ -193,9 +196,21 @@ export class VRHandGestures {
         }
 
         if (_vRayDir.y < 0.28 && _vRayDir.y > -0.92) {
-          this.teleportOriginOut.copy(_vRayOrigin);
+          // Bekukan target saat jari mulai mendekat untuk mencubit agar ring tidak lompat/glitch
+          const freezeAim = leftPinchDist < 0.048 && this.hasSmoothedTeleport;
+          if (!this.hasSmoothedTeleport) {
+            this.smoothTpOrigin.copy(_vRayOrigin);
+            this.smoothTpDir.copy(_vRayDir);
+            this.hasSmoothedTeleport = true;
+          } else if (!freezeAim) {
+            this.smoothTpOrigin.lerp(_vRayOrigin, 0.42);
+            this.smoothTpDir.lerp(_vRayDir, 0.42).normalize();
+          }
+
+          this.teleportOriginOut.copy(this.smoothTpOrigin);
+          this.teleportOriginOut.y = Math.max(0.25, this.teleportOriginOut.y);
           const speed = 9.5;
-          this.teleportVelOut.copy(_vRayDir).multiplyScalar(speed);
+          this.teleportVelOut.copy(this.smoothTpDir).multiplyScalar(speed);
           this.teleportVelOut.y = Math.max(-2.0, this.teleportVelOut.y + 2.2);
 
           const g = 9.8;
@@ -213,14 +228,18 @@ export class VRHandGestures {
 
           teleportPreview.active = true;
           teleportPreview.valid = true;
+        } else {
+          this.hasSmoothedTeleport = false;
         }
+      } else {
+        this.hasSmoothedTeleport = false;
       }
 
       // 2C. Cubit Tangan Kiri:
       // - Jika menghadap wajah & ditahan 0.55s -> Pause Menu
       // - Jika sedang membidik lantai (teleportPreview.active) -> langsung Teleport!
       if (this.isLeftPinching) {
-        if (leftPinchDist > 0.038) {
+        if (leftPinchDist > 0.048) {
           this.isLeftPinching = false;
           this.leftPinchDuration = 0;
           this.leftPauseFired = false;
@@ -233,13 +252,14 @@ export class VRHandGestures {
             this.leftPauseFired = true;
           }
         }
-      } else if (leftPinchDist < 0.026) {
+      } else if (leftPinchDist < 0.034) {
         this.isLeftPinching = true;
         this.leftPinchDuration = 0;
         this.leftPauseFired = false;
         this.leftPinchFacingFace = isFacingFace;
         if (!isFacingFace && teleportPreview.active && teleportPreview.valid) {
           teleportCommit = this.teleportTargetOut.clone();
+          this.hasSmoothedTeleport = false;
         }
       }
     } else {
@@ -247,6 +267,7 @@ export class VRHandGestures {
       this.leftPinchDuration = 0;
       this.leftPauseFired = false;
       this.leftPinchFacingFace = false;
+      this.hasSmoothedTeleport = false;
     }
 
     return {

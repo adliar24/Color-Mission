@@ -64,9 +64,9 @@ export class WeaponRig {
         controller.add(this.gunGroup);
       }
       if (isHandTracking) {
-        // Mode tangan kosong: putar 90° di sumbu Z agar senjata tegak sesuai posisi tangan memegang senjata sungguhan
+        // Mode tangan kosong: putar 90° ke kiri di sumbu Z agar gagang pas di telapak tangan kanan
         this.gunGroup.scale.setScalar(0.45);
-        this.gunGroup.position.set(0.015, 0, -0.04);
+        this.gunGroup.position.set(-0.01, 0.015, -0.04);
         this.gunGroup.rotation.set(0, 0, Math.PI / 2);
       } else {
         // Mode controller fisik: posisi grip tepat di genggaman controller
@@ -385,8 +385,13 @@ export class WeaponRig {
     this.recoilRot.x = THREE.MathUtils.lerp(this.recoilRot.x, 0, dt * 14);
 
     if (this.vrHandParent) {
-      this.gunGroup.position.set(0, 0.045, -0.055 + this.recoilOffset.z);
-      this.gunGroup.rotation.set(this.recoilRot.x, 0, 0);
+      if (this.vrHandIsTracking) {
+        this.gunGroup.position.set(-0.01, 0.015, -0.04 + this.recoilOffset.z * 0.5);
+        this.gunGroup.rotation.set(this.recoilRot.x * 0.6, 0, Math.PI / 2);
+      } else {
+        this.gunGroup.position.set(0, 0.045, -0.055 + this.recoilOffset.z);
+        this.gunGroup.rotation.set(this.recoilRot.x, 0, 0);
+      }
     } else {
       const bobX = isMoving ? Math.sin(time * 10) * 0.015 : 0;
       const bobY = isMoving ? Math.cos(time * 20) * 0.015 : Math.sin(time * 2) * 0.003;
