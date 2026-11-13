@@ -153,7 +153,6 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
           >
             <span>LANJUT KE STAGE {nextStageNum}</span>
             <ArrowRight className="w-4 h-4" />
-            <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
           </button>
         </div>
       </div>
@@ -283,7 +282,6 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
         >
           <span>MULAI STAGE {stageNumber}</span>
           <ArrowRight className="w-4 h-4" />
-          <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
         </button>
       </div>
     </div>

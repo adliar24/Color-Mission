@@ -1956,7 +1956,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   }, [enterFullscreenAndLock, mobileOrientation]);
 
   return (
-    <div className="fixed inset-0 w-full h-dvh bg-slate-950 overflow-hidden select-none font-sans">
+    <div
+      data-gamepad-connected={isGamepadConnected ? 'true' : undefined}
+      className="fixed inset-0 w-full h-dvh bg-slate-950 overflow-hidden select-none font-sans"
+    >
       {/* Container Kanvas 3D Three.js */}
       <div ref={mountRef} className="absolute inset-0 w-full h-full cursor-crosshair" />
 

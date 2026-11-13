@@ -103,7 +103,6 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           >
             <RotateCcw className="w-4 h-4" />
             <span>MAIN LAGI</span>
-            <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
           </button>
 
           <button

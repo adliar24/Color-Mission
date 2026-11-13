@@ -145,7 +145,6 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
         >
           <Play className="w-4 h-4 fill-current" />
           <span>MULAI MISI</span>
-          <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
         </button>
       </div>
     </div>

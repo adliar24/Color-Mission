@@ -76,7 +76,6 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           >
             <RotateCcw className="w-4 h-4" />
             <span>COBA LAGI</span>
-            <GamepadBadge button="A" visible={isGamepadConnected} size="sm" />
           </button>
 
           <button
