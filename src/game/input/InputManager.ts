@@ -669,6 +669,7 @@ export class VRInput {
     let weaponSwitch: WeaponType | null = null;
 
     for (const source of session.inputSources) {
+      if (source.hand) continue;
       const gp = source.gamepad;
       if (!gp) continue;
 

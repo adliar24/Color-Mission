@@ -1280,7 +1280,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             '#38bdf8',
             1.4
           );
-        } else if (cmd.vrTeleportRequest) {
+        } else if (cmd.vrTeleportRequest && !vrManager.isHandTrackingLeft) {
           const forward = new THREE.Vector3(
             -Math.sin(cameraRot.current.yaw),
             0,
