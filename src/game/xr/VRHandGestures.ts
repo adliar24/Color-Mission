@@ -53,8 +53,6 @@ const _qWrist = new THREE.Quaternion();
  * - Tangan Kanan Cubit (telunjuk + ibu jari) -> Menembak / Klik Menu
  */
 export class VRHandGestures {
-  private isRightPinching = false;
-  private isRightMenuPinching = false;
   private wasRightPinching = false;
   private isLeftPinching = false;
   private leftPinchDuration = 0;
@@ -84,7 +82,10 @@ export class VRHandGestures {
     dt: number,
     _settings: GameSettings,
     leftController: THREE.Object3D | null = null,
-    leftSelectActive = false
+    leftSelectActive = false,
+    leftSelectPulse = false,
+    rightSelectActive = false,
+    rightSelectPulse = false
   ): VRHandGestureResult {
     this.watchTapCooldown = Math.max(0, this.watchTapCooldown - dt);
     this.teleportCooldown = Math.max(0, this.teleportCooldown - dt);
@@ -104,35 +105,13 @@ export class VRHandGestures {
     };
     let teleportCommit: THREE.Vector3 | null = null;
 
-    // === 1. TANGAN KANAN: Cubit untuk Tembak / Klik Menu + Aim Ray ===
+    // === 1. TANGAN KANAN: Gunakan event selectstart/selectend native Meta OS (anti salah baca saat melambai) ===
     const rWrist = VRHandGestures.getJoint(rightHand, 'wrist');
-    const rThumb = VRHandGestures.getJoint(rightHand, 'thumb-tip');
     const rIndex = VRHandGestures.getJoint(rightHand, 'index-finger-tip');
     const rIndexMcp = VRHandGestures.getJoint(rightHand, 'index-finger-metacarpal');
 
-    if (rThumb && rIndex) {
-      rThumb.getWorldPosition(_vThumb);
-      rIndex.getWorldPosition(_vIndex);
-      const pinchDist = _vThumb.distanceTo(_vIndex);
-      // Tembak: butuh cubitan tegas (< 0.025m) agar tidak terlalu sensitif saat tangan rileks
-      if (this.isRightPinching) {
-        if (pinchDist > 0.036) this.isRightPinching = false;
-      } else {
-        if (pinchDist < 0.025) this.isRightPinching = true;
-      }
-      // Klik Menu: lebih sensitif (< 0.040m) agar mudah memilih tombol di menu VR
-      if (this.isRightMenuPinching) {
-        if (pinchDist > 0.052) this.isRightMenuPinching = false;
-      } else {
-        if (pinchDist < 0.04) this.isRightMenuPinching = true;
-      }
-    } else {
-      this.isRightPinching = false;
-      this.isRightMenuPinching = false;
-    }
-
-    const rightJustPinched = this.isRightPinching && !this.wasRightPinching;
-    this.wasRightPinching = this.isRightPinching;
+    const rightJustPinched = rightSelectPulse || (rightSelectActive && !this.wasRightPinching);
+    this.wasRightPinching = rightSelectActive;
 
     if (rWrist && rIndexMcp) {
       rWrist.getWorldPosition(_vWrist);
@@ -246,11 +225,15 @@ export class VRHandGestures {
         this.hasTeleportTarget = false;
       }
 
-      // 2C. Cubit Tangan Kiri: langsung Teleport saat cubit (dengan cooldown anti-double), atau tahan menghadap wajah untuk Pause
-      const leftPinchNow = leftPinchDist < 0.035 || leftSelectActive;
-      const leftReleaseNow = leftPinchDist > 0.048 && !leftSelectActive;
+      // 2C. Cubit Tangan Kiri (Event selectstart native Meta OS untuk Teleport anti-double, atau tahan menghadap wajah untuk Pause)
+      if (leftSelectPulse && !isFacingFace && teleportPreview.active && teleportPreview.valid && this.teleportCooldown <= 0) {
+        teleportCommit = this.teleportTargetOut.clone();
+        this.teleportCooldown = 0.45;
+      }
+
+      const leftHoldNow = leftSelectActive || leftPinchDist < 0.028;
       if (this.isLeftPinching) {
-        if (leftReleaseNow) {
+        if (!leftHoldNow) {
           this.isLeftPinching = false;
           this.leftPinchDuration = 0;
           this.leftPauseFired = false;
@@ -262,20 +245,11 @@ export class VRHandGestures {
             this.leftPauseFired = true;
           }
         }
-      } else if (leftPinchNow) {
+      } else if (leftHoldNow) {
         this.isLeftPinching = true;
         this.leftPinchDuration = 0;
         this.leftPauseFired = false;
         this.leftPinchFacingFace = isFacingFace;
-        if (
-          !isFacingFace &&
-          teleportPreview.active &&
-          teleportPreview.valid &&
-          this.teleportCooldown <= 0
-        ) {
-          teleportCommit = this.teleportTargetOut.clone();
-          this.teleportCooldown = 0.45;
-        }
       }
     } else {
       this.isLeftPinching = false;
@@ -288,8 +262,8 @@ export class VRHandGestures {
     return {
       moveZ,
       lookDeltaX,
-      shoot: this.isRightPinching,
-      menuPinch: this.isRightMenuPinching,
+      shoot: rightSelectActive,
+      menuPinch: rightSelectPulse,
       rightJustPinched,
       weaponSwitch,
       pause,

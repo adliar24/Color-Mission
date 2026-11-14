@@ -945,7 +945,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             dt,
             curSettings,
             vrManager.leftController,
-            vrManager.isLeftSelectActive
+            vrManager.isLeftSelectActive,
+            vrManager.consumeLeftSelectPulse(),
+            vrManager.isRightSelectActive,
+            vrManager.consumeRightSelectPulse()
           )
         : null;
 
@@ -1109,9 +1112,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           vrManager.rightController,
           vrManager.currentSession,
           null,
-          vrManager.isHandTrackingRight
-            ? Boolean(handGestures?.menuPinch || vrManager.isRightSelectActive)
-            : false
+          vrManager.isHandTrackingRight ? Boolean(handGestures?.menuPinch) : false
         );
 
         if (hitPoint) {

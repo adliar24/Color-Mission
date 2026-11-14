@@ -43,6 +43,8 @@ export class VRManager {
   private rightVisible = true;
   public isRightSelectActive = false;
   public isLeftSelectActive = false;
+  private rightSelectPulse = false;
+  private leftSelectPulse = false;
 
   // Ring Target Teleport di lantai (tanpa garis melengkung)
   private teleportGroup: THREE.Group;
@@ -244,8 +246,13 @@ export class VRManager {
         addEventListener: (type: string, listener: () => void) => void;
       };
       target.addEventListener('selectstart', () => {
-        if (ctrl === this.rightController) this.isRightSelectActive = true;
-        else if (ctrl === this.leftController) this.isLeftSelectActive = true;
+        if (ctrl === this.rightController) {
+          this.isRightSelectActive = true;
+          this.rightSelectPulse = true;
+        } else if (ctrl === this.leftController) {
+          this.isLeftSelectActive = true;
+          this.leftSelectPulse = true;
+        }
       });
       target.addEventListener('selectend', () => {
         if (ctrl === this.rightController) this.isRightSelectActive = false;
@@ -259,6 +266,18 @@ export class VRManager {
   private syncControllerAttachments() {
     this.rightController.add(this.aimLine);
     this.rightController.add(this.reticleMesh);
+  }
+
+  public consumeRightSelectPulse(): boolean {
+    const p = this.rightSelectPulse;
+    this.rightSelectPulse = false;
+    return p;
+  }
+
+  public consumeLeftSelectPulse(): boolean {
+    const p = this.leftSelectPulse;
+    this.leftSelectPulse = false;
+    return p;
   }
 
   public setLeftHandModelVisible(visible: boolean) {
