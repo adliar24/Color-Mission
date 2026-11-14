@@ -893,6 +893,28 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     vrManager.leftController.add(vrWatch.group);
     vrManagerRef.current = vrManager;
 
+    let prevVRMenuVisible = false;
+    let prevVRMenuState: GameState | null = null;
+    const _menuCamPos = new THREE.Vector3();
+    const _menuCamDir = new THREE.Vector3();
+    const _menuTargetWorld = new THREE.Vector3();
+    const positionVRMenuInFrontOfCamera = () => {
+      playerRig.updateMatrixWorld(true);
+      camera.getWorldPosition(_menuCamPos);
+      camera.getWorldDirection(_menuCamDir);
+      _menuCamDir.y = 0;
+      if (_menuCamDir.lengthSq() < 0.0001) {
+        _menuCamDir.set(0, 0, -1);
+      } else {
+        _menuCamDir.normalize();
+      }
+      _menuTargetWorld.copy(_menuCamPos).addScaledVector(_menuCamDir, 2.25);
+      _menuTargetWorld.y = THREE.MathUtils.clamp(_menuCamPos.y - 0.06, 1.1, 2.45);
+      vrSpatialMenu.group.position.copy(_menuTargetWorld);
+      playerRig.worldToLocal(vrSpatialMenu.group.position);
+      vrSpatialMenu.group.lookAt(_menuCamPos.x, _menuTargetWorld.y, _menuCamPos.z);
+    };
+
     inputManagerRef.current.desktop.attach(renderer.domElement);
 
     const handleCanvasClick = () => {
@@ -1077,6 +1099,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           playerRig.position.set(0, 0, 0);
           playerRig.rotation.set(0, 0, 0);
         }
+        if (!prevVRMenuVisible || prevVRMenuState !== currentState) {
+          positionVRMenuInFrontOfCamera();
+        }
+        prevVRMenuVisible = true;
+        prevVRMenuState = currentState;
         vrSpatialMenu.setVisible(true);
         const vrInfo = vrMenuInfoRef.current;
         const { hitPoint, action } = vrSpatialMenu.update(
@@ -1171,6 +1198,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           dispatchVRMenuAction(action);
         }
       } else {
+        prevVRMenuVisible = false;
+        prevVRMenuState = null;
         vrSpatialMenu.setVisible(false);
       }
 
@@ -1254,6 +1283,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           playerVel.current.z = THREE.MathUtils.lerp(playerVel.current.z, 0, dt * 12);
         }
 
+        let didVRTeleportThisFrame = false;
         if (handGestures?.teleportCommit && vrManager.isHandTrackingLeft) {
           const camWorld = new THREE.Vector3();
           const rigWorld = new THREE.Vector3();
@@ -1261,21 +1291,20 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           playerRig.getWorldPosition(rigWorld);
           const offsetX = camWorld.x - rigWorld.x;
           const offsetZ = camWorld.z - rigWorld.z;
-          playerPos.current.x = THREE.MathUtils.clamp(
-            handGestures.teleportCommit.x - offsetX,
-            -28.5,
-            28.5
+          const desiredCamPos = new THREE.Vector3(
+            THREE.MathUtils.clamp(handGestures.teleportCommit.x, -28.5, 28.5),
+            1.7,
+            THREE.MathUtils.clamp(handGestures.teleportCommit.z, -28.5, 28.5)
           );
-          playerPos.current.z = THREE.MathUtils.clamp(
-            handGestures.teleportCommit.z - offsetZ,
-            -28.5,
-            28.5
-          );
+          resolveCircleXZCollision(desiredCamPos, 0.65, arena.colliders);
+          playerPos.current.x = THREE.MathUtils.clamp(desiredCamPos.x - offsetX, -28.5, 28.5);
+          playerPos.current.z = THREE.MathUtils.clamp(desiredCamPos.z - offsetZ, -28.5, 28.5);
           playerVel.current.x = 0;
           playerVel.current.z = 0;
+          didVRTeleportThisFrame = true;
           sound.playDash();
           particles.emit(
-            new THREE.Vector3(handGestures.teleportCommit.x, 0.35, handGestures.teleportCommit.z),
+            new THREE.Vector3(desiredCamPos.x, 0.35, desiredCamPos.z),
             16,
             '#38bdf8',
             1.4
@@ -1314,7 +1343,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
         playerPos.current.x = Math.max(-29, Math.min(29, playerPos.current.x));
         playerPos.current.z = Math.max(-29, Math.min(29, playerPos.current.z));
-        resolveCircleXZCollision(playerPos.current, 0.65, arena.colliders);
+        if (!didVRTeleportThisFrame) {
+          resolveCircleXZCollision(playerPos.current, 0.65, arena.colliders);
+        }
 
         arena.jumpPads.forEach((jp: JumpPad) => {
           if (

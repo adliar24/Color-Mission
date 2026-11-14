@@ -61,6 +61,7 @@ export class VRHandGestures {
   private watchTapCooldown = 0;
   private teleportCooldown = 0;
   private hasTeleportTarget = false;
+  private leftPinchLockTimer = 0;
 
   private aimOriginOut = new THREE.Vector3();
   private aimDirOut = new THREE.Vector3();
@@ -209,10 +210,25 @@ export class VRHandGestures {
       tz = THREE.MathUtils.clamp(tz, -28, 28);
 
       _vRingTarget.set(tx, 0.04, tz);
+      let isPinchClosing = leftSelectActive;
+      if (lThumb && lIndex) {
+        lThumb.getWorldPosition(_vThumb);
+        lIndex.getWorldPosition(_vIndex);
+        if (_vThumb.distanceTo(_vIndex) < 0.03) {
+          isPinchClosing = true;
+        }
+      }
+      if (isPinchClosing) {
+        this.leftPinchLockTimer += dt;
+      } else {
+        this.leftPinchLockTimer = 0;
+      }
+
       if (!this.hasTeleportTarget) {
         this.teleportTargetOut.copy(_vRingTarget);
         this.hasTeleportTarget = true;
-      } else {
+      } else if (!isPinchClosing || this.leftPinchLockTimer > 0.35) {
+        // Kunci posisi ring sesaat ketika jari mulai menjepit agar gerakan cubit tidak menggeser target
         this.teleportTargetOut.lerp(_vRingTarget, 0.85);
       }
 
