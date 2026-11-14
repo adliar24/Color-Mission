@@ -16,6 +16,7 @@ export interface VRHandGestureResult {
   menuPinch: boolean;
   rightJustPinched: boolean;
   weaponSwitch: boolean;
+  shoulderEntered: boolean;
   pause: boolean;
   rightAimOrigin: THREE.Vector3 | null;
   rightAimDir: THREE.Vector3 | null;
@@ -85,7 +86,8 @@ export class VRHandGestures {
     leftSelectActive = false,
     leftSelectPulse = false,
     rightSelectActive = false,
-    rightSelectPulse = false
+    rightSelectPulse = false,
+    rightController: THREE.Object3D | null = null
   ): VRHandGestureResult {
     this.shoulderSwapCooldown = Math.max(0, this.shoulderSwapCooldown - dt);
     this.teleportCooldown = Math.max(0, this.teleportCooldown - dt);
@@ -93,6 +95,7 @@ export class VRHandGestures {
     const moveZ = 0;
     const lookDeltaX = 0;
     let weaponSwitch = false;
+    let shoulderEntered = false;
     let pause = false;
     let rightAimOrigin: THREE.Vector3 | null = null;
     let rightAimDir: THREE.Vector3 | null = null;
@@ -141,7 +144,7 @@ export class VRHandGestures {
       rightAimDir = this.aimDirOut;
     }
 
-    const shoulderJoint = rWrist ?? rIndexMcp;
+    const shoulderJoint = rWrist ?? rIndexMcp ?? rightController;
     if (shoulderJoint) {
       shoulderJoint.getWorldPosition(_vRightHand);
       _vDelta.subVectors(_vRightHand, _vCamPos);
@@ -150,18 +153,19 @@ export class VRHandGestures {
       const forwardOffset = _vDelta.dot(_vCamFwd);
 
       const inShoulderZone =
-        rightOffset >= 0.09 &&
-        rightOffset <= 0.52 &&
-        upOffset >= -0.38 &&
-        upOffset <= 0.18 &&
-        forwardOffset >= -0.4 &&
-        forwardOffset <= 0.22;
+        rightOffset >= 0.07 &&
+        rightOffset <= 0.55 &&
+        upOffset >= -0.4 &&
+        upOffset <= 0.25 &&
+        forwardOffset >= -0.42 &&
+        forwardOffset <= 0.23;
 
       if (!this.rightInShoulderZone) {
         if (inShoulderZone && this.shoulderSwapCooldown <= 0) {
           this.rightInShoulderZone = true;
+          shoulderEntered = true;
         }
-      } else if (!inShoulderZone && (forwardOffset > 0.23 || rightOffset < 0.07 || upOffset < -0.4)) {
+      } else if (!inShoulderZone && (forwardOffset > 0.24 || rightOffset < 0.05 || upOffset < -0.42)) {
         weaponSwitch = true;
         this.rightInShoulderZone = false;
         this.shoulderSwapCooldown = 0.42;
@@ -290,6 +294,7 @@ export class VRHandGestures {
       menuPinch: rightSelectPulse,
       rightJustPinched,
       weaponSwitch,
+      shoulderEntered,
       pause,
       rightAimOrigin,
       rightAimDir,

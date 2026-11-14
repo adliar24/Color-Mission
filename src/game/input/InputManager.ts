@@ -623,7 +623,7 @@ export class VRInput {
   private snapTurnCooldown = 0;
   private prevButtonStates: Record<string, boolean> = {};
   private currentWeaponIndex = 0;
-  private weaponsOrder: WeaponType[] = ['laser_rifle', 'cyber_shotgun', 'railgun', 'plasma_smg'];
+  private weaponsOrder: WeaponType[] = ['laser_rifle', 'cyber_shotgun', 'railgun'];
 
   public poll(
     session: XRSession | null,

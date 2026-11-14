@@ -975,7 +975,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             vrManager.isLeftSelectActive,
             vrManager.consumeLeftSelectPulse(),
             vrManager.isRightSelectActive,
-            vrManager.consumeRightSelectPulse()
+            vrManager.consumeRightSelectPulse(),
+            vrManager.rightController
           )
         : null;
 
@@ -1337,10 +1338,18 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           isGrounded.current = false;
         }
 
-        if (
-          cmd.weaponSwitch &&
-          getUnlockedWeaponsForStage(pStats.stage).includes(cmd.weaponSwitch)
-        ) {
+        if (handGestures?.shoulderEntered) {
+          sound.playHitmarker(false);
+        }
+
+        const unlockedWeapons = getUnlockedWeaponsForStage(pStats.stage);
+        if (handGestures?.weaponSwitch && unlockedWeapons.length > 1) {
+          const curIdx = unlockedWeapons.indexOf(weapons.currentWeapon);
+          const nextWeapon = unlockedWeapons[(curIdx + 1) % unlockedWeapons.length];
+          weapons.switchWeapon(nextWeapon);
+          setCurrentWeapon(nextWeapon);
+          sound.playHitmarker(true);
+        } else if (cmd.weaponSwitch && unlockedWeapons.includes(cmd.weaponSwitch)) {
           weapons.switchWeapon(cmd.weaponSwitch);
           setCurrentWeapon(cmd.weaponSwitch);
         }
