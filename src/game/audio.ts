@@ -514,7 +514,7 @@ class SoundManager {
       if (!this.ctx || this.bgmMode === 'off') return;
       if (this.ctx.state !== 'running') return;
 
-      const bpm = this.bgmMode === 'menu' ? 92 : this.bgmMode === 'boss' ? 138 : 126;
+      const bpm = this.bgmMode === 'menu' ? 114 : this.bgmMode === 'boss' ? 138 : 126;
       const stepDur = 60 / bpm / 4; // 16th note
       const lookahead = 0.14;
 
@@ -558,18 +558,18 @@ class SoundManager {
       });
     }
 
-    // 2. Driving 16th/8th Synthwave Bass
+    // 2. Driving Synthwave Bass (Menu: upbeat 8th-note groove, Combat/Boss: punchy 16th/8th)
     const playBass =
       this.bgmMode === 'menu'
-        ? stepInBar === 0 || stepInBar === 8
+        ? stepInBar % 2 === 0
         : stepInBar % 2 === 0 || (this.bgmMode === 'boss' && stepInBar % 4 === 3);
     if (playBass) {
       const osc = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       osc.type = this.bgmMode === 'menu' ? 'triangle' : 'sawtooth';
-      const octaveBoost = this.bgmMode !== 'menu' && stepInBar % 4 === 2 ? 2 : 1;
+      const octaveBoost = stepInBar % 4 === 2 ? 2 : 1;
       osc.frequency.setValueAtTime(chord.bass * octaveBoost, time);
-      const dur = stepDur * (this.bgmMode === 'menu' ? 3.5 : 1.35);
+      const dur = stepDur * (this.bgmMode === 'menu' ? 1.6 : 1.35);
       g.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.14 : 0.18, time);
       g.gain.exponentialRampToValueAtTime(0.001, time + dur);
       osc.connect(g);
@@ -578,10 +578,10 @@ class SoundManager {
       osc.stop(time + dur + 0.01);
     }
 
-    // 3. Retro-Futuristic Arpeggio Lead (Menu: soft cyber-bell sine, Combat/Boss: sharp synth lead)
+    // 3. Retro-Futuristic Arpeggio Lead (Menu: upbeat cyber-lounge bell, Combat/Boss: sharp synth lead)
     const playArp =
       this.bgmMode === 'menu'
-        ? stepInBar % 4 === 0 || stepInBar === 10
+        ? stepInBar % 2 === 0 || stepInBar === 11
         : stepInBar % 2 === 0 || stepInBar === 7 || stepInBar === 15;
     if (playArp) {
       const arpNote = chord.arp[(stepInBar + bar) % chord.arp.length];
@@ -589,8 +589,8 @@ class SoundManager {
       const g = this.ctx.createGain();
       osc.type = this.bgmMode === 'menu' ? 'sine' : this.bgmMode === 'boss' ? 'square' : 'sawtooth';
       osc.frequency.setValueAtTime(arpNote, time);
-      const dur = stepDur * (this.bgmMode === 'menu' ? 3.2 : 1.1);
-      g.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.08 : 0.065, time);
+      const dur = stepDur * (this.bgmMode === 'menu' ? 1.8 : 1.1);
+      g.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.075 : 0.065, time);
       g.gain.exponentialRampToValueAtTime(0.001, time + dur);
       osc.connect(g);
       g.connect(this.bgmFilter);
@@ -598,40 +598,41 @@ class SoundManager {
       osc.stop(time + dur + 0.01);
     }
 
-    // 4. Punchy Kick & Crisp Hi-Hat/Snare (Combat & Boss)
-    if (this.bgmMode !== 'menu') {
-      if (stepInBar % 4 === 0) {
-        const kick = this.ctx.createOscillator();
-        const kg = this.ctx.createGain();
-        kick.type = 'sine';
-        kick.frequency.setValueAtTime(135, time);
-        kick.frequency.exponentialRampToValueAtTime(42, time + 0.09);
-        kg.gain.setValueAtTime(0.32, time);
-        kg.gain.exponentialRampToValueAtTime(0.001, time + 0.11);
-        kick.connect(kg);
-        kg.connect(this.bgmFilter);
-        kick.start(time);
-        kick.stop(time + 0.12);
-      }
+    // 4. Punchy Kick & Crisp Hi-Hat/Snare (Menu: ringan & groovy, Combat/Boss: penuh)
+    if (stepInBar % 4 === 0) {
+      const kick = this.ctx.createOscillator();
+      const kg = this.ctx.createGain();
+      kick.type = 'sine';
+      kick.frequency.setValueAtTime(this.bgmMode === 'menu' ? 110 : 135, time);
+      kick.frequency.exponentialRampToValueAtTime(42, time + 0.09);
+      kg.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.14 : 0.32, time);
+      kg.gain.exponentialRampToValueAtTime(0.001, time + 0.11);
+      kick.connect(kg);
+      kg.connect(this.bgmFilter);
+      kick.start(time);
+      kick.stop(time + 0.12);
+    }
 
-      if (stepInBar % 4 === 2 || stepInBar === 4 || stepInBar === 12) {
-        const buf = this.ensureNoiseBuffer();
-        if (buf) {
-          const src = this.ctx.createBufferSource();
-          src.buffer = buf;
-          const hp = this.ctx.createBiquadFilter();
-          hp.type = 'highpass';
-          hp.frequency.value = stepInBar === 4 || stepInBar === 12 ? 1800 : 6200;
-          const ng = this.ctx.createGain();
-          const isSnare = stepInBar === 4 || stepInBar === 12;
-          ng.gain.setValueAtTime(isSnare ? 0.13 : 0.045, time);
-          ng.gain.exponentialRampToValueAtTime(0.001, time + (isSnare ? 0.1 : 0.04));
-          src.connect(hp);
-          hp.connect(ng);
-          ng.connect(this.bgmFilter);
-          src.start(time);
-          src.stop(time + 0.11);
-        }
+    if (
+      (this.bgmMode === 'menu' && stepInBar % 4 === 2) ||
+      (this.bgmMode !== 'menu' && (stepInBar % 4 === 2 || stepInBar === 4 || stepInBar === 12))
+    ) {
+      const buf = this.ensureNoiseBuffer();
+      if (buf) {
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const hp = this.ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        const isSnare = this.bgmMode !== 'menu' && (stepInBar === 4 || stepInBar === 12);
+        hp.frequency.value = isSnare ? 1800 : 6200;
+        const ng = this.ctx.createGain();
+        ng.gain.setValueAtTime(isSnare ? 0.13 : this.bgmMode === 'menu' ? 0.028 : 0.045, time);
+        ng.gain.exponentialRampToValueAtTime(0.001, time + (isSnare ? 0.1 : 0.04));
+        src.connect(hp);
+        hp.connect(ng);
+        ng.connect(this.bgmFilter);
+        src.start(time);
+        src.stop(time + 0.11);
       }
     }
   }

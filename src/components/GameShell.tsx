@@ -835,6 +835,34 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     camera.add(vrHud.mesh);
     vrHudRef.current = vrHud;
 
+    // Efek layar merah 3D khusus mode VR saat terkena tembakan musuh
+    const dmgCanvas = document.createElement('canvas');
+    dmgCanvas.width = 256;
+    dmgCanvas.height = 256;
+    const dmgCtx = dmgCanvas.getContext('2d');
+    if (dmgCtx) {
+      const grad = dmgCtx.createRadialGradient(128, 128, 42, 128, 128, 128);
+      grad.addColorStop(0, 'rgba(239, 68, 68, 0)');
+      grad.addColorStop(0.55, 'rgba(239, 68, 68, 0.18)');
+      grad.addColorStop(1, 'rgba(220, 38, 38, 0.92)');
+      dmgCtx.fillStyle = grad;
+      dmgCtx.fillRect(0, 0, 256, 256);
+    }
+    const vrDamageTex = new THREE.CanvasTexture(dmgCanvas);
+    const vrDamageMat = new THREE.MeshBasicMaterial({
+      map: vrDamageTex,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const vrDamageMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.25), vrDamageMat);
+    vrDamageMesh.position.set(0, 0, -0.35);
+    vrDamageMesh.renderOrder = 999;
+    vrDamageMesh.visible = false;
+    camera.add(vrDamageMesh);
+    let vrDamageFlash = 0;
+
     const initialPixelRatio =
       stateRef.current.settings.graphicsQuality === 'high'
         ? Math.min(window.devicePixelRatio, 1.25)
@@ -1834,6 +1862,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           (dmg: number) => {
             if (isPlayerDyingRef.current) return;
             // Efek flicker merah saat pemain terkena tembakan musuh + Haptic feedback
+            vrDamageFlash = 1.0;
             setPlayerDamageFlash(true);
             if (damageFlashTimerRef.current) {
               clearTimeout(damageFlashTimerRef.current);
@@ -1950,6 +1979,15 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         );
       }
 
+      if (isPresentingVR && currentState === 'playing' && vrDamageFlash > 0.01) {
+        vrDamageMesh.visible = true;
+        vrDamageMat.opacity = vrDamageFlash * 0.78;
+        vrDamageFlash = Math.max(0, vrDamageFlash - dt * 3.5);
+      } else {
+        vrDamageMesh.visible = false;
+        if (currentState !== 'playing') vrDamageFlash = 0;
+      }
+
       if (
         isPresentingVR ||
         (currentState !== 'paused' && currentState !== 'stage_transition')
@@ -1959,6 +1997,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     });
 
     return () => {
+      vrDamageMesh.geometry.dispose();
+      vrDamageMat.dispose();
+      vrDamageTex.dispose();
       renderer.setAnimationLoop(null);
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('click', handleCanvasClick);

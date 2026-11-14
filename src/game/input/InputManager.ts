@@ -20,6 +20,8 @@ export class DesktopInput {
   private isMouseDown = false;
   private lookAccumX = 0;
   private lookAccumY = 0;
+  private smoothLookX = 0;
+  private smoothLookY = 0;
   private pendingReload = false;
   private pendingDash = false;
   private pendingEmp = false;
@@ -180,8 +182,10 @@ export class DesktopInput {
   private onMouseMove = (e: MouseEvent) => {
     if (!this.isActive) return;
     if (this.isPointerLocked) {
-      this.lookAccumX += e.movementX;
-      this.lookAccumY += e.movementY;
+      const dx = Math.max(-160, Math.min(160, e.movementX));
+      const dy = Math.max(-160, Math.min(160, e.movementY));
+      this.lookAccumX += dx;
+      this.lookAccumY += dy;
       return;
     }
 
@@ -335,10 +339,21 @@ export class DesktopInput {
     }
 
     const sens = 0.0055 * settings.mouseSensitivity;
-    let lookDeltaX = -this.lookAccumX * sens;
-    let lookDeltaY = -this.lookAccumY * sens;
+    const rawMouseX = -this.lookAccumX * sens;
+    const rawMouseY = -this.lookAccumY * sens;
     this.lookAccumX = 0;
     this.lookAccumY = 0;
+
+    // Sub-frame exponential smoothing untuk meredam micro-stutter polling mouse tanpa terasa delay
+    const alpha = 1 - Math.exp(-42 * Math.max(dt, 0.001));
+    this.smoothLookX = this.smoothLookX * (1 - alpha) + rawMouseX;
+    this.smoothLookY = this.smoothLookY * (1 - alpha) + rawMouseY;
+    let lookDeltaX = this.smoothLookX * alpha;
+    let lookDeltaY = this.smoothLookY * alpha;
+    this.smoothLookX -= lookDeltaX;
+    this.smoothLookY -= lookDeltaY;
+    if (Math.abs(this.smoothLookX) < 1e-6) this.smoothLookX = 0;
+    if (Math.abs(this.smoothLookY) < 1e-6) this.smoothLookY = 0;
 
     if (isFullKeyboard) {
       const kbdLookSpeed = 2.3 * settings.mouseSensitivity;
@@ -421,6 +436,8 @@ export class MobileInput {
   public isJumping = false;
   private lookAccumX = 0;
   private lookAccumY = 0;
+  private smoothLookX = 0;
+  private smoothLookY = 0;
   private gyroAccumX = 0;
   private gyroAccumY = 0;
   private lastGyroAlpha: number | null = null;
