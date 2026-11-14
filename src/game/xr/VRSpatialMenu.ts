@@ -62,6 +62,10 @@ export class VRSpatialMenu {
   private hoveredId: VRMenuAction | null = null;
   private graceHoveredId: VRMenuAction | null = null;
   private graceHoverExpiry = 0;
+  private pressedId: VRMenuAction | null = null;
+  private pressAnimStart = 0;
+  private pressAnimUntil = 0;
+  private pressProgress = 0;
   private lastSignature = '';
   private raycaster = new THREE.Raycaster();
   private prevTriggerPressed = false;
@@ -183,8 +187,28 @@ export class VRSpatialMenu {
     const clickTarget = nextHover ?? (nowMs <= this.graceHoverExpiry ? this.graceHoveredId : null);
     if (triggerPressed && !this.prevTriggerPressed && clickTarget) {
       action = clickTarget;
+      this.pressedId = clickTarget;
+      this.pressAnimStart = nowMs;
+      this.pressAnimUntil = nowMs + 220;
     }
     this.prevTriggerPressed = triggerPressed;
+
+    if (this.pressedId && nowMs < this.pressAnimUntil) {
+      this.pressProgress = THREE.MathUtils.clamp(
+        (nowMs - this.pressAnimStart) / (this.pressAnimUntil - this.pressAnimStart),
+        0,
+        1
+      );
+      this.panelMesh.position.z = -0.016 * Math.sin(this.pressProgress * Math.PI);
+      this.lastSignature = '';
+    } else {
+      if (this.pressedId) {
+        this.pressedId = null;
+        this.pressProgress = 0;
+        this.lastSignature = '';
+      }
+      this.panelMesh.position.z = THREE.MathUtils.lerp(this.panelMesh.position.z, 0, 0.35);
+    }
 
     if (nextHover !== this.hoveredId) {
       this.hoveredId = nextHover;
@@ -250,35 +274,84 @@ export class VRSpatialMenu {
   ) {
     this.buttons.push(btn);
     const isHover = this.hoveredId === btn.id;
+    const isPressed = this.pressedId === btn.id;
     const radius = 22;
+
+    const cx = btn.x + btn.w / 2;
+    const cy = btn.y + btn.h / 2;
+    let scale = isHover ? 1.03 : 1.0;
+    let pressPulse = 0;
+    if (isPressed) {
+      pressPulse = Math.sin(this.pressProgress * Math.PI);
+      scale = 1.0 - 0.07 * pressPulse;
+    }
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+
+    if (isHover || isPressed) {
+      ctx.save();
+      ctx.shadowColor = btn.variant === 'danger' ? 'rgba(251, 113, 133, 0.75)' : 'rgba(34, 211, 238, 0.85)';
+      ctx.shadowBlur = isPressed ? 28 : 16;
+      ctx.beginPath();
+      ctx.roundRect(btn.x, btn.y, btn.w, btn.h, radius);
+      ctx.strokeStyle = isPressed ? '#ffffff' : 'rgba(103, 232, 249, 0.6)';
+      ctx.lineWidth = isPressed ? 3.5 : 2;
+      ctx.stroke();
+      ctx.restore();
+    }
 
     ctx.beginPath();
     ctx.roundRect(btn.x, btn.y, btn.w, btn.h, radius);
 
     if (btn.variant === 'primary') {
-      ctx.fillStyle = isHover ? '#67e8f9' : '#22d3ee';
+      ctx.fillStyle = isPressed ? '#a5f3fc' : isHover ? '#67e8f9' : '#22d3ee';
       ctx.fill();
       ctx.fillStyle = '#020617';
     } else if (btn.variant === 'danger') {
-      ctx.fillStyle = isHover ? 'rgba(244, 63, 94, 0.32)' : 'rgba(244, 63, 94, 0.14)';
+      ctx.fillStyle = isPressed
+        ? 'rgba(244, 63, 94, 0.52)'
+        : isHover
+          ? 'rgba(244, 63, 94, 0.32)'
+          : 'rgba(244, 63, 94, 0.14)';
       ctx.fill();
-      ctx.strokeStyle = isHover ? '#fb7185' : 'rgba(244, 63, 94, 0.45)';
+      ctx.strokeStyle = isPressed ? '#ffffff' : isHover ? '#fb7185' : 'rgba(244, 63, 94, 0.45)';
       ctx.lineWidth = 2.5;
       ctx.stroke();
       ctx.fillStyle = '#fecdd3';
     } else {
-      ctx.fillStyle = isHover ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.06)';
+      ctx.fillStyle = isPressed
+        ? 'rgba(34, 211, 238, 0.32)'
+        : isHover
+          ? 'rgba(255, 255, 255, 0.14)'
+          : 'rgba(255, 255, 255, 0.06)';
       ctx.fill();
-      ctx.strokeStyle = isHover ? '#22d3ee' : 'rgba(255, 255, 255, 0.16)';
+      ctx.strokeStyle = isPressed ? '#ffffff' : isHover ? '#22d3ee' : 'rgba(255, 255, 255, 0.16)';
       ctx.lineWidth = 2.5;
       ctx.stroke();
       ctx.fillStyle = '#ffffff';
     }
 
+    if (isPressed && pressPulse > 0.01) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(btn.x, btn.y, btn.w, btn.h, radius);
+      ctx.clip();
+      const rippleR = (btn.w * 0.65) * (0.2 + this.pressProgress * 0.9);
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.32 * (1 - this.pressProgress)})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rippleR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
     ctx.font = '800 22px Inter, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(btn.label, btn.x + btn.w / 2, btn.y + btn.h / 2);
+    ctx.fillText(btn.label, cx, cy);
+    ctx.restore();
   }
 
   private drawMainMenuBoard(ctx: CanvasRenderingContext2D) {
