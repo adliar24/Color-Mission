@@ -740,14 +740,6 @@ export class VRInput {
             lookDeltaX = -stickX * settings.vrSmoothTurnSpeed * dt;
           }
         }
-
-        if (settings.vrMovementMode === 'teleport' && stickY < -0.75) {
-          if (this.wasJustPressed('right_tele', true)) {
-            vrTeleportRequest = true;
-          }
-        } else {
-          this.wasJustPressed('right_tele', false);
-        }
       }
     }
 

@@ -1310,16 +1310,27 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
         if (_scratchWishDir.lengthSq() > 0.001) {
           if (_scratchWishDir.lengthSq() > 1) _scratchWishDir.normalize();
-          _scratchForward.set(
-            -Math.sin(cameraRot.current.yaw),
-            0,
-            -Math.cos(cameraRot.current.yaw)
-          );
-          _scratchRight.set(
-            Math.cos(cameraRot.current.yaw),
-            0,
-            -Math.sin(cameraRot.current.yaw)
-          );
+          if (isPresentingVR) {
+            camera.getWorldDirection(_scratchForward);
+            _scratchForward.y = 0;
+            if (_scratchForward.lengthSq() < 0.0001) {
+              _scratchForward.set(0, 0, -1);
+            } else {
+              _scratchForward.normalize();
+            }
+            _scratchRight.set(-_scratchForward.z, 0, _scratchForward.x);
+          } else {
+            _scratchForward.set(
+              -Math.sin(cameraRot.current.yaw),
+              0,
+              -Math.cos(cameraRot.current.yaw)
+            );
+            _scratchRight.set(
+              Math.cos(cameraRot.current.yaw),
+              0,
+              -Math.sin(cameraRot.current.yaw)
+            );
+          }
           _scratchWorldWish
             .copy(_scratchForward)
             .multiplyScalar(-_scratchWishDir.z)
