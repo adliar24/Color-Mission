@@ -58,6 +58,7 @@ export class VRHandGestures {
   private leftFistDuration = 0;
   private leftPauseFired = false;
   private rightInShoulderZone = false;
+  private rightShoulderDwell = 0;
   private shoulderSwapCooldown = 0;
   private teleportCooldown = 0;
   private hasTeleportTarget = false;
@@ -153,22 +154,32 @@ export class VRHandGestures {
       const forwardOffset = _vDelta.dot(_vCamFwd);
 
       const inShoulderZone =
-        rightOffset >= 0.07 &&
-        rightOffset <= 0.55 &&
-        upOffset >= -0.4 &&
-        upOffset <= 0.25 &&
-        forwardOffset >= -0.42 &&
-        forwardOffset <= 0.23;
+        rightOffset >= 0.14 &&
+        rightOffset <= 0.48 &&
+        upOffset >= -0.3 &&
+        upOffset <= 0.18 &&
+        forwardOffset >= -0.38 &&
+        forwardOffset <= 0.09;
 
       if (!this.rightInShoulderZone) {
         if (inShoulderZone && this.shoulderSwapCooldown <= 0) {
-          this.rightInShoulderZone = true;
-          shoulderEntered = true;
+          this.rightShoulderDwell += dt;
+          if (this.rightShoulderDwell >= 0.07) {
+            this.rightInShoulderZone = true;
+            shoulderEntered = true;
+          }
+        } else {
+          this.rightShoulderDwell = 0;
         }
-      } else if (!inShoulderZone && (forwardOffset > 0.24 || rightOffset < 0.05 || upOffset < -0.42)) {
+      } else if (!inShoulderZone && forwardOffset > 0.2) {
         weaponSwitch = true;
         this.rightInShoulderZone = false;
-        this.shoulderSwapCooldown = 0.42;
+        this.rightShoulderDwell = 0;
+        this.shoulderSwapCooldown = 0.45;
+      } else if (upOffset < -0.36) {
+        // Jika tangan diturunkan ke bawah (bukan ditarik maju), batalkan tanpa mengganti senjata
+        this.rightInShoulderZone = false;
+        this.rightShoulderDwell = 0;
       }
     }
 
