@@ -1,7 +1,32 @@
 // Generator suara prosedural Web Audio API untuk COLOR MISSION
+export type BgmMode = 'off' | 'menu' | 'combat' | 'boss';
+
+const BGM_CHORDS = [
+  // D minor -> Bb major -> C major -> A minor (Synthwave cyber progression)
+  { bass: 73.42, pad: [146.83, 174.61, 220.0], arp: [293.66, 349.23, 440.0, 587.33] }, // Dm
+  { bass: 58.27, pad: [116.54, 146.83, 174.61], arp: [233.08, 293.66, 349.23, 466.16] }, // Bb
+  { bass: 65.41, pad: [130.81, 164.81, 196.0], arp: [261.63, 329.63, 392.0, 523.25] }, // C
+  { bass: 55.0, pad: [110.0, 130.81, 164.81], arp: [220.0, 261.63, 329.63, 440.0] }, // Am
+];
+
+const BOSS_CHORDS = [
+  // D minor -> Eb major -> F minor -> C#dim/A (Urgent cyber-boss tension)
+  { bass: 73.42, pad: [146.83, 174.61, 220.0], arp: [293.66, 349.23, 440.0, 587.33] },
+  { bass: 77.78, pad: [155.56, 196.0, 233.08], arp: [311.13, 392.0, 466.16, 622.25] },
+  { bass: 69.3, pad: [138.59, 174.61, 207.65], arp: [277.18, 349.23, 415.3, 554.37] },
+  { bass: 55.0, pad: [110.0, 138.59, 164.81], arp: [220.0, 277.18, 329.63, 440.0] },
+];
+
 class SoundManager {
   private ctx: AudioContext | null = null;
   public isMuted: boolean = false;
+  private bgmMode: BgmMode = 'off';
+  private bgmMasterGain: GainNode | null = null;
+  private bgmFilter: BiquadFilterNode | null = null;
+  private bgmTimer: number | null = null;
+  private bgmStep = 0;
+  private nextNoteTime = 0;
+  private noiseBuffer: AudioBuffer | null = null;
 
   private initContext() {
     if (!this.ctx && typeof window !== 'undefined') {
@@ -13,8 +38,30 @@ class SoundManager {
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
+    if (this.ctx && !this.bgmMasterGain) {
+      this.bgmFilter = this.ctx.createBiquadFilter();
+      this.bgmFilter.type = 'lowpass';
+      this.bgmFilter.frequency.value = 3400;
+      this.bgmMasterGain = this.ctx.createGain();
+      this.bgmMasterGain.gain.value = this.isMuted ? 0 : 0.2;
+      this.bgmFilter.connect(this.bgmMasterGain);
+      this.bgmMasterGain.connect(this.ctx.destination);
+    }
+  }
+
+  private ensureNoiseBuffer(): AudioBuffer | null {
+    if (!this.ctx) return null;
+    if (this.noiseBuffer) return this.noiseBuffer;
+    const len = Math.floor(this.ctx.sampleRate * 0.12);
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    this.noiseBuffer = buf;
+    return buf;
   }
 
   public playLaser() {
@@ -410,7 +457,170 @@ class SoundManager {
 
   public toggleMute() {
     this.isMuted = !this.isMuted;
+    if (this.ctx && this.bgmMasterGain) {
+      this.bgmMasterGain.gain.setTargetAtTime(this.isMuted ? 0 : 0.2, this.ctx.currentTime, 0.04);
+    }
     return this.isMuted;
+  }
+
+  public unlockBgm() {
+    this.initContext();
+    if (this.bgmMode !== 'off' && this.bgmTimer === null && typeof window !== 'undefined') {
+      this.startBgmScheduler();
+    }
+  }
+
+  public setBgmMode(mode: BgmMode) {
+    if (this.bgmMode === mode) return;
+    this.bgmMode = mode;
+
+    if (mode === 'off') {
+      this.stopBgm();
+      return;
+    }
+
+    this.initContext();
+    if (this.ctx && this.bgmFilter && this.bgmMasterGain) {
+      const targetCutoff = mode === 'menu' ? 1600 : mode === 'boss' ? 4200 : 3200;
+      const targetVol = this.isMuted ? 0 : mode === 'menu' ? 0.14 : mode === 'boss' ? 0.22 : 0.19;
+      this.bgmFilter.frequency.setTargetAtTime(targetCutoff, this.ctx.currentTime, 0.2);
+      this.bgmMasterGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.12);
+    }
+
+    if (this.bgmTimer === null && typeof window !== 'undefined') {
+      this.startBgmScheduler();
+    }
+  }
+
+  public stopBgm() {
+    if (this.bgmTimer !== null && typeof window !== 'undefined') {
+      window.clearInterval(this.bgmTimer);
+      this.bgmTimer = null;
+    }
+  }
+
+  private startBgmScheduler() {
+    if (!this.ctx || typeof window === 'undefined') return;
+    this.nextNoteTime = this.ctx.currentTime + 0.05;
+    this.bgmTimer = window.setInterval(() => {
+      if (!this.ctx || this.bgmMode === 'off') return;
+      if (this.ctx.state !== 'running') return;
+
+      const bpm = this.bgmMode === 'menu' ? 104 : this.bgmMode === 'boss' ? 138 : 126;
+      const stepDur = 60 / bpm / 4; // 16th note
+      const lookahead = 0.14;
+
+      while (this.nextNoteTime < this.ctx.currentTime + lookahead) {
+        this.scheduleBgmStep(this.bgmStep, this.nextNoteTime, stepDur);
+        this.nextNoteTime += stepDur;
+        this.bgmStep = (this.bgmStep + 1) % 64;
+      }
+    }, 35);
+  }
+
+  private scheduleBgmStep(step: number, time: number, stepDur: number) {
+    if (!this.ctx || !this.bgmFilter || this.isMuted) return;
+
+    const bar = Math.floor(step / 16);
+    const stepInBar = step % 16;
+    const prog = this.bgmMode === 'boss' ? BOSS_CHORDS : BGM_CHORDS;
+    const chord = prog[bar % prog.length];
+
+    // 1. Warm Cyber Pad on beat 1 of each bar
+    if (stepInBar === 0) {
+      const padDur = stepDur * 15.5;
+      chord.pad.forEach((freq) => {
+        if (!this.ctx || !this.bgmFilter) return;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, time);
+        g.gain.setValueAtTime(0.001, time);
+        g.gain.linearRampToValueAtTime(this.bgmMode === 'menu' ? 0.09 : 0.06, time + 0.12);
+        g.gain.exponentialRampToValueAtTime(0.001, time + padDur);
+        osc.connect(g);
+        g.connect(this.bgmFilter);
+        osc.start(time);
+        osc.stop(time + padDur + 0.02);
+      });
+    }
+
+    // 2. Driving 16th/8th Synthwave Bass
+    const playBass =
+      this.bgmMode === 'menu'
+        ? stepInBar === 0 || stepInBar === 8
+        : stepInBar % 2 === 0 || (this.bgmMode === 'boss' && stepInBar % 4 === 3);
+    if (playBass) {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = this.bgmMode === 'menu' ? 'triangle' : 'sawtooth';
+      const octaveBoost = this.bgmMode !== 'menu' && stepInBar % 4 === 2 ? 2 : 1;
+      osc.frequency.setValueAtTime(chord.bass * octaveBoost, time);
+      const dur = stepDur * (this.bgmMode === 'menu' ? 3.5 : 1.35);
+      g.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.14 : 0.18, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+      osc.connect(g);
+      g.connect(this.bgmFilter);
+      osc.start(time);
+      osc.stop(time + dur + 0.01);
+    }
+
+    // 3. Retro-Futuristic Arpeggio Lead
+    const playArp =
+      this.bgmMode === 'menu'
+        ? stepInBar % 4 === 0
+        : stepInBar % 2 === 0 || stepInBar === 7 || stepInBar === 15;
+    if (playArp) {
+      const arpNote = chord.arp[(stepInBar + bar) % chord.arp.length];
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = this.bgmMode === 'boss' ? 'square' : 'sawtooth';
+      osc.frequency.setValueAtTime(arpNote, time);
+      const dur = stepDur * (this.bgmMode === 'menu' ? 2.8 : 1.1);
+      g.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.055 : 0.065, time);
+      g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+      osc.connect(g);
+      g.connect(this.bgmFilter);
+      osc.start(time);
+      osc.stop(time + dur + 0.01);
+    }
+
+    // 4. Punchy Kick & Crisp Hi-Hat/Snare (Combat & Boss)
+    if (this.bgmMode !== 'menu') {
+      if (stepInBar % 4 === 0) {
+        const kick = this.ctx.createOscillator();
+        const kg = this.ctx.createGain();
+        kick.type = 'sine';
+        kick.frequency.setValueAtTime(135, time);
+        kick.frequency.exponentialRampToValueAtTime(42, time + 0.09);
+        kg.gain.setValueAtTime(0.32, time);
+        kg.gain.exponentialRampToValueAtTime(0.001, time + 0.11);
+        kick.connect(kg);
+        kg.connect(this.bgmFilter);
+        kick.start(time);
+        kick.stop(time + 0.12);
+      }
+
+      if (stepInBar % 4 === 2 || stepInBar === 4 || stepInBar === 12) {
+        const buf = this.ensureNoiseBuffer();
+        if (buf) {
+          const src = this.ctx.createBufferSource();
+          src.buffer = buf;
+          const hp = this.ctx.createBiquadFilter();
+          hp.type = 'highpass';
+          hp.frequency.value = stepInBar === 4 || stepInBar === 12 ? 1800 : 6200;
+          const ng = this.ctx.createGain();
+          const isSnare = stepInBar === 4 || stepInBar === 12;
+          ng.gain.setValueAtTime(isSnare ? 0.13 : 0.045, time);
+          ng.gain.exponentialRampToValueAtTime(0.001, time + (isSnare ? 0.1 : 0.04));
+          src.connect(hp);
+          hp.connect(ng);
+          ng.connect(this.bgmFilter);
+          src.start(time);
+          src.stop(time + 0.11);
+        }
+      }
+    }
   }
 }
 

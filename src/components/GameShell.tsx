@@ -2200,6 +2200,23 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     return () => clearTimeout(t);
   }, [shotFeedback]);
 
+  useEffect(() => {
+    const bgmMode =
+      gameState === 'playing' ? (bossHp !== undefined && bossHp > 0 ? 'boss' : 'combat') : 'menu';
+    sound.setBgmMode(bgmMode);
+  }, [gameState, bossHp]);
+
+  useEffect(() => {
+    const unlock = () => sound.unlockBgm();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      sound.stopBgm();
+    };
+  }, []);
+
   // Navigasi Keyboard untuk Menu & Modal (Esc: kembali/lanjutkan, Panah: pindah tombol, Enter: konfirmasi)
   useEffect(() => {
     const isMenuActive = gameState !== 'playing' || showSettings || showTutorial;
