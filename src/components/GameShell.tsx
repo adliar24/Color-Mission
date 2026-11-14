@@ -895,13 +895,15 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
     let prevVRMenuVisible = false;
     let prevVRMenuState: GameState | null = null;
+    let vrMenuSnapFramesLeft = 0;
     const _menuCamPos = new THREE.Vector3();
     const _menuCamDir = new THREE.Vector3();
     const _menuTargetWorld = new THREE.Vector3();
     const positionVRMenuInFrontOfCamera = () => {
+      const activeCam = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
       playerRig.updateMatrixWorld(true);
-      camera.getWorldPosition(_menuCamPos);
-      camera.getWorldDirection(_menuCamDir);
+      activeCam.getWorldPosition(_menuCamPos);
+      activeCam.getWorldDirection(_menuCamDir);
       _menuCamDir.y = 0;
       if (_menuCamDir.lengthSq() < 0.0001) {
         _menuCamDir.set(0, 0, -1);
@@ -1100,7 +1102,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           playerRig.rotation.set(0, 0, 0);
         }
         if (!prevVRMenuVisible || prevVRMenuState !== currentState) {
+          vrMenuSnapFramesLeft = 4;
+        }
+        if (vrMenuSnapFramesLeft > 0) {
           positionVRMenuInFrontOfCamera();
+          vrMenuSnapFramesLeft--;
         }
         prevVRMenuVisible = true;
         prevVRMenuState = currentState;
@@ -1200,6 +1206,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       } else {
         prevVRMenuVisible = false;
         prevVRMenuState = null;
+        vrMenuSnapFramesLeft = 0;
         vrSpatialMenu.setVisible(false);
       }
 
