@@ -348,6 +348,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   });
 
   const vrTriggerReleaseGuardRef = useRef<boolean>(false);
+  const vrShootCooldownUntilRef = useRef<number>(0);
 
   const vrMenuInfoRef = useRef({
     stageModalMode,
@@ -1199,8 +1200,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         }
 
         if (action) {
+          sound.playUiClick();
           const dispatchVRMenuAction = (act: VRMenuAction) => {
             if (act === 'start_mission' || act === 'restart') {
+              vrTriggerReleaseGuardRef.current = true;
+              vrShootCooldownUntilRef.current = performance.now() + 380;
               setShowTutorial(false);
               setShowSettings(false);
               menuCallbacksRef.current.startRun();
@@ -1215,9 +1219,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               vrManager.exitVR();
             } else if (act === 'continue_stage') {
               vrTriggerReleaseGuardRef.current = true;
+              vrShootCooldownUntilRef.current = performance.now() + 380;
               menuCallbacksRef.current.continueStage();
             } else if (act === 'resume') {
               vrTriggerReleaseGuardRef.current = true;
+              vrShootCooldownUntilRef.current = performance.now() + 380;
               setGameState('playing');
             } else if (act === 'return_menu') {
               setShowSettings(false);
@@ -1596,7 +1602,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           }
         }
 
-        if (cmd.shoot && !vrTriggerReleaseGuardRef.current) {
+        if (cmd.shoot && !vrTriggerReleaseGuardRef.current && performance.now() >= vrShootCooldownUntilRef.current) {
           const fired = weapons.fire();
           if (fired) {
             inputManagerRef.current.triggerHaptic(
@@ -2262,11 +2268,19 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
   useEffect(() => {
     const unlock = () => sound.unlockBgm();
+    const onGlobalButtonClick = (e: MouseEvent) => {
+      const btn = (e.target as HTMLElement | null)?.closest('button');
+      if (btn && !(btn as HTMLButtonElement).disabled) {
+        sound.playUiClick();
+      }
+    };
     window.addEventListener('pointerdown', unlock, { once: true });
     window.addEventListener('keydown', unlock, { once: true });
+    document.addEventListener('click', onGlobalButtonClick, true);
     return () => {
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
+      document.removeEventListener('click', onGlobalButtonClick, true);
       sound.stopBgm();
     };
   }, []);
