@@ -841,10 +841,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     dmgCanvas.height = 256;
     const dmgCtx = dmgCanvas.getContext('2d');
     if (dmgCtx) {
-      const grad = dmgCtx.createRadialGradient(128, 128, 42, 128, 128, 128);
+      const grad = dmgCtx.createRadialGradient(128, 128, 36, 128, 128, 114);
       grad.addColorStop(0, 'rgba(239, 68, 68, 0)');
-      grad.addColorStop(0.55, 'rgba(239, 68, 68, 0.18)');
-      grad.addColorStop(1, 'rgba(220, 38, 38, 0.92)');
+      grad.addColorStop(0.5, 'rgba(239, 68, 68, 0.25)');
+      grad.addColorStop(0.82, 'rgba(220, 38, 38, 0.85)');
+      grad.addColorStop(1, 'rgba(220, 38, 38, 0.96)');
       dmgCtx.fillStyle = grad;
       dmgCtx.fillRect(0, 0, 256, 256);
     }
@@ -856,8 +857,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       depthTest: false,
       depthWrite: false,
     });
-    const vrDamageMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.25), vrDamageMat);
-    vrDamageMesh.position.set(0, 0, -0.35);
+    const vrDamageMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.05, 1.55), vrDamageMat);
+    vrDamageMesh.position.set(0, 0, -1.2);
     vrDamageMesh.renderOrder = 999;
     vrDamageMesh.visible = false;
     camera.add(vrDamageMesh);
@@ -911,6 +912,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         vrManager.leftController.add(vrWatch.group);
         inputManagerRef.current.setMode('vr');
         setPlatformMode('vr');
+        sound.unlockBgm();
+        sound.setBgmMode(stateRef.current.gameState === 'playing' ? 'combat' : 'menu');
       } else {
         weapons.attachToVRHand(null);
         vrManager.setRightHandModelVisible(true);
@@ -1856,9 +1859,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           }
         }
 
+        const enemyTargetPos = isPresentingVR
+          ? camera.getWorldPosition(_scratchAimOrigin)
+          : playerPos.current;
+
         enemies.update(
           dt,
-          playerPos.current,
+          enemyTargetPos,
           (dmg: number) => {
             if (isPlayerDyingRef.current) return;
             // Efek flicker merah saat pemain terkena tembakan musuh + Haptic feedback
@@ -1981,8 +1988,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
       if (isPresentingVR && currentState === 'playing' && vrDamageFlash > 0.01) {
         vrDamageMesh.visible = true;
-        vrDamageMat.opacity = vrDamageFlash * 0.78;
-        vrDamageFlash = Math.max(0, vrDamageFlash - dt * 3.5);
+        vrDamageMat.opacity = vrDamageFlash * 0.88;
+        vrDamageFlash = Math.max(0, vrDamageFlash - dt * 2.8);
       } else {
         vrDamageMesh.visible = false;
         if (currentState !== 'playing') vrDamageFlash = 0;
@@ -2563,6 +2570,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               type="button"
               onClick={async () => {
                 setVrErrorMsg(null);
+                sound.unlockBgm();
+                sound.setBgmMode('menu');
                 const res = await vrManagerRef.current?.enterVR();
                 if (res && !res.ok) {
                   setVrErrorMsg(res.message);

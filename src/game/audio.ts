@@ -512,6 +512,9 @@ class SoundManager {
     this.nextNoteTime = this.ctx.currentTime + 0.05;
     this.bgmTimer = window.setInterval(() => {
       if (!this.ctx || this.bgmMode === 'off') return;
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
       if (this.ctx.state !== 'running') return;
 
       const bpm = this.bgmMode === 'menu' ? 114 : this.bgmMode === 'boss' ? 138 : 126;

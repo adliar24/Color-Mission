@@ -1222,21 +1222,43 @@ export class EnemyManager {
     const cDef = getColorDef(enemy.colorId);
     const speed = def.projectileSpeed * speedMult;
 
+    const toPlayerXZ = new THREE.Vector3(
+      playerPos.x - enemy.position.x,
+      0,
+      playerPos.z - enemy.position.z
+    );
+    if (toPlayerXZ.lengthSq() < 0.0001) toPlayerXZ.set(0, 0, 1);
+    else toPlayerXZ.normalize();
+    const rightXZ = new THREE.Vector3(-toPlayerXZ.z, 0, toPlayerXZ.x);
+
     if (enemy.type === 'chromabot_normal') {
-      const origin = enemy.position.clone().add(new THREE.Vector3(0, 1.25, 0));
+      const origin = enemy.position
+        .clone()
+        .addScaledVector(toPlayerXZ, 0.45)
+        .add(new THREE.Vector3(0, 1.25, 0));
       const target = playerPos.clone().setY(1.25);
       const dir = new THREE.Vector3().subVectors(target, origin).normalize();
       this.spawnProjectile(origin, dir, speed, def.damage, def.projectileSize, cDef.hex, false);
     } else if (enemy.type === 'chromabot_elite') {
       for (let s = -1; s <= 1; s += 2) {
-        const origin = enemy.position.clone().add(new THREE.Vector3(s * 0.55, 1.5, 0));
-        const target = playerPos.clone().setY(1.25).add(new THREE.Vector3(s * 1.2, 0, 0));
+        const origin = enemy.position
+          .clone()
+          .addScaledVector(toPlayerXZ, 0.45)
+          .addScaledVector(rightXZ, s * 0.55)
+          .add(new THREE.Vector3(0, 1.5, 0));
+        const target = playerPos
+          .clone()
+          .setY(1.25)
+          .addScaledVector(rightXZ, s * 1.1);
         const dir = new THREE.Vector3().subVectors(target, origin).normalize();
         this.spawnProjectile(origin, dir, speed, def.damage, def.projectileSize, cDef.hex, false);
       }
     } else if (enemy.type === 'chroma_titan') {
       const bossPhase = getBossPhaseForHp(enemy.hp, enemy.maxHp).phase;
-      const origin = enemy.position.clone().add(new THREE.Vector3(0, 3.65, 1.8));
+      const origin = enemy.position
+        .clone()
+        .addScaledVector(toPlayerXZ, 1.6)
+        .add(new THREE.Vector3(0, 3.65, 0));
       const target = playerPos.clone().setY(1.25);
       const centerDir = new THREE.Vector3().subVectors(target, origin).normalize();
 
