@@ -877,6 +877,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       setIsVRActive(active);
       if (active) {
         setVrErrorMsg(null);
+        camera.position.set(0, 1.7, 0);
+        camera.rotation.set(0, 0, 0);
         vrManager.leftController.add(vrWatch.group);
         inputManagerRef.current.setMode('vr');
         setPlatformMode('vr');
@@ -901,17 +903,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     const _menuCamDir = new THREE.Vector3();
     const _menuTargetWorld = new THREE.Vector3();
     const positionVRMenuInFrontOfCamera = () => {
-      const activeCam = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
       playerRig.updateMatrixWorld(true);
-      activeCam.getWorldPosition(_menuCamPos);
-      activeCam.getWorldDirection(_menuCamDir);
+      camera.getWorldPosition(_menuCamPos);
+      camera.getWorldDirection(_menuCamDir);
       _menuCamDir.y = 0;
       if (_menuCamDir.lengthSq() < 0.0001) {
         _menuCamDir.set(0, 0, -1);
       } else {
         _menuCamDir.normalize();
       }
-      _menuTargetWorld.copy(_menuCamPos).addScaledVector(_menuCamDir, 1.45);
+      _menuTargetWorld.copy(_menuCamPos).addScaledVector(_menuCamDir, 1.4);
       _menuTargetWorld.y = THREE.MathUtils.clamp(_menuCamPos.y - 0.05, 1.05, 2.35);
       vrSpatialMenu.group.scale.setScalar(0.75);
       vrSpatialMenu.group.position.copy(_menuTargetWorld);
