@@ -1,6 +1,14 @@
 // Generator suara prosedural Web Audio API untuk COLOR MISSION
 export type BgmMode = 'off' | 'menu' | 'combat' | 'boss';
 
+const MENU_CHORDS = [
+  // A minor -> F major -> C major -> G major (Chill cyber-lounge main menu)
+  { bass: 55.0, pad: [220.0, 261.63, 329.63], arp: [440.0, 523.25, 659.25, 523.25] }, // Am
+  { bass: 43.65, pad: [174.61, 220.0, 261.63], arp: [349.23, 440.0, 523.25, 440.0] }, // F
+  { bass: 65.41, pad: [130.81, 164.81, 196.0], arp: [261.63, 329.63, 392.0, 523.25] }, // C
+  { bass: 49.0, pad: [196.0, 246.94, 293.66], arp: [392.0, 493.88, 587.33, 493.88] }, // G
+];
+
 const BGM_CHORDS = [
   // D minor -> Bb major -> C major -> A minor (Synthwave cyber progression)
   { bass: 73.42, pad: [146.83, 174.61, 220.0], arp: [293.66, 349.23, 440.0, 587.33] }, // Dm
@@ -481,8 +489,8 @@ class SoundManager {
 
     this.initContext();
     if (this.ctx && this.bgmFilter && this.bgmMasterGain) {
-      const targetCutoff = mode === 'menu' ? 1600 : mode === 'boss' ? 4200 : 3200;
-      const targetVol = this.isMuted ? 0 : mode === 'menu' ? 0.14 : mode === 'boss' ? 0.22 : 0.19;
+      const targetCutoff = mode === 'menu' ? 1900 : mode === 'boss' ? 4200 : 3200;
+      const targetVol = this.isMuted ? 0 : mode === 'menu' ? 0.16 : mode === 'boss' ? 0.22 : 0.19;
       this.bgmFilter.frequency.setTargetAtTime(targetCutoff, this.ctx.currentTime, 0.2);
       this.bgmMasterGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.12);
     }
@@ -506,7 +514,7 @@ class SoundManager {
       if (!this.ctx || this.bgmMode === 'off') return;
       if (this.ctx.state !== 'running') return;
 
-      const bpm = this.bgmMode === 'menu' ? 104 : this.bgmMode === 'boss' ? 138 : 126;
+      const bpm = this.bgmMode === 'menu' ? 92 : this.bgmMode === 'boss' ? 138 : 126;
       const stepDur = 60 / bpm / 4; // 16th note
       const lookahead = 0.14;
 
@@ -523,7 +531,12 @@ class SoundManager {
 
     const bar = Math.floor(step / 16);
     const stepInBar = step % 16;
-    const prog = this.bgmMode === 'boss' ? BOSS_CHORDS : BGM_CHORDS;
+    const prog =
+      this.bgmMode === 'menu'
+        ? MENU_CHORDS
+        : this.bgmMode === 'boss'
+          ? BOSS_CHORDS
+          : BGM_CHORDS;
     const chord = prog[bar % prog.length];
 
     // 1. Warm Cyber Pad on beat 1 of each bar
@@ -565,19 +578,19 @@ class SoundManager {
       osc.stop(time + dur + 0.01);
     }
 
-    // 3. Retro-Futuristic Arpeggio Lead
+    // 3. Retro-Futuristic Arpeggio Lead (Menu: soft cyber-bell sine, Combat/Boss: sharp synth lead)
     const playArp =
       this.bgmMode === 'menu'
-        ? stepInBar % 4 === 0
+        ? stepInBar % 4 === 0 || stepInBar === 10
         : stepInBar % 2 === 0 || stepInBar === 7 || stepInBar === 15;
     if (playArp) {
       const arpNote = chord.arp[(stepInBar + bar) % chord.arp.length];
       const osc = this.ctx.createOscillator();
       const g = this.ctx.createGain();
-      osc.type = this.bgmMode === 'boss' ? 'square' : 'sawtooth';
+      osc.type = this.bgmMode === 'menu' ? 'sine' : this.bgmMode === 'boss' ? 'square' : 'sawtooth';
       osc.frequency.setValueAtTime(arpNote, time);
-      const dur = stepDur * (this.bgmMode === 'menu' ? 2.8 : 1.1);
-      g.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.055 : 0.065, time);
+      const dur = stepDur * (this.bgmMode === 'menu' ? 3.2 : 1.1);
+      g.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.08 : 0.065, time);
       g.gain.exponentialRampToValueAtTime(0.001, time + dur);
       osc.connect(g);
       g.connect(this.bgmFilter);

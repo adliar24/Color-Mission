@@ -223,6 +223,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const [activeCrystalColorId, setActiveCrystalColorId] = useState<GameColorId | null>(null);
   const activeCrystalColorIdRef = useRef<GameColorId | null>(null);
   const [mobileFullscreenConfirmed, setMobileFullscreenConfirmed] = useState<boolean>(false);
+  const [desktopFullscreenConfirmed, setDesktopFullscreenConfirmed] = useState<boolean>(false);
   const [mobileOrientation, setMobileOrientation] = useState<'landscape' | 'portrait'>('landscape');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
@@ -2280,7 +2281,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       clearTimeout(focusTimer);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [gameState, showSettings, showTutorial, mobileFullscreenConfirmed, isGamepadConnected]);
+  }, [gameState, showSettings, showTutorial, mobileFullscreenConfirmed, desktopFullscreenConfirmed, isGamepadConnected]);
 
   useEffect(() => {
     const syncFullscreen = () => {
@@ -2418,6 +2419,54 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         </div>
       </AnimatedPresence>
 
+      {/* ====================================================================
+          HALAMAN MASUK LAYAR PENUH & AUDIO KHUSUS DESKTOP
+         ==================================================================== */}
+      <AnimatedPresence show={gameState === 'title' && platformMode === 'desktop' && !desktopFullscreenConfirmed}>
+        <div className="fixed inset-0 z-50 bg-[#050811]/95 flex items-center justify-center p-6 ui-backdrop-enter">
+          <div
+            data-ui-board="true"
+            className="bg-[#090d18] border border-cyan-400/35 px-8 py-9 rounded-3xl shadow-2xl max-w-md w-full text-center ui-panel-enter"
+          >
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-cyan-400/15 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+              <Maximize2 className="w-7 h-7" />
+            </div>
+            <h2 className="text-2xl font-black text-white uppercase tracking-tight">
+              COLOR <span className="text-cyan-400">MISSION</span>
+            </h2>
+            <p className="text-xs font-semibold text-slate-300 mt-2.5 leading-relaxed">
+              Aktifkan layar penuh dan musik latar sebelum masuk ke menu utama.
+            </p>
+            <div className="mt-6 flex flex-col gap-2.5">
+              <button
+                type="button"
+                onClick={async () => {
+                  sound.unlockBgm();
+                  sound.setBgmMode('menu');
+                  await enterFullscreenAndLock();
+                  setDesktopFullscreenConfirmed(true);
+                }}
+                className="w-full py-3.5 px-5 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-sm font-black uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all"
+              >
+                <Maximize2 className="w-4 h-4" />
+                <span>Masuk Fullscreen &amp; Nyalakan Audio</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.unlockBgm();
+                  sound.setBgmMode('menu');
+                  setDesktopFullscreenConfirmed(true);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider cursor-pointer transition-all"
+              >
+                Lanjut Tanpa Fullscreen
+              </button>
+            </div>
+          </div>
+        </div>
+      </AnimatedPresence>
+
       {/* Backdrop Transisi Halus (Mencegah kedipan antar Menu Utama, Papan Stage, dan Arena 3D) */}
       <div
         className={`fixed inset-0 z-20 pointer-events-none transition-all duration-300 ease-out ${
@@ -2496,6 +2545,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
          ==================================================================== */}
       {gameState === 'title' &&
         !(platformMode === 'mobile' && !mobileFullscreenConfirmed) &&
+        !(platformMode === 'desktop' && !desktopFullscreenConfirmed) &&
         !(platformMode === 'vr' && !isVRActive) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
           {/* Tombol Ikon Pojok Kanan Atas: Orientasi (Mobile) & Fullscreen */}
