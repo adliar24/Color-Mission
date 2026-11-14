@@ -951,7 +951,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       if (isPresentingVR) {
         vrManager.updateInputVisuals(
           vrManager.currentSession,
-          handGestures?.virtualStick,
           currentState === 'playing' ? handGestures?.teleportPreview : undefined
         );
         if (

@@ -42,10 +42,6 @@ export class VRManager {
   private leftVisible = true;
   private rightVisible = true;
 
-  // Indikator joystick virtual saat tangan kiri mengepal di mode Hand Tracking
-  private virtualStickGroup: THREE.Group;
-  private virtualStickKnob: THREE.Mesh;
-
   // Kurva Teleport Arc + Ring Target gaya Meta Quest VR Home
   private teleportGroup: THREE.Group;
   private teleportArcLine: THREE.Line;
@@ -142,29 +138,6 @@ export class VRManager {
     };
     watchHoloLoad(this.leftHoloGroup, leftHoloMat);
     watchHoloLoad(this.rightHoloGroup, rightHoloMat);
-
-    // 3. Cincin Indikator Virtual Thumbstick (muncul saat tangan kiri mengepal untuk bergerak)
-    this.virtualStickGroup = new THREE.Group();
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.036, 0.044, 24),
-      new THREE.MeshBasicMaterial({
-        color: '#22d3ee',
-        transparent: true,
-        opacity: 0.8,
-        side: THREE.DoubleSide,
-      })
-    );
-    ring.rotation.x = -Math.PI / 2;
-    this.virtualStickGroup.add(ring);
-
-    this.virtualStickKnob = new THREE.Mesh(
-      new THREE.SphereGeometry(0.011, 12, 12),
-      new THREE.MeshBasicMaterial({ color: '#ffffff' })
-    );
-    this.virtualStickGroup.add(this.virtualStickKnob);
-    this.virtualStickGroup.position.set(0, 0.08, -0.02);
-    this.virtualStickGroup.visible = false;
-    this.leftHand.add(this.virtualStickGroup);
 
     // Kurva Teleport Arc + Ring Target Lantai (Meta Quest VR Home style)
     this.teleportGroup = new THREE.Group();
@@ -271,7 +244,6 @@ export class VRManager {
   private syncControllerAttachments() {
     this.rightController.add(this.aimLine);
     this.rightController.add(this.reticleMesh);
-    this.leftHand.add(this.virtualStickGroup);
   }
 
   public setLeftHandModelVisible(visible: boolean) {
@@ -314,7 +286,6 @@ export class VRManager {
    */
   public updateInputVisuals(
     xrSession: XRSession | null,
-    virtualStick?: { active: boolean; x: number; y: number },
     teleportPreview?: VRTeleportPreview
   ) {
     let leftHasHand = false;
@@ -362,17 +333,6 @@ export class VRManager {
     if (this.aimLine.parent !== desiredAimParent) {
       desiredAimParent.add(this.aimLine);
       desiredAimParent.add(this.reticleMesh);
-    }
-
-    if (virtualStick && virtualStick.active && this.isHandTrackingLeft) {
-      const stickMount = this.getLeftWatchMount();
-      if (this.virtualStickGroup.parent !== stickMount) {
-        stickMount.add(this.virtualStickGroup);
-      }
-      this.virtualStickGroup.visible = true;
-      this.virtualStickKnob.position.set(virtualStick.x * 0.032, 0, virtualStick.y * 0.032);
-    } else {
-      this.virtualStickGroup.visible = false;
     }
 
     if (teleportPreview && teleportPreview.active && teleportPreview.valid && this.isHandTrackingLeft) {
