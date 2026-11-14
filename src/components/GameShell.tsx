@@ -895,6 +895,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
     let prevVRMenuVisible = false;
     let prevVRMenuState: GameState | null = null;
+    let prevVRStageMode: 'stage_clear' | 'stage_intro' | null = null;
     let vrMenuSnapFramesLeft = 0;
     const _menuCamPos = new THREE.Vector3();
     const _menuCamDir = new THREE.Vector3();
@@ -910,8 +911,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       } else {
         _menuCamDir.normalize();
       }
-      _menuTargetWorld.copy(_menuCamPos).addScaledVector(_menuCamDir, 2.25);
-      _menuTargetWorld.y = THREE.MathUtils.clamp(_menuCamPos.y - 0.06, 1.1, 2.45);
+      _menuTargetWorld.copy(_menuCamPos).addScaledVector(_menuCamDir, 1.45);
+      _menuTargetWorld.y = THREE.MathUtils.clamp(_menuCamPos.y - 0.05, 1.05, 2.35);
+      vrSpatialMenu.group.scale.setScalar(0.75);
       vrSpatialMenu.group.position.copy(_menuTargetWorld);
       playerRig.worldToLocal(vrSpatialMenu.group.position);
       vrSpatialMenu.group.lookAt(_menuCamPos.x, _menuTargetWorld.y, _menuCamPos.z);
@@ -1101,7 +1103,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           playerRig.position.set(0, 0, 0);
           playerRig.rotation.set(0, 0, 0);
         }
-        if (!prevVRMenuVisible || prevVRMenuState !== currentState) {
+        const curStageMode = vrMenuInfoRef.current.stageModalMode;
+        if (!prevVRMenuVisible || prevVRMenuState !== currentState || prevVRStageMode !== curStageMode) {
           vrMenuSnapFramesLeft = 4;
         }
         if (vrMenuSnapFramesLeft > 0) {
@@ -1110,6 +1113,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         }
         prevVRMenuVisible = true;
         prevVRMenuState = currentState;
+        prevVRStageMode = curStageMode;
         vrSpatialMenu.setVisible(true);
         const vrInfo = vrMenuInfoRef.current;
         const { hitPoint, action } = vrSpatialMenu.update(
@@ -1206,6 +1210,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       } else {
         prevVRMenuVisible = false;
         prevVRMenuState = null;
+        prevVRStageMode = null;
         vrMenuSnapFramesLeft = 0;
         vrSpatialMenu.setVisible(false);
       }
