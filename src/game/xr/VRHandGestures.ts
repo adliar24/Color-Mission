@@ -134,32 +134,31 @@ export class VRHandGestures {
     const lPinky = VRHandGestures.getJoint(leftHand, 'pinky-finger-tip');
     const lIndexMcp = VRHandGestures.getJoint(leftHand, 'index-finger-metacarpal');
 
-    if (lWrist && lThumb && lIndex && lMiddle && lRing && lPinky && lIndexMcp) {
+    if (camera) {
+      camera.getWorldPosition(_vCamPos);
+    } else {
+      _vCamPos.set(0, 1.6, 0);
+    }
+
+    let isFacingFace = false;
+    if (lWrist) {
       lWrist.getWorldPosition(_vWrist);
       lWrist.getWorldQuaternion(_qWrist);
-      lThumb.getWorldPosition(_vThumb);
-      lIndex.getWorldPosition(_vIndex);
-      lMiddle.getWorldPosition(_vMiddle);
-      lRing.getWorldPosition(_vRing);
-      lPinky.getWorldPosition(_vPinky);
-      lIndexMcp.getWorldPosition(_vIndexMcp);
 
-      const middleDist = _vMiddle.distanceTo(_vWrist);
-      const ringDist = _vRing.distanceTo(_vWrist);
-      const pinkyDist = _vPinky.distanceTo(_vWrist);
-      const fingersOpen = middleDist > 0.12 && ringDist > 0.115 && pinkyDist > 0.1;
+      if (camera && lMiddle && lRing && lPinky) {
+        lMiddle.getWorldPosition(_vMiddle);
+        lRing.getWorldPosition(_vRing);
+        lPinky.getWorldPosition(_vPinky);
+        const middleDist = _vMiddle.distanceTo(_vWrist);
+        const ringDist = _vRing.distanceTo(_vWrist);
+        const pinkyDist = _vPinky.distanceTo(_vWrist);
+        const fingersOpen = middleDist > 0.12 && ringDist > 0.115 && pinkyDist > 0.1;
 
-      if (camera) {
-        camera.getWorldPosition(_vCamPos);
         _vToCam.subVectors(_vCamPos, _vWrist).normalize();
-      } else {
-        _vToCam.set(0, 0, 1);
+        // Di WebXR tangan kiri, sisi telapak mengarah ke -Y lokal wrist
+        _vPalmNormal.set(0, -1, 0).applyQuaternion(_qWrist).normalize();
+        isFacingFace = fingersOpen ? _vPalmNormal.dot(_vToCam) > 0.68 : false;
       }
-
-      // Di WebXR tangan kiri, sisi telapak mengarah ke -Y lokal wrist
-      _vPalmNormal.set(0, -1, 0).applyQuaternion(_qWrist).normalize();
-      const isFacingFace = camera && fingersOpen ? _vPalmNormal.dot(_vToCam) > 0.68 : false;
-      const leftPinchDist = _vThumb.distanceTo(_vIndex);
 
       // 2A. Sentuh Jam Tangan Kiri dengan Telunjuk Kanan -> Ganti Senjata (Zero Conflict)
       if (rIndex && this.watchTapCooldown <= 0) {
@@ -168,69 +167,76 @@ export class VRHandGestures {
           weaponSwitch = true;
           this.watchTapCooldown = 0.65;
         }
-        // Kembalikan _vIndex ke posisi telunjuk kiri
-        lIndex.getWorldPosition(_vIndex);
+      }
+    }
+
+    // 2B. Ring Teleport selalu aktif & responsif mengikuti arah tangan kiri (tanpa bergantung semua jari)
+    if (!isFacingFace && (leftController || (lWrist && lIndexMcp))) {
+      if (leftController) {
+        leftController.getWorldPosition(_vRayOrigin);
+        leftController.getWorldQuaternion(_qRay);
+        _vRayDir.set(0, 0, -1).applyQuaternion(_qRay).normalize();
+      } else if (lIndexMcp) {
+        lIndexMcp.getWorldPosition(_vIndexMcp);
+        _vRayOrigin.copy(_vIndexMcp);
+        _vRayDir.subVectors(_vIndexMcp, _vWrist).normalize();
       }
 
-      // 2B. Lengkungan & Ring Teleport selalu aktif saat tangan kiri menunjuk arena; Cubit kiri -> langsung Teleport!
-      if (!isFacingFace) {
-        if (leftController) {
-          leftController.getWorldPosition(_vRayOrigin);
-          leftController.getWorldQuaternion(_qRay);
-          _vRayDir.set(0, 0, -1).applyQuaternion(_qRay).normalize();
-        } else {
-          _vRayOrigin.copy(_vIndexMcp);
-          _vRayDir.subVectors(_vIndexMcp, _vWrist).normalize();
-        }
+      const y0 = Math.max(0.25, _vRayOrigin.y);
+      const speed = 11.5;
+      const vy = _vRayDir.y * speed + 2.4;
+      const g = 9.8;
+      const disc = Math.max(0, vy * vy + 2 * g * (y0 - 0.04));
+      const tHit = (vy + Math.sqrt(disc)) / g;
 
-        const y0 = Math.max(0.25, _vRayOrigin.y);
-        const speed = 11.5;
-        const vy = _vRayDir.y * speed + 2.4;
-        const g = 9.8;
-        const disc = Math.max(0, vy * vy + 2 * g * (y0 - 0.04));
-        const tHit = (vy + Math.sqrt(disc)) / g;
+      let tx = _vRayOrigin.x + _vRayDir.x * speed * tHit;
+      let tz = _vRayOrigin.z + _vRayDir.z * speed * tHit;
 
-        let tx = _vRayOrigin.x + _vRayDir.x * speed * tHit;
-        let tz = _vRayOrigin.z + _vRayDir.z * speed * tHit;
+      const dx = tx - _vCamPos.x;
+      const dz = tz - _vCamPos.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > 0.001 && dist < 0.6) {
+        const s = 0.6 / dist;
+        tx = _vCamPos.x + dx * s;
+        tz = _vCamPos.z + dz * s;
+      } else if (dist > 26) {
+        const s = 26 / dist;
+        tx = _vCamPos.x + dx * s;
+        tz = _vCamPos.z + dz * s;
+      }
 
-        const dx = tx - _vCamPos.x;
-        const dz = tz - _vCamPos.z;
-        const dist = Math.hypot(dx, dz);
-        if (dist > 0.001 && dist < 0.6) {
-          const s = 0.6 / dist;
-          tx = _vCamPos.x + dx * s;
-          tz = _vCamPos.z + dz * s;
-        } else if (dist > 26) {
-          const s = 26 / dist;
-          tx = _vCamPos.x + dx * s;
-          tz = _vCamPos.z + dz * s;
-        }
+      tx = THREE.MathUtils.clamp(tx, -28, 28);
+      tz = THREE.MathUtils.clamp(tz, -28, 28);
 
-        tx = THREE.MathUtils.clamp(tx, -28, 28);
-        tz = THREE.MathUtils.clamp(tz, -28, 28);
-
-        _vRingTarget.set(tx, 0.04, tz);
-        // Bekukan target saat jari mulai mendekat (< 0.046m) agar ring tidak melompat saat mencubit
-        if (!this.hasTeleportTarget) {
-          this.teleportTargetOut.copy(_vRingTarget);
-          this.hasTeleportTarget = true;
-        } else if (leftPinchDist > 0.046) {
-          this.teleportTargetOut.lerp(_vRingTarget, 0.45);
-        }
-
-        this.teleportOriginOut.copy(_vWrist);
-        teleportPreview.active = true;
-        teleportPreview.valid = true;
+      _vRingTarget.set(tx, 0.04, tz);
+      if (!this.hasTeleportTarget) {
+        this.teleportTargetOut.copy(_vRingTarget);
+        this.hasTeleportTarget = true;
       } else {
-        this.hasTeleportTarget = false;
+        this.teleportTargetOut.lerp(_vRingTarget, 0.85);
       }
 
-      // 2C. Cubit Tangan Kiri (Event selectstart native Meta OS untuk Teleport anti-double, atau tahan menghadap wajah untuk Pause)
-      if (leftSelectPulse && !isFacingFace && teleportPreview.active && teleportPreview.valid && this.teleportCooldown <= 0) {
-        teleportCommit = this.teleportTargetOut.clone();
-        this.teleportCooldown = 0.45;
+      if (lWrist) {
+        this.teleportOriginOut.copy(_vWrist);
+      } else {
+        this.teleportOriginOut.copy(_vRayOrigin);
       }
+      teleportPreview.active = true;
+      teleportPreview.valid = true;
+    } else {
+      this.hasTeleportTarget = false;
+    }
 
+    // 2C. Cubit Tangan Kiri (Event selectstart native Meta OS untuk Teleport anti-double, atau tahan menghadap wajah untuk Pause)
+    if (leftSelectPulse && !isFacingFace && teleportPreview.active && teleportPreview.valid && this.teleportCooldown <= 0) {
+      teleportCommit = this.teleportTargetOut.clone();
+      this.teleportCooldown = 0.45;
+    }
+
+    if (lWrist && lThumb && lIndex) {
+      lThumb.getWorldPosition(_vThumb);
+      lIndex.getWorldPosition(_vIndex);
+      const leftPinchDist = _vThumb.distanceTo(_vIndex);
       const leftHoldNow = leftSelectActive || leftPinchDist < 0.028;
       if (this.isLeftPinching) {
         if (!leftHoldNow) {
@@ -253,7 +259,6 @@ export class VRHandGestures {
       }
     } else {
       this.isLeftPinching = false;
-      this.hasTeleportTarget = false;
       this.leftPinchDuration = 0;
       this.leftPauseFired = false;
       this.leftPinchFacingFace = false;
