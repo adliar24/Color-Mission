@@ -141,29 +141,30 @@ export class VRHandGestures {
       rightAimDir = this.aimDirOut;
     }
 
-    if (rWrist) {
-      rWrist.getWorldPosition(_vRightHand);
+    const shoulderJoint = rWrist ?? rIndexMcp;
+    if (shoulderJoint) {
+      shoulderJoint.getWorldPosition(_vRightHand);
       _vDelta.subVectors(_vRightHand, _vCamPos);
       const rightOffset = _vDelta.dot(_vCamRight);
       const upOffset = _vDelta.y;
       const forwardOffset = _vDelta.dot(_vCamFwd);
 
       const inShoulderZone =
-        rightOffset >= 0.13 &&
-        rightOffset <= 0.46 &&
-        upOffset >= -0.34 &&
-        upOffset <= 0.1 &&
-        forwardOffset >= -0.28 &&
-        forwardOffset <= 0.17;
+        rightOffset >= 0.09 &&
+        rightOffset <= 0.52 &&
+        upOffset >= -0.38 &&
+        upOffset <= 0.18 &&
+        forwardOffset >= -0.4 &&
+        forwardOffset <= 0.22;
 
       if (!this.rightInShoulderZone) {
         if (inShoulderZone && this.shoulderSwapCooldown <= 0) {
           this.rightInShoulderZone = true;
         }
-      } else if (!inShoulderZone && (forwardOffset > 0.18 || rightOffset < 0.1 || upOffset < -0.36)) {
+      } else if (!inShoulderZone && (forwardOffset > 0.23 || rightOffset < 0.07 || upOffset < -0.4)) {
         weaponSwitch = true;
         this.rightInShoulderZone = false;
-        this.shoulderSwapCooldown = 0.55;
+        this.shoulderSwapCooldown = 0.42;
       }
     }
 
