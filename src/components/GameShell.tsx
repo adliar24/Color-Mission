@@ -1108,7 +1108,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           vrManager.rightController,
           vrManager.currentSession,
           null,
-          vrManager.isHandTrackingRight ? Boolean(handGestures?.shoot) : false
+          vrManager.isHandTrackingRight ? Boolean(handGestures?.menuPinch) : false
         );
 
         if (hitPoint) {

@@ -60,6 +60,8 @@ export class VRSpatialMenu {
   private texture: THREE.CanvasTexture;
   private buttons: MenuButtonRect[] = [];
   private hoveredId: VRMenuAction | null = null;
+  private graceHoveredId: VRMenuAction | null = null;
+  private graceHoverExpiry = 0;
   private lastSignature = '';
   private raycaster = new THREE.Raycaster();
   private prevTriggerPressed = false;
@@ -104,6 +106,8 @@ export class VRSpatialMenu {
     this.group.visible = visible;
     if (!visible) {
       this.hoveredId = null;
+      this.graceHoveredId = null;
+      this.graceHoverExpiry = 0;
       this.prevTriggerPressed = false;
     }
   }
@@ -165,8 +169,15 @@ export class VRSpatialMenu {
       }
     }
 
-    if (triggerPressed && !this.prevTriggerPressed && nextHover) {
-      action = nextHover;
+    const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (nextHover) {
+      this.graceHoveredId = nextHover;
+      this.graceHoverExpiry = nowMs + 180;
+    }
+
+    const clickTarget = nextHover ?? (nowMs <= this.graceHoverExpiry ? this.graceHoveredId : null);
+    if (triggerPressed && !this.prevTriggerPressed && clickTarget) {
+      action = clickTarget;
     }
     this.prevTriggerPressed = triggerPressed;
 
