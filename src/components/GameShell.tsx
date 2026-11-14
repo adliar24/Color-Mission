@@ -835,33 +835,38 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     camera.add(vrHud.mesh);
     vrHudRef.current = vrHud;
 
-    // Efek layar merah 3D khusus mode VR saat terkena tembakan musuh
-    const dmgCanvas = document.createElement('canvas');
-    dmgCanvas.width = 256;
-    dmgCanvas.height = 256;
-    const dmgCtx = dmgCanvas.getContext('2d');
-    if (dmgCtx) {
-      const grad = dmgCtx.createRadialGradient(128, 128, 36, 128, 128, 114);
-      grad.addColorStop(0, 'rgba(239, 68, 68, 0)');
-      grad.addColorStop(0.5, 'rgba(239, 68, 68, 0.25)');
-      grad.addColorStop(0.82, 'rgba(220, 38, 38, 0.85)');
-      grad.addColorStop(1, 'rgba(220, 38, 38, 0.96)');
-      dmgCtx.fillStyle = grad;
-      dmgCtx.fillRect(0, 0, 256, 256);
-    }
-    const vrDamageTex = new THREE.CanvasTexture(dmgCanvas);
-    const vrDamageMat = new THREE.MeshBasicMaterial({
-      map: vrDamageTex,
+    // Efek layar merah full-screen (clip-space) khusus mode VR saat terkena tembakan musuh
+    const vrDamageMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uIntensity: { value: 0 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uIntensity;
+        varying vec2 vUv;
+        void main() {
+          vec2 centered = vUv * 2.0 - 1.0;
+          float dist = length(centered);
+          float edgeVignette = smoothstep(0.22, 1.12, dist);
+          float alpha = uIntensity * mix(0.22, 0.78, edgeVignette);
+          gl_FragColor = vec4(0.92, 0.12, 0.14, alpha);
+        }
+      `,
       transparent: true,
-      opacity: 0,
       depthTest: false,
       depthWrite: false,
     });
-    const vrDamageMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.05, 1.55), vrDamageMat);
-    vrDamageMesh.position.set(0, 0, -1.2);
-    vrDamageMesh.renderOrder = 999;
+    const vrDamageMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), vrDamageMat);
+    vrDamageMesh.frustumCulled = false;
+    vrDamageMesh.renderOrder = 9999;
     vrDamageMesh.visible = false;
-    camera.add(vrDamageMesh);
+    scene.add(vrDamageMesh);
     let vrDamageFlash = 0;
 
     const initialPixelRatio =
@@ -1988,10 +1993,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
       if (isPresentingVR && currentState === 'playing' && vrDamageFlash > 0.01) {
         vrDamageMesh.visible = true;
-        vrDamageMat.opacity = vrDamageFlash * 0.88;
+        vrDamageMat.uniforms.uIntensity.value = vrDamageFlash;
         vrDamageFlash = Math.max(0, vrDamageFlash - dt * 2.8);
       } else {
         vrDamageMesh.visible = false;
+        vrDamageMat.uniforms.uIntensity.value = 0;
         if (currentState !== 'playing') vrDamageFlash = 0;
       }
 
@@ -2006,7 +2012,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     return () => {
       vrDamageMesh.geometry.dispose();
       vrDamageMat.dispose();
-      vrDamageTex.dispose();
       renderer.setAnimationLoop(null);
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('click', handleCanvasClick);
