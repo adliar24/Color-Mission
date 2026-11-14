@@ -6,7 +6,7 @@ import {
   TERTIARY_COLOR_IDS,
   getColorDef,
 } from '../colors';
-import { GameColorId, GraphicsQuality } from '../types';
+import { GameColorId, GraphicsQuality, WeaponType } from '../types';
 
 export interface HazardNode {
   mesh: THREE.Group;
@@ -29,6 +29,7 @@ export type ArenaPickupType = 'health' | 'shield' | 'ammo';
 export interface ArenaPickupNode {
   id: string;
   type: ArenaPickupType;
+  weaponType?: WeaponType;
   colorHex: string;
   group: THREE.Group;
   itemMesh: THREE.Group;
@@ -663,19 +664,28 @@ export class CyberArena {
     });
     this.arenaPickups = [];
 
-    const pickupSpecs: { type: ArenaPickupType; colorHex: string }[] =
+    const pickupSpecs: { type: ArenaPickupType; weaponType?: WeaponType; colorHex: string }[] =
       stage === 1
         ? [
             { type: 'health', colorHex: '#22c55e' },
             { type: 'shield', colorHex: '#3b82f6' },
-            { type: 'ammo', colorHex: '#94a3b8' },
-            { type: 'ammo', colorHex: '#94a3b8' },
+            { type: 'ammo', weaponType: 'laser_rifle', colorHex: '#22d3ee' },
+            { type: 'ammo', weaponType: 'laser_rifle', colorHex: '#22d3ee' },
           ]
-        : [
-            { type: 'health', colorHex: '#22c55e' },
-            { type: 'shield', colorHex: '#3b82f6' },
-            { type: 'ammo', colorHex: '#94a3b8' },
-          ];
+        : stage === 2
+          ? [
+              { type: 'health', colorHex: '#22c55e' },
+              { type: 'shield', colorHex: '#3b82f6' },
+              { type: 'ammo', weaponType: 'laser_rifle', colorHex: '#22d3ee' },
+              { type: 'ammo', weaponType: 'cyber_shotgun', colorHex: '#f43f5e' },
+            ]
+          : [
+              { type: 'health', colorHex: '#22c55e' },
+              { type: 'shield', colorHex: '#3b82f6' },
+              { type: 'ammo', weaponType: 'laser_rifle', colorHex: '#22d3ee' },
+              { type: 'ammo', weaponType: 'cyber_shotgun', colorHex: '#f43f5e' },
+              { type: 'ammo', weaponType: 'railgun', colorHex: '#bf00ff' },
+            ];
 
     const usedPositions: THREE.Vector3[] = [];
     pickupSpecs.forEach((spec, idx) => {
@@ -748,8 +758,9 @@ export class CyberArena {
       this.scene.add(group);
 
       this.arenaPickups.push({
-        id: `pickup_${idx}_${spec.type}`,
+        id: `pickup_${idx}_${spec.type}_${spec.weaponType ?? 'any'}`,
         type: spec.type,
+        weaponType: spec.weaponType,
         colorHex: spec.colorHex,
         group,
         itemMesh,

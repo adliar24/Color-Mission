@@ -41,11 +41,11 @@ export class VRManager {
   private rigQuatInvScratch = new THREE.Quaternion();
   private leftVisible = true;
   private rightVisible = true;
+  public isRightSelectActive = false;
+  public isLeftSelectActive = false;
 
-  // Kurva Teleport Arc + Ring Target gaya Meta Quest VR Home
+  // Ring Target Teleport di lantai (tanpa garis melengkung)
   private teleportGroup: THREE.Group;
-  private teleportArcLine: THREE.Line;
-  private teleportArcPositions: Float32Array;
   private teleportRing: THREE.Mesh;
 
   private static createHoloHandMaterial(colorHex: string): THREE.MeshStandardMaterial {
@@ -139,24 +139,11 @@ export class VRManager {
     watchHoloLoad(this.leftHoloGroup, leftHoloMat);
     watchHoloLoad(this.rightHoloGroup, rightHoloMat);
 
-    // Kurva Teleport Arc + Ring Target Lantai (Meta Quest VR Home style)
+    // Ring Target Teleport di lantai (tanpa garis melengkung)
     this.teleportGroup = new THREE.Group();
     this.teleportGroup.visible = false;
-    const arcSegments = 24;
-    this.teleportArcPositions = new Float32Array((arcSegments + 1) * 3);
-    const arcGeo = new THREE.BufferGeometry();
-    arcGeo.setAttribute('position', new THREE.BufferAttribute(this.teleportArcPositions, 3));
-    this.teleportArcLine = new THREE.Line(
-      arcGeo,
-      new THREE.LineBasicMaterial({
-        color: '#e0f2fe',
-        transparent: true,
-        opacity: 0.92,
-      })
-    );
-    this.teleportGroup.add(this.teleportArcLine);
 
-    const tpRingGeo = new THREE.RingGeometry(0.24, 0.34, 32);
+    const tpRingGeo = new THREE.RingGeometry(0.28, 0.4, 32);
     tpRingGeo.rotateX(-Math.PI / 2);
     this.teleportRing = new THREE.Mesh(
       tpRingGeo,
@@ -164,9 +151,21 @@ export class VRManager {
         color: '#38bdf8',
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.92,
       })
     );
+    const tpInnerDotGeo = new THREE.CircleGeometry(0.11, 24);
+    tpInnerDotGeo.rotateX(-Math.PI / 2);
+    const tpInnerDot = new THREE.Mesh(
+      tpInnerDotGeo,
+      new THREE.MeshBasicMaterial({
+        color: '#e0f2fe',
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85,
+      })
+    );
+    this.teleportRing.add(tpInnerDot);
     this.teleportGroup.add(this.teleportRing);
     if (this.playerRig.parent) {
       this.playerRig.parent.add(this.teleportGroup);
@@ -239,6 +238,22 @@ export class VRManager {
     ctrl1.addEventListener('connected', handleConnect(ctrl1, ctrl0, grip1, grip0, hand1, hand0));
     hand0.addEventListener('connected', handleConnect(ctrl0, ctrl1, grip0, grip1, hand0, hand1));
     hand1.addEventListener('connected', handleConnect(ctrl1, ctrl0, grip1, grip0, hand1, hand0));
+
+    const bindSelect = (ctrl: THREE.Group) => {
+      const target = ctrl as unknown as {
+        addEventListener: (type: string, listener: () => void) => void;
+      };
+      target.addEventListener('selectstart', () => {
+        if (ctrl === this.rightController) this.isRightSelectActive = true;
+        else if (ctrl === this.leftController) this.isLeftSelectActive = true;
+      });
+      target.addEventListener('selectend', () => {
+        if (ctrl === this.rightController) this.isRightSelectActive = false;
+        else if (ctrl === this.leftController) this.isLeftSelectActive = false;
+      });
+    };
+    bindSelect(ctrl0);
+    bindSelect(ctrl1);
   }
 
   private syncControllerAttachments() {
@@ -341,24 +356,6 @@ export class VRManager {
       }
       this.teleportGroup.visible = true;
       this.teleportRing.position.copy(teleportPreview.target);
-
-      const ox = teleportPreview.origin.x;
-      const oy = teleportPreview.origin.y;
-      const oz = teleportPreview.origin.z;
-      const tx = teleportPreview.target.x;
-      const ty = teleportPreview.target.y;
-      const tz = teleportPreview.target.z;
-      const horizDist = Math.hypot(tx - ox, tz - oz);
-      const arcHeight = THREE.MathUtils.clamp(horizDist * 0.16, 0.35, 1.8);
-      const segs = 24;
-      for (let i = 0; i <= segs; i++) {
-        const t = i / segs;
-        this.teleportArcPositions[i * 3] = THREE.MathUtils.lerp(ox, tx, t);
-        this.teleportArcPositions[i * 3 + 1] =
-          THREE.MathUtils.lerp(oy, ty, t) + 4 * t * (1 - t) * arcHeight;
-        this.teleportArcPositions[i * 3 + 2] = THREE.MathUtils.lerp(oz, tz, t);
-      }
-      this.teleportArcLine.geometry.attributes.position.needsUpdate = true;
     } else {
       this.teleportGroup.visible = false;
     }

@@ -944,7 +944,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             camera,
             dt,
             curSettings,
-            vrManager.leftController
+            vrManager.leftController,
+            vrManager.isLeftSelectActive
           )
         : null;
 
@@ -1108,11 +1109,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           vrManager.rightController,
           vrManager.currentSession,
           null,
-          vrManager.isHandTrackingRight ? Boolean(handGestures?.menuPinch) : false
+          vrManager.isHandTrackingRight
+            ? Boolean(handGestures?.menuPinch || vrManager.isRightSelectActive)
+            : false
         );
 
         if (hitPoint) {
-          vrManager.getRightWeaponMount().getWorldPosition(_scratchAimOrigin);
+          vrManager.rightController.getWorldPosition(_scratchAimOrigin);
           vrManager.updateAimRay(hitPoint.distanceTo(_scratchAimOrigin), '#22d3ee');
         } else {
           vrManager.updateAimRay(null, '#22d3ee');
@@ -1406,7 +1409,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               timestamp: performance.now(),
             });
           } else {
-            const addedAmmo = weapons.addAmmoSupply(curP.stage);
+            const targetWeapon = p.weaponType ?? 'laser_rifle';
+            const addedAmmo = weapons.addAmmoForWeapon(targetWeapon);
             ammoRef.current = weapons.ammoCount;
             setAmmo(weapons.ammoCount);
             triggerShotBanner({
@@ -1414,8 +1418,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               title: addedAmmo > 0 ? `PELURU +${addedAmmo}!` : 'PELURU PENUH!',
               subtitle:
                 addedAmmo > 0
-                  ? `${WEAPON_REGISTRY[weapons.currentWeapon].name} (+${addedAmmo} peluru)`
-                  : 'Kapasitas peluru sudah maksimal',
+                  ? `${WEAPON_REGISTRY[targetWeapon].name} (+${addedAmmo} peluru)`
+                  : `Kapasitas ${WEAPON_REGISTRY[targetWeapon].name} sudah maksimal`,
               colorHex: p.colorHex,
               timestamp: performance.now(),
             });

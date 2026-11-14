@@ -279,6 +279,27 @@ export class WeaponRig {
     this.ammoCount = this.ammoByWeapon[this.currentWeapon];
   }
 
+  public addAmmoForWeapon(weapon: WeaponType): number {
+    let gain = 0;
+    if (weapon === 'laser_rifle' || weapon === 'plasma_smg') {
+      gain = 10 + Math.floor(Math.random() * 11); // 10 - 20 peluru
+    } else if (weapon === 'cyber_shotgun') {
+      gain = 5 + Math.floor(Math.random() * 6); // 5 - 10 peluru
+    } else if (weapon === 'railgun') {
+      gain = 1 + Math.floor(Math.random() * 5); // 1 - 5 peluru
+    }
+
+    const maxCap = WEAPON_REGISTRY[weapon].magSize * 2;
+    const prev = this.ammoByWeapon[weapon];
+    this.ammoByWeapon[weapon] = Math.min(maxCap, prev + gain);
+    const actualAdded = Math.max(0, this.ammoByWeapon[weapon] - prev);
+
+    if (weapon === this.currentWeapon) {
+      this.ammoCount = this.ammoByWeapon[weapon];
+    }
+    return actualAdded;
+  }
+
   public addAmmoSupply(stage: 1 | 2 | 3 = 1): number {
     const gainsByStage: Record<1 | 2 | 3, Record<WeaponType, number>> = {
       1: { laser_rifle: 5, cyber_shotgun: 3, railgun: 2, plasma_smg: 5 },

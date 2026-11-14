@@ -145,7 +145,12 @@ export class VRSpatialMenu {
           const py = (1 - hits[0].uv.y) * CANVAS_H;
 
           for (const btn of this.buttons) {
-            if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
+            if (
+              px >= btn.x - 14 &&
+              px <= btn.x + btn.w + 14 &&
+              py >= btn.y - 10 &&
+              py <= btn.y + btn.h + 10
+            ) {
               nextHover = btn.id;
               break;
             }
@@ -172,7 +177,7 @@ export class VRSpatialMenu {
     const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (nextHover) {
       this.graceHoveredId = nextHover;
-      this.graceHoverExpiry = nowMs + 180;
+      this.graceHoverExpiry = nowMs + 300;
     }
 
     const clickTarget = nextHover ?? (nowMs <= this.graceHoverExpiry ? this.graceHoveredId : null);
