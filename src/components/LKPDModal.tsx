@@ -12,7 +12,6 @@ import {
   Printer,
   Copy,
   Check,
-  Sparkles,
   RotateCcw,
   ChevronRight,
   ChevronLeft,
@@ -106,7 +105,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
       setMixResult({
         mixed: null,
         matchedChallenge: false,
-        message: `${getColorDef(slotA).nameId} + ${getColorDef(slotB).nameId} tidak menghasilkan warna standar Sekunder/Tersier pada tantangan ini. Coba kombinasi lain!`,
+        message: `${getColorDef(slotA).nameId} + ${getColorDef(slotB).nameId} tidak menghasilkan warna standar Sekunder/Tersier pada tantangan ini. Coba kombinasi lain.`,
       });
       return;
     }
@@ -123,7 +122,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
       setMixResult({
         mixed: result,
         matchedChallenge: true,
-        message: `Tepat sekali! ${getColorDef(slotA).nameId} + ${getColorDef(slotB).nameId} = ${result.nameId} (${result.categoryLabelId}). Tantangan ini selesai!`,
+        message: `Tepat sekali! ${getColorDef(slotA).nameId} + ${getColorDef(slotB).nameId} = ${result.nameId} (${result.categoryLabelId}). Tantangan ini selesai.`,
       });
     } else {
       setMixResult({
@@ -189,7 +188,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
     }
     const ok = exportLKPDCardAsPNG(stamped, progress);
     if (ok) {
-      setPngExportedMsg('Kartu Bukti Nilai (.PNG) berhasil diunduh!');
+      setPngExportedMsg('Kartu Bukti Nilai (.PNG) berhasil diunduh.');
       setTimeout(() => setPngExportedMsg(null), 3200);
     }
   };
@@ -216,49 +215,49 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
     <div
       onKeyDown={(e) => e.stopPropagation()}
       onKeyUp={(e) => e.stopPropagation()}
-      className="fixed inset-0 bg-[#050811]/90 backdrop-blur-md flex items-center justify-center p-2.5 sm:p-5 z-50 font-sans text-white ui-backdrop-enter lkpd-modal-overlay"
+      className="fixed inset-0 bg-[#050811]/88 backdrop-blur-md flex items-center justify-center p-2.5 sm:p-5 z-50 font-sans ui-backdrop-enter lkpd-modal-overlay"
     >
-      {/* Panel Interaktif Utama */}
+      {/* Panel Interaktif Utama — Perpaduan Hitam/Gelap, Putih Bersih, dan Biru Kontras */}
       <div
         data-ui-board="true"
-        className="max-w-3xl w-full max-h-[92dvh] bg-[#090d18] border border-white/15 rounded-3xl shadow-2xl flex flex-col overflow-hidden ui-panel-enter lkpd-interactive-shell"
+        className="max-w-4xl w-full max-h-[92dvh] bg-white text-slate-900 border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden ui-panel-enter lkpd-interactive-shell"
       >
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3 bg-white/[0.02] shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        {/* Header Gelap Minimalis */}
+        <div className="px-5 sm:px-6 py-4 bg-[#0b1220] text-white border-b border-slate-800 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3.5 min-w-0">
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="w-3.5 h-3.5 rounded-sm bg-[#EF233C] border border-white/75" />
-              <span className="w-3.5 h-3.5 rounded-sm bg-[#FFD60A] border border-white/75" />
-              <span className="w-3.5 h-3.5 rounded-sm bg-[#1D6FFF] border border-white/75" />
+              <span className="w-3.5 h-3.5 rounded-sm bg-[#EF233C] border border-white/80" />
+              <span className="w-3.5 h-3.5 rounded-sm bg-[#FFD60A] border border-white/80" />
+              <span className="w-3.5 h-3.5 rounded-sm bg-[#1D6FFF] border border-white/80" />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg sm:text-xl font-black tracking-tight uppercase truncate">
                 LKPD EVALUASI INTERAKTIF
               </h2>
-              <p className="text-[11px] sm:text-xs font-semibold text-cyan-400 truncate">
-                COLOR MISSION · Teori Pencampuran Warna Pigmen RYB
+              <p className="text-xs sm:text-sm font-medium text-blue-300 truncate">
+                COLOR MISSION · Teori Pencampuran Warna RYB
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs font-extrabold">
-              <span>Nilai Objektif:</span>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 text-white text-xs sm:text-sm font-extrabold">
+              <span>Nilai:</span>
               <span className="tabular-nums">{scoreBreakdown.objectiveScore}/100</span>
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label="Tutup LKPD"
-              className="p-2 rounded-xl bg-white/6 hover:bg-white/12 text-slate-300 hover:text-white cursor-pointer flex items-center justify-center"
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Navigasi Tab */}
-        <div className="px-3 sm:px-5 py-2.5 border-b border-white/10 bg-[#070b15] flex items-center gap-1.5 overflow-x-auto shrink-0">
+        {/* Navigasi Tab Minimalis */}
+        <div className="px-4 sm:px-6 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2 overflow-x-auto shrink-0">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -267,13 +266,13 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                 key={tab.id}
                 type="button"
                 onClick={() => handleOpenTab(tab.id)}
-                className={`px-3 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wide flex items-center gap-1.5 whitespace-nowrap cursor-pointer border transition-colors ${
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide flex items-center gap-2 whitespace-nowrap cursor-pointer border transition-colors ${
                   active
-                    ? 'bg-cyan-400 text-slate-950 border-cyan-300 shadow-md'
-                    : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white hover:bg-blue-50 text-slate-700 border-slate-200'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-4 h-4" />
                 <span className="hidden sm:inline">{tab.label}</span>
                 <span className="sm:hidden">{tab.shortLabel}</span>
               </button>
@@ -281,42 +280,42 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
           })}
         </div>
 
-        {/* Konten Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        {/* Konten Scrollable — Latar Putih Terang & Teks Lebih Besar */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-7 space-y-6 bg-white">
           {/* ==============================================================
               TAB 1: IDENTITAS PESERTA DIDIK & CAPAIAN GAME
              ============================================================== */}
           {activeTab === 'identitas' && (
-            <div className="space-y-4">
-              <div className="bg-emerald-500/10 border border-emerald-400/25 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-5">
+              <div className="bg-[#0b1220] text-white rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400 block">
-                    MISI GAME TELAH SELESAI · LKPD TERBUKA
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-blue-300 block">
+                    MISI GAME SELESAI · LKPD TERBUKA
                   </span>
-                  <p className="text-xs sm:text-sm text-slate-200 mt-0.5">
-                    Lengkapi data dirimu terlebih dahulu, lalu kerjakan Laboratorium Warna, Kuis, dan Refleksi secara berurutan.
+                  <p className="text-sm sm:text-base text-slate-200 mt-1 leading-relaxed">
+                    Lengkapi data dirimu, lalu kerjakan Laboratorium Warna, Kuis, dan Refleksi secara berurutan.
                   </p>
                 </div>
-                <div className="flex items-center gap-3 shrink-0 bg-black/30 px-3.5 py-2 rounded-xl border border-white/10">
+                <div className="flex items-center gap-4 shrink-0 bg-white text-slate-900 px-4 py-2.5 rounded-xl">
                   <div className="text-center">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Skor Terbaik</span>
-                    <span className="text-sm font-black text-emerald-300 tabular-nums">
+                    <span className="text-[11px] text-slate-500 font-bold block uppercase">Skor Game</span>
+                    <span className="text-base font-black text-blue-600 tabular-nums">
                       {progress.bestScore.toLocaleString('id-ID')}
                     </span>
                   </div>
-                  <div className="w-px h-7 bg-white/10" />
+                  <div className="w-px h-8 bg-slate-200" />
                   <div className="text-center">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Akurasi</span>
-                    <span className="text-sm font-black text-cyan-300 tabular-nums">
+                    <span className="text-[11px] text-slate-500 font-bold block uppercase">Akurasi</span>
+                    <span className="text-base font-black text-slate-900 tabular-nums">
                       {progress.lastAccuracy}%
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block">
-                  <span className="text-xs font-extrabold uppercase tracking-wide text-slate-300 block mb-1.5">
+                  <span className="text-xs sm:text-sm font-bold text-slate-800 block mb-1.5">
                     Nama Lengkap Siswa *
                   </span>
                   <input
@@ -326,13 +325,13 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                       setSubmission((prev) => ({ ...prev, studentName: e.target.value }))
                     }
                     placeholder="Contoh: Nadia Putri Pratama"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-cyan-400 focus:outline-none text-sm font-semibold text-white placeholder:text-slate-500"
+                    className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 focus:border-blue-600 focus:outline-none text-sm sm:text-base font-medium text-slate-900 placeholder:text-slate-400"
                   />
                 </label>
 
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block">
-                    <span className="text-xs font-extrabold uppercase tracking-wide text-slate-300 block mb-1.5">
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 block mb-1.5">
                       Kelas *
                     </span>
                     <input
@@ -342,12 +341,12 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                         setSubmission((prev) => ({ ...prev, studentClass: e.target.value }))
                       }
                       placeholder="Contoh: X-4"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-cyan-400 focus:outline-none text-sm font-semibold text-white placeholder:text-slate-500"
+                      className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 focus:border-blue-600 focus:outline-none text-sm sm:text-base font-medium text-slate-900 placeholder:text-slate-400"
                     />
                   </label>
 
                   <label className="block">
-                    <span className="text-xs font-extrabold uppercase tracking-wide text-slate-300 block mb-1.5">
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 block mb-1.5">
                       No. Absen
                     </span>
                     <input
@@ -357,13 +356,13 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                         setSubmission((prev) => ({ ...prev, studentAbsent: e.target.value }))
                       }
                       placeholder="Contoh: 17"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-cyan-400 focus:outline-none text-sm font-semibold text-white placeholder:text-slate-500"
+                      className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 focus:border-blue-600 focus:outline-none text-sm sm:text-base font-medium text-slate-900 placeholder:text-slate-400"
                     />
                   </label>
                 </div>
 
                 <label className="block">
-                  <span className="text-xs font-extrabold uppercase tracking-wide text-slate-300 block mb-1.5">
+                  <span className="text-xs sm:text-sm font-bold text-slate-800 block mb-1.5">
                     Satuan Pendidikan
                   </span>
                   <input
@@ -372,12 +371,12 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     onChange={(e) =>
                       setSubmission((prev) => ({ ...prev, schoolName: e.target.value }))
                     }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-cyan-400 focus:outline-none text-sm font-semibold text-white"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-300 focus:border-blue-600 focus:outline-none text-sm sm:text-base font-medium text-slate-900"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="text-xs font-extrabold uppercase tracking-wide text-slate-300 block mb-1.5">
+                  <span className="text-xs sm:text-sm font-bold text-slate-800 block mb-1.5">
                     Guru Pengampu
                   </span>
                   <input
@@ -386,19 +385,19 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     onChange={(e) =>
                       setSubmission((prev) => ({ ...prev, teacherName: e.target.value }))
                     }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 focus:border-cyan-400 focus:outline-none text-sm font-semibold text-white"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-300 focus:border-blue-600 focus:outline-none text-sm sm:text-base font-medium text-slate-900"
                   />
                 </label>
               </div>
 
-              <div className="bg-white/4 border border-white/10 rounded-2xl p-4 space-y-2.5">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-400 block">
-                  Tujuan Pembelajaran LKPD
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-2">
+                <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-700 block">
+                  Tujuan Pembelajaran
                 </span>
-                <ul className="text-xs sm:text-sm text-slate-300 space-y-1.5 list-disc pl-4">
-                  <li>Mengelompokkan warna Primer, Sekunder, dan Tersier pada sistem warna pigmen RYB.</li>
-                  <li>Membuktikan hasil pencampuran warna melalui eksperimen virtual di Laboratorium Warna.</li>
-                  <li>Menyimpulkan strategi penentuan warna pada tantangan Stage 1–3 &amp; Boss CHROMA TITAN.</li>
+                <ul className="text-sm sm:text-base text-slate-700 space-y-1.5 list-disc pl-5 leading-relaxed">
+                  <li>Mengelompokkan warna Primer, Sekunder, dan Tersier pada sistem pigmen RYB.</li>
+                  <li>Membuktikan hasil pencampuran warna melalui eksperimen di Laboratorium Warna.</li>
+                  <li>Menyimpulkan strategi penentuan warna pada Stage 1–3 &amp; Boss CHROMA TITAN.</li>
                 </ul>
               </div>
             </div>
@@ -408,10 +407,9 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               TAB 2: LABORATORIUM CAMPUR WARNA INTERAKTIF (5 MISI)
              ============================================================== */}
           {activeTab === 'lab' && (
-            <div className="space-y-4">
-              {/* Pilihan Tantangan 1-5 */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-1.5">
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
                   {LKPD_LAB_CHALLENGES.map((ch, idx) => {
                     const solved = submission.labSolvedIds.includes(ch.targetColorId);
                     const selected = idx === activeChallengeIdx;
@@ -424,141 +422,155 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                           setMixResult(null);
                           setShowLabHint(false);
                         }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase flex items-center gap-1.5 border cursor-pointer ${
+                        className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 border cursor-pointer transition-colors ${
                           selected
-                            ? 'bg-cyan-400 text-slate-950 border-cyan-300'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                             : solved
-                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/35'
-                            : 'bg-white/5 text-slate-300 border-white/12 hover:bg-white/10'
+                            ? 'bg-blue-50 text-blue-800 border-blue-200'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        {solved && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        {solved && <CheckCircle2 className="w-4 h-4 text-blue-600" />}
                         <span>Misi {idx + 1}</span>
                       </button>
                     );
                   })}
                 </div>
-                <span className="text-xs font-extrabold text-cyan-300 tabular-nums">
+                <span className="text-sm font-extrabold text-slate-800 tabular-nums">
                   Selesai: {scoreBreakdown.labCorrect}/{scoreBreakdown.labTotal}
                 </span>
               </div>
 
               {/* Instruksi Target Tantangan */}
-              <div className="bg-white/5 border border-white/12 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-cyan-400">
-                      TARGET EKSPERIMEN #{activeChallengeIdx + 1} ({targetColorDef.categoryLabelId})
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-blue-700">
+                      TARGET EKSPERIMEN #{activeChallengeIdx + 1} · {targetColorDef.categoryLabelId}
                     </span>
                     {submission.labSolvedIds.includes(activeChallenge.targetColorId) && (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold uppercase">
-                        Sudah Berhasil
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-xs font-bold">
+                        Selesai
                       </span>
                     )}
                   </div>
-                  <p className="text-sm font-bold text-white">{activeChallenge.prompt}</p>
+                  <p className="text-base font-bold text-slate-900 leading-snug">
+                    {activeChallenge.prompt}
+                  </p>
                   {showLabHint && (
-                    <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-400/25 rounded-lg px-2.5 py-1.5 mt-1">
-                      Petunjuk: {activeChallenge.hint}
+                    <p className="text-sm text-slate-800 bg-white border border-blue-200 rounded-xl px-3.5 py-2 mt-2">
+                      <strong>Petunjuk:</strong> {activeChallenge.hint}
                     </p>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <div className="flex flex-col items-center">
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex flex-col items-center bg-white border border-slate-200 px-3 py-2 rounded-xl">
                     <div
-                      className="w-12 h-12 rounded-xl border-2 border-white shadow-md"
+                      className="w-12 h-12 rounded-xl border-2 border-slate-900/15 shadow-sm"
                       style={{ backgroundColor: targetColorDef.hex }}
                     />
-                    <span className="text-[10px] font-bold text-slate-300 mt-1 uppercase">
+                    <span className="text-xs font-bold text-slate-800 mt-1.5">
                       {targetColorDef.nameId}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowLabHint((v) => !v)}
-                    className="p-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-300 cursor-pointer"
+                    className="p-2.5 rounded-xl bg-white hover:bg-blue-50 border border-slate-300 text-blue-700 cursor-pointer"
                     title="Lihat Petunjuk"
                   >
-                    <Lightbulb className="w-4 h-4" />
+                    <Lightbulb className="w-5 h-5" />
                   </button>
                 </div>
               </div>
 
-              {/* Meja Campur Interaktif */}
-              <div className="bg-[#060a14] border border-white/10 rounded-2xl p-4 space-y-4">
-                <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 sm:gap-3 text-center">
+              {/* Meja Campur Interaktif — Panel Kontras Gelap agar Warna Terlihat Tajam */}
+              <div className="bg-[#0b1220] text-white rounded-2xl p-4 sm:p-5 space-y-5">
+                <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 sm:gap-4 text-center">
                   {/* Wadah 1 */}
                   <button
                     type="button"
                     onClick={() => setActiveSlotPicker('A')}
-                    className={`p-3 rounded-2xl border-2 flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
+                    className={`p-3.5 rounded-2xl border-2 flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       activeSlotPicker === 'A'
-                        ? 'border-cyan-400 bg-cyan-400/10'
-                        : 'border-white/15 bg-white/4 hover:bg-white/8'
+                        ? 'border-blue-400 bg-white text-slate-900'
+                        : 'border-slate-700 bg-slate-900/80 text-white hover:border-slate-500'
                     }`}
                   >
-                    <span className="text-[10px] font-extrabold uppercase text-slate-400">Wadah 1</span>
+                    <span
+                      className={`text-xs font-extrabold uppercase ${
+                        activeSlotPicker === 'A' ? 'text-blue-700' : 'text-slate-400'
+                      }`}
+                    >
+                      Wadah 1
+                    </span>
                     <div
-                      className="w-11 h-11 rounded-xl border-2 border-white/90"
+                      className="w-12 h-12 rounded-xl border-2 border-slate-300 shadow-sm"
                       style={{ backgroundColor: slotA ? getColorDef(slotA).hex : '#1e293b' }}
                     />
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-sm font-bold">
                       {slotA ? getColorDef(slotA).nameId : 'Pilih'}
                     </span>
                   </button>
 
-                  <span className="text-xl font-black text-slate-400">+</span>
+                  <span className="text-2xl font-black text-slate-300">+</span>
 
                   {/* Wadah 2 */}
                   <button
                     type="button"
                     onClick={() => setActiveSlotPicker('B')}
-                    className={`p-3 rounded-2xl border-2 flex flex-col items-center gap-1.5 cursor-pointer transition-all ${
+                    className={`p-3.5 rounded-2xl border-2 flex flex-col items-center gap-2 cursor-pointer transition-all ${
                       activeSlotPicker === 'B'
-                        ? 'border-cyan-400 bg-cyan-400/10'
-                        : 'border-white/15 bg-white/4 hover:bg-white/8'
+                        ? 'border-blue-400 bg-white text-slate-900'
+                        : 'border-slate-700 bg-slate-900/80 text-white hover:border-slate-500'
                     }`}
                   >
-                    <span className="text-[10px] font-extrabold uppercase text-slate-400">Wadah 2</span>
+                    <span
+                      className={`text-xs font-extrabold uppercase ${
+                        activeSlotPicker === 'B' ? 'text-blue-700' : 'text-slate-400'
+                      }`}
+                    >
+                      Wadah 2
+                    </span>
                     <div
-                      className="w-11 h-11 rounded-xl border-2 border-white/90"
+                      className="w-12 h-12 rounded-xl border-2 border-slate-300 shadow-sm"
                       style={{ backgroundColor: slotB ? getColorDef(slotB).hex : '#1e293b' }}
                     />
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-sm font-bold">
                       {slotB ? getColorDef(slotB).nameId : 'Pilih'}
                     </span>
                   </button>
 
-                  <span className="text-xl font-black text-slate-400">=</span>
+                  <span className="text-2xl font-black text-slate-300">=</span>
 
                   {/* Hasil Campuran */}
-                  <div className="p-3 rounded-2xl border border-white/15 bg-white/4 flex flex-col items-center gap-1.5">
-                    <span className="text-[10px] font-extrabold uppercase text-slate-400">Hasil</span>
+                  <div className="p-3.5 rounded-2xl border border-slate-700 bg-slate-900/80 flex flex-col items-center gap-2">
+                    <span className="text-xs font-extrabold uppercase text-slate-400">Hasil</span>
                     <div
-                      className="w-11 h-11 rounded-xl border-2 border-white/90 flex items-center justify-center"
+                      className="w-12 h-12 rounded-xl border-2 border-white/80 flex items-center justify-center"
                       style={{
                         backgroundColor: mixResult?.mixed ? mixResult.mixed.hex : '#0f172a',
                       }}
                     >
-                      {!mixResult?.mixed && <span className="text-sm font-black text-slate-500">?</span>}
+                      {!mixResult?.mixed && <span className="text-base font-black text-slate-400">?</span>}
                     </div>
-                    <span className="text-xs font-bold text-white">
-                      {mixResult?.mixed ? mixResult.mixed.nameId : 'Belum Dicampur'}
+                    <span className="text-sm font-bold text-white">
+                      {mixResult?.mixed ? mixResult.mixed.nameId : 'Belum Ada'}
                     </span>
                   </div>
                 </div>
 
                 {/* Palet Bahan Warna */}
                 <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                    Klik warna di bawah untuk mengisi{' '}
-                    <span className="text-cyan-400 font-extrabold">
+                  <span className="text-xs sm:text-sm font-semibold text-slate-300 block mb-2.5">
+                    Pilih warna untuk mengisi{' '}
+                    <span className="text-blue-300 font-extrabold">
                       {activeSlotPicker === 'A' ? 'Wadah 1' : 'Wadah 2'}
                     </span>
                     :
                   </span>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
                     {LKPD_LAB_INGREDIENTS.map((cid) => {
                       const def = getColorDef(cid);
                       return (
@@ -566,13 +578,13 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                           key={cid}
                           type="button"
                           onClick={() => handleSelectIngredient(cid)}
-                          className="p-2 rounded-xl bg-white/5 hover:bg-white/12 border border-white/12 flex flex-col items-center gap-1.5 cursor-pointer"
+                          className="p-2.5 rounded-xl bg-white hover:bg-blue-50 text-slate-900 border border-slate-200 flex flex-col items-center gap-1.5 cursor-pointer"
                         >
                           <span
-                            className="w-8 h-8 rounded-lg border border-white/90 shadow-sm"
+                            className="w-9 h-9 rounded-lg border border-slate-300 shadow-sm"
                             style={{ backgroundColor: def.hex }}
                           />
-                          <span className="text-[11px] font-bold text-slate-200">{def.nameId}</span>
+                          <span className="text-xs sm:text-sm font-bold">{def.nameId}</span>
                         </button>
                       );
                     })}
@@ -582,27 +594,26 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                 <button
                   type="button"
                   onClick={handleMixColors}
-                  className="w-full h-11 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wide rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base uppercase tracking-wide rounded-xl flex items-center justify-center cursor-pointer shadow-md"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  <span>CAMPURKAN WARNA SEKARANG</span>
+                  CAMPURKAN WARNA SEKARANG
                 </button>
 
                 {mixResult && (
                   <div
-                    className={`p-3 rounded-xl border text-xs sm:text-sm font-semibold flex items-start gap-2.5 ${
+                    className={`p-3.5 rounded-xl border text-sm font-semibold flex items-start gap-3 ${
                       mixResult.matchedChallenge
-                        ? 'bg-emerald-500/15 border-emerald-400/35 text-emerald-200'
-                        : 'bg-amber-500/15 border-amber-400/35 text-amber-200'
+                        ? 'bg-white text-slate-900 border-blue-400'
+                        : 'bg-slate-900 text-slate-100 border-slate-600'
                     }`}
                   >
                     {mixResult.matchedChallenge ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                     ) : (
-                      <FlaskConical className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                      <FlaskConical className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1">
-                      <p>{mixResult.message}</p>
+                      <p className="leading-relaxed">{mixResult.message}</p>
                       {mixResult.matchedChallenge && activeChallengeIdx < LKPD_LAB_CHALLENGES.length - 1 && (
                         <button
                           type="button"
@@ -611,7 +622,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                             setMixResult(null);
                             setShowLabHint(false);
                           }}
-                          className="mt-2 px-3 py-1 rounded-lg bg-emerald-400 text-slate-950 text-xs font-black uppercase cursor-pointer"
+                          className="mt-2.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold cursor-pointer"
                         >
                           Lanjut ke Misi {activeChallengeIdx + 2} →
                         </button>
@@ -627,39 +638,40 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               TAB 3: KUIS UJI PEMAHAMAN RODA WARNA (6 SOAL)
              ============================================================== */}
           {activeTab === 'kuis' && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 bg-white/4 border border-white/10 rounded-2xl p-3.5">
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5">
                 <div>
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-400 block">
+                  <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-700 block">
                     UJI PEMAHAMAN TEORI WARNA RYB (6 SOAL)
                   </span>
-                  <p className="text-xs text-slate-300">
-                    Pilih jawaban paling tepat, lalu tekan tombol periksa untuk melihat nilai dan pembahasan.
+                  <p className="text-sm text-slate-600 mt-0.5">
+                    Pilih jawaban paling tepat, lalu tekan Periksa Jawaban untuk melihat pembahasan.
                   </p>
                 </div>
                 {submission.quizChecked && (
-                  <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/35 text-emerald-300 text-xs font-black tabular-nums">
+                  <span className="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white text-sm font-black tabular-nums">
                     Benar: {scoreBreakdown.quizCorrect}/{scoreBreakdown.quizTotal}
                   </span>
                 )}
               </div>
 
-              <div className="space-y-3.5">
+              <div className="space-y-4">
                 {LKPD_QUIZ_QUESTIONS.map((q, qIdx) => {
                   const chosen = submission.quizAnswers[q.id];
                   const isCorrect = chosen === q.correctOptionId;
+                  const useSingleColumn = q.options.some((opt) => opt.label.length > 30);
 
                   return (
                     <div
                       key={q.id}
-                      className="bg-white/4 border border-white/12 rounded-2xl p-4 space-y-3"
+                      className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xs"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <p className="text-xs sm:text-sm font-bold text-white leading-snug">
-                          <span className="text-cyan-400 font-black mr-1.5">#{qIdx + 1}</span>
+                        <p className="text-sm sm:text-base font-bold text-slate-900 leading-relaxed">
+                          <span className="text-blue-600 font-black mr-2">#{qIdx + 1}</span>
                           {q.question}
                         </p>
-                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-white/8 text-slate-300 shrink-0">
+                        <span className="text-[11px] font-bold uppercase px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 shrink-0">
                           {q.type === 'match_ingredients' ? 'Cocokkan' : 'Pilihan Ganda'}
                         </span>
                       </div>
@@ -671,13 +683,13 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                             return (
                               <div
                                 key={cid}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/35 border border-white/10"
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 text-white"
                               >
                                 <span
                                   className="w-4 h-4 rounded-sm border border-white/80"
                                   style={{ backgroundColor: info.hex }}
                                 />
-                                <span className="text-[11px] font-bold text-slate-200">
+                                <span className="text-xs sm:text-sm font-bold">
                                   {info.nameId}
                                 </span>
                               </div>
@@ -686,23 +698,32 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div
+                        className={`grid gap-2.5 ${
+                          useSingleColumn ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'
+                        }`}
+                      >
                         {q.options.map((opt) => {
                           const isSelected = chosen === opt.id;
                           const isOptCorrect = opt.id === q.correctOptionId;
                           let styleCls =
-                            'bg-white/4 hover:bg-white/8 border-white/12 text-slate-200';
+                            'bg-slate-50 hover:bg-blue-50 border-slate-200 text-slate-800';
+                          let badgeCls = 'bg-white border-slate-300 text-slate-700';
+
                           if (submission.quizChecked) {
                             if (isOptCorrect) {
-                              styleCls =
-                                'bg-emerald-500/20 border-emerald-400 text-emerald-200';
+                              styleCls = 'bg-blue-50 border-blue-600 text-slate-900';
+                              badgeCls = 'bg-blue-600 border-blue-600 text-white';
                             } else if (isSelected && !isOptCorrect) {
-                              styleCls = 'bg-rose-500/20 border-rose-400 text-rose-200';
+                              styleCls = 'bg-slate-900 border-slate-900 text-white';
+                              badgeCls = 'bg-rose-500 border-rose-500 text-white';
                             } else {
-                              styleCls = 'bg-white/2 border-white/8 text-slate-400 opacity-75';
+                              styleCls = 'bg-slate-50 border-slate-200 text-slate-400';
+                              badgeCls = 'bg-slate-100 border-slate-200 text-slate-400';
                             }
                           } else if (isSelected) {
-                            styleCls = 'bg-cyan-400/18 border-cyan-400 text-white';
+                            styleCls = 'bg-blue-600 border-blue-600 text-white shadow-sm';
+                            badgeCls = 'bg-white border-white text-blue-700';
                           }
 
                           return (
@@ -711,21 +732,25 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                               type="button"
                               onClick={() => handleSelectQuizOption(q.id, opt.id)}
                               disabled={submission.quizChecked}
-                              className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 cursor-pointer text-xs font-semibold transition-colors ${styleCls}`}
+                              className={`px-4 py-3 rounded-xl border text-left flex items-center justify-between gap-3 cursor-pointer text-sm sm:text-[15px] font-semibold transition-colors ${styleCls}`}
                             >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-5 h-5 rounded-md bg-black/35 border border-white/15 flex items-center justify-center text-[10px] font-black uppercase shrink-0">
+                              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                                <span
+                                  className={`w-6 h-6 rounded-lg border flex items-center justify-center text-xs font-black uppercase shrink-0 ${badgeCls}`}
+                                >
                                   {opt.id}
                                 </span>
-                                <span className="truncate">{opt.label}</span>
+                                <span className="whitespace-normal break-words leading-snug">
+                                  {opt.label}
+                                </span>
                               </div>
 
                               {opt.swatchHexes && (
-                                <div className="flex items-center gap-1 shrink-0">
+                                <div className="flex items-center gap-1.5 shrink-0">
                                   {opt.swatchHexes.map((hex, sIdx) => (
                                     <span
                                       key={sIdx}
-                                      className="w-4 h-4 rounded-sm border border-white/80"
+                                      className="w-5 h-5 rounded-md border border-slate-400"
                                       style={{ backgroundColor: hex }}
                                     />
                                   ))}
@@ -738,19 +763,19 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
 
                       {submission.quizChecked && (
                         <div
-                          className={`p-2.5 rounded-xl text-xs flex items-start gap-2 ${
+                          className={`p-3.5 rounded-xl text-sm flex items-start gap-2.5 border ${
                             isCorrect
-                              ? 'bg-emerald-500/12 text-emerald-200'
-                              : 'bg-rose-500/12 text-rose-200'
+                              ? 'bg-blue-50 border-blue-200 text-slate-900'
+                              : 'bg-slate-100 border-slate-300 text-slate-900'
                           }`}
                         >
                           {isCorrect ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                           ) : (
-                            <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                            <XCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                           )}
-                          <span>
-                            <strong>{isCorrect ? 'Benar!' : 'Kurang tepat.'}</strong> {q.explanation}
+                          <span className="leading-relaxed">
+                            <strong>{isCorrect ? 'Benar.' : 'Kurang tepat.'}</strong> {q.explanation}
                           </span>
                         </div>
                       )}
@@ -759,23 +784,23 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                 })}
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+              <div className="flex flex-col sm:flex-row gap-3 pt-1">
                 {!submission.quizChecked ? (
                   <button
                     type="button"
                     onClick={handleCheckQuiz}
-                    className="w-full h-11 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wide rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm sm:text-base uppercase tracking-wide rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
+                    <CheckCircle2 className="w-5 h-5" />
                     <span>PERIKSA JAWABAN KUIS</span>
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={handleResetQuiz}
-                    className="w-full h-11 bg-white/8 hover:bg-white/14 border border-white/15 text-white font-bold text-xs uppercase tracking-wide rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm uppercase tracking-wide rounded-xl flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <RotateCcw className="w-4 h-4 text-cyan-400" />
+                    <RotateCcw className="w-4 h-4 text-blue-300" />
                     <span>KERJAKAN ULANG KUIS</span>
                   </button>
                 )}
@@ -788,16 +813,16 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
              ============================================================== */}
           {activeTab === 'refleksi' && (
             <div className="space-y-4">
-              <div className="bg-white/4 border border-white/10 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3">
                 <div>
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-400 block">
+                  <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-700 block">
                     ANALISIS &amp; REFLEKSI PESERTA DIDIK
                   </span>
-                  <p className="text-xs text-slate-300">
+                  <p className="text-sm text-slate-600 mt-0.5">
                     Tuliskan jawaban dengan kalimatmu sendiri berdasarkan pengalaman menamatkan Stage 1–3.
                   </p>
                 </div>
-                <span className="text-xs font-extrabold text-emerald-300 shrink-0 tabular-nums">
+                <span className="text-sm font-extrabold text-blue-700 shrink-0 tabular-nums">
                   Terisi: {scoreBreakdown.reflectionAnswered}/{scoreBreakdown.reflectionTotal}
                 </span>
               </div>
@@ -807,9 +832,9 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                 return (
                   <div
                     key={prompt.id}
-                    className="bg-white/4 border border-white/12 rounded-2xl p-4 space-y-2"
+                    className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-2.5"
                   >
-                    <label className="text-xs sm:text-sm font-bold text-white block">
+                    <label className="text-sm sm:text-base font-bold text-slate-900 block leading-relaxed">
                       {prompt.question}
                     </label>
                     <textarea
@@ -825,7 +850,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                         }))
                       }
                       placeholder={prompt.placeholder}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/35 border border-white/15 focus:border-cyan-400 focus:outline-none text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 resize-y"
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white focus:outline-none text-sm sm:text-base text-slate-900 placeholder:text-slate-400 resize-y leading-relaxed"
                     />
                   </div>
                 );
@@ -837,108 +862,107 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               TAB 5: REKAP NILAI & EKSPOR BUKTI KE GURU
              ============================================================== */}
           {activeTab === 'hasil' && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Ringkasan Nilai Utama */}
-              <div className="bg-gradient-to-br from-cyan-500/12 via-emerald-500/10 to-slate-900 border border-cyan-400/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="bg-[#0b1220] text-white rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-cyan-300 block">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-blue-300 block">
                     HASIL EVALUASI AKHIR SISWA
                   </span>
-                  <h3 className="text-xl sm:text-2xl font-black text-white mt-0.5">
+                  <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
                     {submission.studentName.trim() || 'Nama Siswa Belum Diisi'}
                   </h3>
-                  <p className="text-xs text-slate-300 mt-0.5">
-                    Kelas: <strong>{submission.studentClass.trim() || '-'}</strong> · Absen:{' '}
-                    <strong>{submission.studentAbsent.trim() || '-'}</strong> ·{' '}
+                  <p className="text-sm text-slate-300 mt-1">
+                    Kelas: <strong className="text-white">{submission.studentClass.trim() || '-'}</strong> · Absen:{' '}
+                    <strong className="text-white">{submission.studentAbsent.trim() || '-'}</strong> ·{' '}
                     {submission.schoolName}
                   </p>
                 </div>
 
-                <div className="bg-black/40 border border-white/15 rounded-2xl px-5 py-3 text-center shrink-0">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                <div className="bg-white text-slate-900 rounded-2xl px-6 py-3.5 text-center shrink-0">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
                     NILAI OBJEKTIF
                   </span>
-                  <span className="text-3xl font-black text-emerald-400 tabular-nums">
+                  <span className="text-3xl font-black text-blue-600 tabular-nums">
                     {scoreBreakdown.objectiveScore}
                     <span className="text-base text-slate-400">/100</span>
                   </span>
-                  <span className="block text-xs font-extrabold text-cyan-300 mt-0.5">
+                  <span className="block text-xs font-extrabold text-slate-800 mt-0.5">
                     {scoreBreakdown.predicate}
                   </span>
                 </div>
               </div>
 
               {/* Detail Komponen Skor */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="bg-white/4 border border-white/10 rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-center">
+                  <span className="text-xs font-bold uppercase text-slate-500 block">
                     Lab Warna
                   </span>
-                  <span className="text-lg font-black text-cyan-300 tabular-nums">
+                  <span className="text-xl font-black text-blue-600 tabular-nums mt-0.5 block">
                     {scoreBreakdown.labCorrect}/{scoreBreakdown.labTotal}
                   </span>
                 </div>
-                <div className="bg-white/4 border border-white/10 rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-center">
+                  <span className="text-xs font-bold uppercase text-slate-500 block">
                     Kuis RYB
                   </span>
-                  <span className="text-lg font-black text-amber-300 tabular-nums">
+                  <span className="text-xl font-black text-blue-600 tabular-nums mt-0.5 block">
                     {scoreBreakdown.quizCorrect}/{scoreBreakdown.quizTotal}
                   </span>
                 </div>
-                <div className="bg-white/4 border border-white/10 rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-center">
+                  <span className="text-xs font-bold uppercase text-slate-500 block">
                     Refleksi Esai
                   </span>
-                  <span className="text-lg font-black text-emerald-300 tabular-nums">
+                  <span className="text-xl font-black text-slate-900 tabular-nums mt-0.5 block">
                     {scoreBreakdown.reflectionAnswered}/{scoreBreakdown.reflectionTotal}
                   </span>
                 </div>
-                <div className="bg-white/4 border border-white/10 rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-center">
+                  <span className="text-xs font-bold uppercase text-slate-500 block">
                     Skor Game
                   </span>
-                  <span className="text-lg font-black text-violet-300 tabular-nums">
+                  <span className="text-xl font-black text-slate-900 tabular-nums mt-0.5 block">
                     {progress.bestScore.toLocaleString('id-ID')}
                   </span>
                 </div>
               </div>
 
               {!submission.quizChecked && (
-                <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-400/30 text-xs text-amber-200 font-semibold">
-                  Tip: Kamu belum menekan tombol <strong>&ldquo;Periksa Jawaban Kuis&rdquo;</strong> di Tab 3. Nilai kuis tetap terhitung otomatis, namun sebaiknya periksa jawabanmu agar dapat melihat pembahasannya!
+                <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-300 text-sm text-slate-800 font-medium">
+                  Tip: Kamu belum menekan tombol <strong>&ldquo;Periksa Jawaban Kuis&rdquo;</strong> di Tab 3. Nilai kuis tetap terhitung otomatis, namun sebaiknya periksa jawabanmu untuk melihat pembahasannya.
                 </div>
               )}
 
               {/* 12 Kotak Warna RYB */}
-              <div className="bg-white/4 border border-white/10 rounded-2xl p-3.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 block mb-2">
-                  12 Warna Roda RYB yang Telah Dikuasai:
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 block mb-2.5">
+                  12 Warna Roda RYB yang Telah Dikuasai
                 </span>
-                <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
+                <div className="grid grid-cols-6 sm:grid-cols-12 gap-2">
                   {ALL_RYB_COLORS.map((c) => (
-                    <div key={c.id} className="flex flex-col items-center gap-1">
-                      <div
-                        className="w-full aspect-square rounded-lg border border-white/85"
-                        style={{ backgroundColor: c.hex }}
-                        title={c.nameId}
-                      />
-                    </div>
+                    <div
+                      key={c.id}
+                      className="w-full aspect-square rounded-lg border border-slate-300 shadow-xs"
+                      style={{ backgroundColor: c.hex }}
+                      title={c.nameId}
+                    />
                   ))}
                 </div>
               </div>
 
               {/* Tombol Ekspor Bukti */}
-              <div className="space-y-2.5">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-400 block">
-                  UNDUH / KUMPULKAN BUKTI PENGERJAAN KE GURU:
+              <div className="space-y-3">
+                <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-800 block">
+                  Unduh / Kumpulkan Bukti Pengerjaan ke Guru
                 </span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     type="button"
                     onClick={handleExportPNG}
-                    className="h-12 px-4 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                    className="h-12 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
                     <Download className="w-4 h-4" />
                     <span>Simpan Kartu PNG</span>
@@ -947,7 +971,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                   <button
                     type="button"
                     onClick={handlePrintPDF}
-                    className="h-12 px-4 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                    className="h-12 px-4 rounded-xl bg-[#0b1220] hover:bg-slate-800 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
                     <Printer className="w-4 h-4" />
                     <span>Cetak / Simpan PDF</span>
@@ -956,16 +980,16 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                   <button
                     type="button"
                     onClick={handleCopySummary}
-                    className="h-12 px-4 rounded-xl bg-white/8 hover:bg-white/14 border border-white/15 text-white font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer"
+                    className="h-12 px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {copiedSummary ? (
                       <>
-                        <Check className="w-4 h-4 text-emerald-400" />
-                        <span className="text-emerald-300">Tersalin!</span>
+                        <Check className="w-4 h-4 text-blue-600" />
+                        <span className="text-blue-700">Tersalin</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="w-4 h-4 text-cyan-400" />
+                        <Copy className="w-4 h-4 text-slate-700" />
                         <span>Salin Ringkasan</span>
                       </>
                     )}
@@ -973,13 +997,13 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                 </div>
 
                 {pngExportedMsg && (
-                  <p className="text-xs font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 rounded-xl px-3 py-2">
+                  <p className="text-sm font-semibold text-blue-800 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
                     {pngExportedMsg}
                   </p>
                 )}
               </div>
 
-              <div className="pt-2 border-t border-white/10 flex justify-end">
+              <div className="pt-3 border-t border-slate-200 flex justify-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -988,9 +1012,9 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     setActiveChallengeIdx(0);
                     setActiveTab('identitas');
                   }}
-                  className="text-xs font-bold text-slate-400 hover:text-rose-300 flex items-center gap-1.5 cursor-pointer"
+                  className="text-xs sm:text-sm font-bold text-slate-500 hover:text-rose-600 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RotateCcw className="w-4 h-4" />
                   <span>Reset Isian LKPD</span>
                 </button>
               </div>
@@ -999,18 +1023,18 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
         </div>
 
         {/* Footer Navigasi Antar Tab */}
-        <div className="px-5 py-3 border-t border-white/10 bg-[#070b15] flex items-center justify-between gap-2 shrink-0">
+        <div className="px-5 sm:px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2 shrink-0">
           <button
             type="button"
             onClick={() => goAdjacentTab(-1)}
             disabled={activeTab === 'identitas'}
-            className="px-3.5 py-2 rounded-xl bg-white/6 hover:bg-white/12 disabled:opacity-35 disabled:cursor-not-allowed text-xs font-bold uppercase flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>Sebelumnya</span>
           </button>
 
-          <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">
+          <span className="text-xs sm:text-sm font-semibold text-slate-600 hidden sm:inline">
             Guru: {submission.teacherName} · {submission.schoolName}
           </span>
 
@@ -1018,7 +1042,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
             <button
               type="button"
               onClick={() => goAdjacentTab(1)}
-              className="px-4 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-black uppercase flex items-center gap-1.5 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
               <span>Lanjut</span>
               <ChevronRight className="w-4 h-4" />
@@ -1027,7 +1051,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/16 text-white text-xs font-black uppercase cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-[#0b1220] hover:bg-slate-800 text-white text-xs sm:text-sm font-bold cursor-pointer"
             >
               Selesai &amp; Tutup
             </button>
