@@ -2927,6 +2927,42 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                     <span>PENGATURAN</span>
                   </button>
                 </div>
+
+                {/* Seksi Evaluasi Siswa (LKPD) dengan pemisah & jarak lega */}
+                <div className="pt-3 mt-1 border-t border-white/10 w-full">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (lkpdProgress.gameCompleted) {
+                        setShowLKPD(true);
+                      } else {
+                        setShowLKPDLockedAlert(true);
+                      }
+                    }}
+                    data-lkpd-button="true"
+                    className={`w-full h-12 text-sm font-bold tracking-wide uppercase rounded-2xl flex items-center justify-between px-4 border transition-colors cursor-pointer ${lkpdProgress.gameCompleted
+                      ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-200 border-emerald-400/40'
+                      : 'bg-white/4 hover:bg-white/10 text-slate-300 border-white/12'
+                      }`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      {lkpdProgress.gameCompleted ? (
+                        <ClipboardCheck className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-amber-400" />
+                      )}
+                      <span>LKPD EVALUASI</span>
+                    </span>
+                    <span
+                      className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${lkpdProgress.gameCompleted
+                        ? 'bg-emerald-400 text-slate-950'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
+                        }`}
+                    >
+                      {lkpdProgress.gameCompleted ? 'Terbuka' : 'Terkunci'}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               {isGamepadConnected && (
@@ -2944,39 +2980,6 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                   </span>
                 </div>
               )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (lkpdProgress.gameCompleted) {
-                    setShowLKPD(true);
-                  } else {
-                    setShowLKPDLockedAlert(true);
-                  }
-                }}
-                data-lkpd-button="true"
-                className={`w-full h-12 text-sm font-bold tracking-wide uppercase rounded-2xl flex items-center justify-between px-4 border transition-colors cursor-pointer ${lkpdProgress.gameCompleted
-                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-200 border-emerald-400/40'
-                  : 'bg-white/4 hover:bg-white/10 text-slate-300 border-white/12'
-                  }`}
-              >
-                <span className="flex items-center gap-2">
-                  {lkpdProgress.gameCompleted ? (
-                    <ClipboardCheck className="w-4 h-4 text-emerald-400" />
-                  ) : (
-                    <Lock className="w-4 h-4 text-amber-400" />
-                  )}
-                  <span>LKPD EVALUASI</span>
-                </span>
-                <span
-                  className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${lkpdProgress.gameCompleted
-                    ? 'bg-emerald-400 text-slate-950'
-                    : 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
-                    }`}
-                >
-                  {lkpdProgress.gameCompleted ? 'Terbuka' : 'Terkunci'}
-                </span>
-              </button>
             </div>
           </div>
         )}

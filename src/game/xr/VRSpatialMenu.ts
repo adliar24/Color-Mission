@@ -448,13 +448,21 @@ export class VRSpatialMenu {
       variant: 'secondary',
     });
 
+    // Garis pemisah tipis antara menu game & tombol LKPD Evaluasi
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx, 396);
+    ctx.lineTo(bx + bw, 396);
+    ctx.stroke();
+
     this.drawButton(ctx, {
       id: 'open_lkpd',
       label: state.lkpdUnlocked ? 'LKPD EVALUASI · TERBUKA' : '🔒 LKPD EVALUASI · TERKUNCI',
       x: bx,
-      y: 398,
+      y: 410,
       w: bw,
-      h: 64,
+      h: 62,
       variant: 'secondary',
     });
 
@@ -462,9 +470,9 @@ export class VRSpatialMenu {
       id: 'exit_vr',
       label: 'KELUAR MODE VR',
       x: bx,
-      y: 478,
+      y: 486,
       w: bw,
-      h: 58,
+      h: 56,
       variant: 'danger',
     });
 
