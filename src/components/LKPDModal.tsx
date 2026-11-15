@@ -208,7 +208,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
         className="max-w-4xl w-full max-h-[92dvh] bg-[#080c16] text-white border border-blue-500/25 rounded-3xl shadow-2xl flex flex-col overflow-hidden ui-panel-enter lkpd-interactive-shell"
       >
         {/* Header (60% Hitam + 30% Biru Aksen + 10% Putih Badge Nilai) */}
-        <div className="px-5 sm:px-6 py-4 bg-[#060912] border-b border-blue-500/20 flex items-center justify-between gap-3 shrink-0">
+        <div className="px-5 sm:px-6 py-4 bg-[#060912] border-b border-blue-500/20 flex items-center justify-between gap-3 shrink-0 lkpd-header">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="w-3.5 h-3.5 rounded-sm bg-[#EF233C] border border-white/85" />
@@ -251,7 +251,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
         </div>
 
         {/* Navigasi Tab (30% Biru Struktural) */}
-        <div className="px-4 sm:px-6 py-3 border-b border-blue-500/20 bg-[#0b152a] flex items-center gap-2 overflow-x-auto shrink-0">
+        <div className="px-4 sm:px-6 py-3 border-b border-blue-500/20 bg-[#0b152a] flex items-center gap-2 overflow-x-auto shrink-0 lkpd-tabs">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -260,7 +260,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                 key={tab.id}
                 type="button"
                 onClick={() => handleOpenTab(tab.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide flex items-center gap-2 whitespace-nowrap cursor-pointer border transition-colors ${
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide flex items-center gap-2 whitespace-nowrap cursor-pointer border transition-colors lkpd-tab-btn ${
                   active
                     ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
                     : 'bg-[#080d1a] hover:bg-blue-950/80 text-slate-200 border-blue-500/20'
@@ -275,7 +275,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
         </div>
 
         {/* Konten Scrollable (60% Hitam) */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-7 space-y-6 bg-[#080c16]">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-7 space-y-6 bg-[#080c16] lkpd-content">
           {/* ==============================================================
               TAB 1: IDENTITAS PESERTA DIDIK & CAPAIAN GAME
              ============================================================== */}
@@ -1053,7 +1053,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
         </div>
 
         {/* Footer Navigasi Antar Tab */}
-        <div className="px-5 sm:px-6 py-3.5 border-t border-blue-500/20 bg-[#060912] flex items-center justify-between gap-2 shrink-0">
+        <div className="px-5 sm:px-6 py-3.5 border-t border-blue-500/20 bg-[#060912] flex items-center justify-between gap-2 shrink-0 lkpd-footer">
           <button
             type="button"
             onClick={() => goAdjacentTab(-1)}
