@@ -582,40 +582,92 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleMixColors}
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base uppercase tracking-wide rounded-xl flex items-center justify-center cursor-pointer shadow-md"
-                >
-                  CAMPURKAN WARNA SEKARANG
-                </button>
-
-                {mixResult && (
+                {!mixResult ? (
+                  <button
+                    type="button"
+                    onClick={handleMixColors}
+                    className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base uppercase tracking-wide rounded-xl flex items-center justify-center cursor-pointer shadow-md"
+                  >
+                    CAMPURKAN WARNA SEKARANG
+                  </button>
+                ) : (
                   <div
-                    className={`p-3.5 rounded-xl border text-sm font-semibold flex items-start gap-3 ${
+                    className={`p-4 rounded-xl border text-sm font-semibold space-y-3 ${
                       mixResult.matchedChallenge
                         ? 'bg-[#0e1e3e] text-white border-blue-400/60'
-                        : 'bg-[#080c16] text-slate-100 border-blue-500/35'
+                        : 'bg-[#080c16] text-slate-100 border-rose-400/50'
                     }`}
                   >
-                    {mixResult.matchedChallenge ? (
-                      <CheckCircle2 className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
-                    ) : (
-                      <FlaskConical className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1">
-                      <p className="leading-relaxed">{mixResult.message}</p>
-                      {mixResult.matchedChallenge && activeChallengeIdx < LKPD_LAB_CHALLENGES.length - 1 && (
+                    <div className="flex items-start gap-3">
+                      {mixResult.matchedChallenge ? (
+                        <CheckCircle2 className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                      )}
+                      <div className="space-y-1">
+                        <span
+                          className={`text-xs font-extrabold uppercase tracking-wider block ${
+                            mixResult.matchedChallenge ? 'text-blue-300' : 'text-rose-300'
+                          }`}
+                        >
+                          {mixResult.matchedChallenge ? 'BENAR · CAMPURAN TEPAT' : 'SALAH · BELUM TEPAT'}
+                        </span>
+                        <p className="leading-relaxed text-white">{mixResult.message}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                      {mixResult.matchedChallenge ? (
+                        <>
+                          {activeChallengeIdx < LKPD_LAB_CHALLENGES.length - 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveChallengeIdx((i) =>
+                                  Math.min(LKPD_LAB_CHALLENGES.length - 1, i + 1)
+                                );
+                                setMixResult(null);
+                                setShowLabHint(false);
+                              }}
+                              className="flex-1 min-w-[180px] h-11 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-xs sm:text-sm font-extrabold uppercase tracking-wide flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                            >
+                              <span>Lanjut ke Misi {activeChallengeIdx + 2}</span>
+                              <ChevronRight className="w-4 h-4 text-blue-700" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTab('kuis')}
+                              className="flex-1 min-w-[180px] h-11 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-xs sm:text-sm font-extrabold uppercase tracking-wide flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                            >
+                              <span>Lanjut ke Kuis RYB</span>
+                              <ChevronRight className="w-4 h-4 text-blue-700" />
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMixResult(null);
+                              setActiveSlotPicker('A');
+                            }}
+                            className="h-11 px-4 rounded-xl bg-[#080c16] hover:bg-blue-950/70 border border-blue-500/35 text-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <RotateCcw className="w-4 h-4 text-blue-300" />
+                            <span>Ulangi</span>
+                          </button>
+                        </>
+                      ) : (
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveChallengeIdx((i) => Math.min(LKPD_LAB_CHALLENGES.length - 1, i + 1));
                             setMixResult(null);
-                            setShowLabHint(false);
+                            setActiveSlotPicker('A');
                           }}
-                          className="mt-2.5 px-4 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-950 text-xs sm:text-sm font-extrabold cursor-pointer shadow-sm"
+                          className="w-full h-11 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-xs sm:text-sm font-extrabold uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                         >
-                          Lanjut ke Misi {activeChallengeIdx + 2} →
+                          <RotateCcw className="w-4 h-4 text-blue-700" />
+                          <span>Ulangi Campur Warna</span>
                         </button>
                       )}
                     </div>
