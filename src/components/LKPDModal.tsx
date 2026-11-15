@@ -67,9 +67,10 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
   } | null>(null);
   const [showLabHint, setShowLabHint] = useState<boolean>(false);
 
-  // State umpan balik tombol ekspor
+  // State umpan balik tombol ekspor & ulasan akhir
   const [copiedSummary, setCopiedSummary] = useState<boolean>(false);
   const [pngExportedMsg, setPngExportedMsg] = useState<string | null>(null);
+  const [showQuizReview, setShowQuizReview] = useState<boolean>(false);
 
   useEffect(() => {
     saveLKPDSubmission(submission);
@@ -134,7 +135,6 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
   };
 
   const handleSelectQuizOption = (questionId: string, optionId: string) => {
-    if (submission.quizChecked) return;
     setSubmission((prev) => ({
       ...prev,
       quizAnswers: {
@@ -144,27 +144,12 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
     }));
   };
 
-  const handleCheckQuiz = () => {
-    setSubmission((prev) => ({
-      ...prev,
-      quizChecked: true,
-      completedAt: prev.completedAt || new Date().toISOString(),
-    }));
-  };
-
-  const handleResetQuiz = () => {
-    setSubmission((prev) => ({
-      ...prev,
-      quizAnswers: {},
-      quizChecked: false,
-    }));
-  };
-
   const handleOpenTab = (tabId: LKPDTabId) => {
-    if (tabId === 'hasil' && !submission.completedAt) {
+    if (tabId === 'hasil') {
       setSubmission((prev) => ({
         ...prev,
-        completedAt: new Date().toISOString(),
+        quizChecked: true,
+        completedAt: prev.completedAt || new Date().toISOString(),
       }));
     }
     setActiveTab(tabId);
@@ -241,10 +226,19 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white text-slate-950 text-xs sm:text-sm font-black shadow-sm">
-              <span>Nilai:</span>
-              <span className="tabular-nums text-blue-700">{scoreBreakdown.objectiveScore}/100</span>
-            </div>
+            {activeTab === 'hasil' ? (
+              <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white text-slate-950 text-xs sm:text-sm font-black shadow-sm">
+                <span>Nilai:</span>
+                <span className="tabular-nums text-blue-700">{scoreBreakdown.objectiveScore}/100</span>
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0b152a] border border-blue-500/30 text-blue-200 text-xs sm:text-sm font-bold">
+                <span>Bagian</span>
+                <span className="tabular-nums text-white font-black">
+                  {TABS.findIndex((t) => t.id === activeTab) + 1}/{TABS.length}
+                </span>
+              </div>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -638,20 +632,19 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     UJI PEMAHAMAN TEORI WARNA RYB (6 SOAL)
                   </span>
                   <p className="text-sm text-slate-200 mt-0.5">
-                    Pilih jawaban paling tepat, lalu tekan Periksa Jawaban untuk melihat pembahasan.
+                    Pilih jawaban paling tepat untuk setiap soal. Nilai dan pembahasan akan tampil di bagian Rekap Akhir.
                   </p>
                 </div>
-                {submission.quizChecked && (
-                  <span className="px-3.5 py-1.5 rounded-xl bg-white text-slate-950 text-sm font-black tabular-nums">
-                    Benar: {scoreBreakdown.quizCorrect}/{scoreBreakdown.quizTotal}
-                  </span>
-                )}
+                <span className="px-3.5 py-1.5 rounded-xl bg-white text-slate-950 text-xs sm:text-sm font-black tabular-nums">
+                  Terjawab:{' '}
+                  {LKPD_QUIZ_QUESTIONS.filter((q) => Boolean(submission.quizAnswers[q.id])).length}/
+                  {LKPD_QUIZ_QUESTIONS.length}
+                </span>
               </div>
 
               <div className="space-y-4">
                 {LKPD_QUIZ_QUESTIONS.map((q, qIdx) => {
                   const chosen = submission.quizAnswers[q.id];
-                  const isCorrect = chosen === q.correctOptionId;
                   const useSingleColumn = q.options.some((opt) => opt.label.length > 30);
 
                   return (
@@ -698,33 +691,18 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                       >
                         {q.options.map((opt) => {
                           const isSelected = chosen === opt.id;
-                          const isOptCorrect = opt.id === q.correctOptionId;
-                          let styleCls =
-                            'bg-[#080c16] hover:bg-blue-950/60 border-slate-700 text-slate-100';
-                          let badgeCls = 'bg-[#0e1e3e] border-blue-500/35 text-blue-200';
-
-                          if (submission.quizChecked) {
-                            if (isOptCorrect) {
-                              styleCls = 'bg-blue-600/25 border-blue-400 text-white';
-                              badgeCls = 'bg-white border-white text-blue-700';
-                            } else if (isSelected && !isOptCorrect) {
-                              styleCls = 'bg-rose-500/15 border-rose-400/80 text-rose-100';
-                              badgeCls = 'bg-rose-500 border-rose-500 text-white';
-                            } else {
-                              styleCls = 'bg-[#080c16]/70 border-slate-800 text-slate-400';
-                              badgeCls = 'bg-slate-900 border-slate-800 text-slate-500';
-                            }
-                          } else if (isSelected) {
-                            styleCls = 'bg-blue-600 border-blue-400 text-white shadow-sm';
-                            badgeCls = 'bg-white border-white text-blue-700';
-                          }
+                          const styleCls = isSelected
+                            ? 'bg-blue-600 border-blue-400 text-white shadow-sm'
+                            : 'bg-[#080c16] hover:bg-blue-950/60 border-slate-700 text-slate-100';
+                          const badgeCls = isSelected
+                            ? 'bg-white border-white text-blue-700'
+                            : 'bg-[#0e1e3e] border-blue-500/35 text-blue-200';
 
                           return (
                             <button
                               key={opt.id}
                               type="button"
                               onClick={() => handleSelectQuizOption(q.id, opt.id)}
-                              disabled={submission.quizChecked}
                               className={`px-4 py-3 rounded-xl border text-left flex items-center justify-between gap-3 cursor-pointer text-sm sm:text-[15px] font-semibold transition-colors ${styleCls}`}
                             >
                               <div className="flex items-start sm:items-center gap-3 min-w-0">
@@ -753,50 +731,9 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                           );
                         })}
                       </div>
-
-                      {submission.quizChecked && (
-                        <div
-                          className={`p-3.5 rounded-xl text-sm flex items-start gap-2.5 border ${
-                            isCorrect
-                              ? 'bg-[#0e1e3e] border-blue-400/50 text-white'
-                              : 'bg-[#080c16] border-rose-400/45 text-rose-100'
-                          }`}
-                        >
-                          {isCorrect ? (
-                            <CheckCircle2 className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                          )}
-                          <span className="leading-relaxed">
-                            <strong>{isCorrect ? 'Benar.' : 'Kurang tepat.'}</strong> {q.explanation}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-1">
-                {!submission.quizChecked ? (
-                  <button
-                    type="button"
-                    onClick={handleCheckQuiz}
-                    className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base uppercase tracking-wide rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>PERIKSA JAWABAN KUIS</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleResetQuiz}
-                    className="w-full h-12 bg-white hover:bg-slate-100 text-slate-950 font-extrabold text-sm uppercase tracking-wide rounded-xl flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <RotateCcw className="w-4 h-4 text-blue-700" />
-                    <span>KERJAKAN ULANG KUIS</span>
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -922,11 +859,54 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                 </div>
               </div>
 
-              {!submission.quizChecked && (
-                <div className="p-3.5 rounded-xl bg-[#0e1e3e] border border-blue-400/40 text-sm text-blue-100 font-medium">
-                  Tip: Kamu belum menekan tombol <strong>&ldquo;Periksa Jawaban Kuis&rdquo;</strong> di Tab 3. Nilai kuis tetap terhitung otomatis, namun sebaiknya periksa jawabanmu untuk melihat pembahasannya.
+              {/* Ulasan Pembahasan Kuis di Bagian Akhir */}
+              <div className="bg-[#0d1424] border border-blue-500/25 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">
+                    Pembahasan Jawaban Kuis
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuizReview((v) => !v)}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#0e1e3e] hover:bg-blue-600 border border-blue-500/35 text-xs sm:text-sm font-bold text-white cursor-pointer transition-colors"
+                  >
+                    {showQuizReview ? 'Sembunyikan Pembahasan' : 'Lihat Pembahasan'}
+                  </button>
                 </div>
-              )}
+
+                {showQuizReview && (
+                  <div className="space-y-2.5 pt-2 border-t border-blue-500/20">
+                    {LKPD_QUIZ_QUESTIONS.map((q, qIdx) => {
+                      const chosen = submission.quizAnswers[q.id];
+                      const isCorrect = chosen === q.correctOptionId;
+                      return (
+                        <div
+                          key={q.id}
+                          className={`p-3.5 rounded-xl text-sm flex items-start gap-2.5 border ${
+                            isCorrect
+                              ? 'bg-[#0e1e3e] border-blue-400/50 text-white'
+                              : 'bg-[#080c16] border-rose-400/45 text-rose-100'
+                          }`}
+                        >
+                          {isCorrect ? (
+                            <CheckCircle2 className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                          )}
+                          <div className="space-y-1 leading-relaxed">
+                            <p className="font-bold text-white">
+                              #{qIdx + 1}. {q.question}
+                            </p>
+                            <p className="text-slate-200">
+                              <strong>{isCorrect ? 'Benar.' : 'Kurang tepat.'}</strong> {q.explanation}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* 12 Kotak Warna RYB */}
               <div className="bg-[#0d1424] border border-blue-500/25 rounded-2xl p-4">
