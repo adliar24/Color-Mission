@@ -419,13 +419,17 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                         }}
                         className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 border cursor-pointer transition-colors ${
                           selected
-                            ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
+                            ? 'bg-white text-slate-950 border-white font-extrabold shadow-sm'
                             : solved
                             ? 'bg-[#0e1e3e] text-blue-200 border-blue-500/45'
                             : 'bg-[#0d1424] text-slate-300 border-slate-700 hover:border-blue-500/40'
                         }`}
                       >
-                        {solved && <CheckCircle2 className="w-4 h-4 text-blue-300" />}
+                        {solved && (
+                          <CheckCircle2
+                            className={`w-4 h-4 ${selected ? 'text-blue-700' : 'text-blue-300'}`}
+                          />
+                        )}
                         <span>Misi {idx + 1}</span>
                       </button>
                     );
@@ -590,12 +594,12 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                   <div
                     className={`p-3.5 rounded-xl border text-sm font-semibold flex items-start gap-3 ${
                       mixResult.matchedChallenge
-                        ? 'bg-white text-slate-950 border-white'
+                        ? 'bg-[#0e1e3e] text-white border-blue-400/60'
                         : 'bg-[#080c16] text-slate-100 border-blue-500/35'
                     }`}
                   >
                     {mixResult.matchedChallenge ? (
-                      <CheckCircle2 className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
                     ) : (
                       <FlaskConical className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
                     )}
@@ -609,7 +613,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                             setMixResult(null);
                             setShowLabHint(false);
                           }}
-                          className="mt-2.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold cursor-pointer"
+                          className="mt-2.5 px-4 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-950 text-xs sm:text-sm font-extrabold cursor-pointer shadow-sm"
                         >
                           Lanjut ke Misi {activeChallengeIdx + 2} →
                         </button>
@@ -982,6 +986,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                   onClick={() => {
                     setSubmission({ ...DEFAULT_LKPD_SUBMISSION });
                     setMixResult(null);
+                    setShowQuizReview(false);
                     setActiveChallengeIdx(0);
                     setActiveTab('identitas');
                   }}
@@ -1015,10 +1020,10 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
             <button
               type="button"
               onClick={() => goAdjacentTab(1)}
-              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-xs sm:text-sm font-extrabold flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
               <span>Lanjut</span>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 text-blue-700" />
             </button>
           ) : (
             <button
