@@ -14,15 +14,15 @@ export function getBgmProfile(mode: BgmMode): BgmProfile {
       mode,
       bpm: 164,
       filterCutoff: 5800,
-      masterGain: 0.25,
+      masterGain: 0.56,
     };
   }
   if (mode === 'combat') {
     return {
       mode,
       bpm: 138,
-      filterCutoff: 3600,
-      masterGain: 0.21,
+      filterCutoff: 3800,
+      masterGain: 0.48,
     };
   }
   if (mode === 'menu') {
@@ -30,7 +30,7 @@ export function getBgmProfile(mode: BgmMode): BgmProfile {
       mode,
       bpm: 88,
       filterCutoff: 1500,
-      masterGain: 0.14,
+      masterGain: 0.28,
     };
   }
   return {
@@ -69,7 +69,11 @@ class SoundManager {
   private ctx: AudioContext | null = null;
   public isMuted: boolean = false;
   private bgmMode: BgmMode = 'off';
+  private bgmUserScale = 0.85;
+  private sfxUserScale = 0.65;
+  private masterCompressor: DynamicsCompressorNode | null = null;
   private bgmMasterGain: GainNode | null = null;
+  private sfxMasterGain: GainNode | null = null;
   private bgmFilter: BiquadFilterNode | null = null;
   private bgmTimer: number | null = null;
   private bgmStep = 0;
@@ -89,14 +93,35 @@ class SoundManager {
       this.ctx.resume().catch(() => {});
     }
     if (this.ctx && !this.bgmMasterGain) {
+      this.masterCompressor = this.ctx.createDynamicsCompressor();
+      this.masterCompressor.threshold.setValueAtTime(-12, this.ctx.currentTime);
+      this.masterCompressor.knee.setValueAtTime(14, this.ctx.currentTime);
+      this.masterCompressor.ratio.setValueAtTime(4, this.ctx.currentTime);
+      this.masterCompressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
+      this.masterCompressor.release.setValueAtTime(0.15, this.ctx.currentTime);
+      this.masterCompressor.connect(this.ctx.destination);
+
       this.bgmFilter = this.ctx.createBiquadFilter();
       this.bgmFilter.type = 'lowpass';
       this.bgmFilter.frequency.value = 3400;
+
+      const profile = getBgmProfile(this.bgmMode);
       this.bgmMasterGain = this.ctx.createGain();
-      this.bgmMasterGain.gain.value = this.isMuted ? 0 : 0.2;
+      this.bgmMasterGain.gain.value = this.isMuted
+        ? 0
+        : (profile.masterGain || 0.28) * this.bgmUserScale;
+
+      this.sfxMasterGain = this.ctx.createGain();
+      this.sfxMasterGain.gain.value = this.isMuted ? 0 : this.sfxUserScale;
+
       this.bgmFilter.connect(this.bgmMasterGain);
-      this.bgmMasterGain.connect(this.ctx.destination);
+      this.bgmMasterGain.connect(this.masterCompressor);
+      this.sfxMasterGain.connect(this.masterCompressor);
     }
+  }
+
+  private getSfxDest(): AudioNode {
+    return this.sfxMasterGain ?? this.ctx!.destination;
   }
 
   private ensureNoiseBuffer(): AudioBuffer | null {
@@ -129,7 +154,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
 
     osc.start(now);
     osc.stop(now + 0.12);
@@ -151,7 +176,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.2);
 
@@ -175,7 +200,7 @@ class SoundManager {
 
     whiteNoise.connect(filter);
     filter.connect(noiseGain);
-    noiseGain.connect(this.ctx.destination);
+    noiseGain.connect(this.getSfxDest());
 
     whiteNoise.start(now);
   }
@@ -197,7 +222,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.35);
   }
@@ -219,7 +244,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.08);
   }
@@ -240,7 +265,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.05);
   }
@@ -267,7 +292,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.16);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.getSfxDest());
       osc.start(start);
       osc.stop(start + 0.16);
     });
@@ -290,7 +315,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.16);
   }
@@ -312,7 +337,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.22);
   }
@@ -334,7 +359,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.15);
   }
@@ -356,7 +381,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.4);
   }
@@ -378,7 +403,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.3);
   }
@@ -400,7 +425,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.15);
   }
@@ -426,7 +451,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.getSfxDest());
       osc.start(start);
       osc.stop(start + 0.25);
     });
@@ -453,7 +478,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.getSfxDest());
       osc.start(start);
       osc.stop(start + 0.22);
     });
@@ -476,7 +501,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.16);
   }
@@ -498,7 +523,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.14);
   }
@@ -520,15 +545,52 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getSfxDest());
     osc.start(now);
     osc.stop(now + 0.06);
   }
 
+  public setVolumes(bgmPercent: number, sfxPercent: number) {
+    this.bgmUserScale = Math.max(0, Math.min(1, bgmPercent / 100));
+    this.sfxUserScale = Math.max(0, Math.min(1, sfxPercent / 100));
+
+    if (this.ctx) {
+      const profile = getBgmProfile(this.bgmMode);
+      if (this.bgmMasterGain) {
+        this.bgmMasterGain.gain.setTargetAtTime(
+          this.isMuted ? 0 : profile.masterGain * this.bgmUserScale,
+          this.ctx.currentTime,
+          0.04
+        );
+      }
+      if (this.sfxMasterGain) {
+        this.sfxMasterGain.gain.setTargetAtTime(
+          this.isMuted ? 0 : this.sfxUserScale,
+          this.ctx.currentTime,
+          0.04
+        );
+      }
+    }
+  }
+
   public toggleMute() {
     this.isMuted = !this.isMuted;
-    if (this.ctx && this.bgmMasterGain) {
-      this.bgmMasterGain.gain.setTargetAtTime(this.isMuted ? 0 : 0.2, this.ctx.currentTime, 0.04);
+    if (this.ctx) {
+      const profile = getBgmProfile(this.bgmMode);
+      if (this.bgmMasterGain) {
+        this.bgmMasterGain.gain.setTargetAtTime(
+          this.isMuted ? 0 : profile.masterGain * this.bgmUserScale,
+          this.ctx.currentTime,
+          0.04
+        );
+      }
+      if (this.sfxMasterGain) {
+        this.sfxMasterGain.gain.setTargetAtTime(
+          this.isMuted ? 0 : this.sfxUserScale,
+          this.ctx.currentTime,
+          0.04
+        );
+      }
     }
     return this.isMuted;
   }
@@ -561,7 +623,7 @@ class SoundManager {
     if (this.ctx && this.bgmFilter && this.bgmMasterGain) {
       this.bgmFilter.frequency.setTargetAtTime(profile.filterCutoff, this.ctx.currentTime, 0.12);
       this.bgmMasterGain.gain.setTargetAtTime(
-        this.isMuted ? 0 : profile.masterGain,
+        this.isMuted ? 0 : profile.masterGain * this.bgmUserScale,
         this.ctx.currentTime,
         0.08
       );

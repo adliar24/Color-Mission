@@ -6,7 +6,9 @@ import {
   SpeedPreset,
   VRMovementMode,
   VRTurnMode,
+  clampAudioPercent,
   clampSteppedSpeedPercent,
+  resolveAudioSettings,
   resolveSpeedSettings,
 } from '../game/types';
 import { MobileInput } from '../game/input/InputManager';
@@ -74,6 +76,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const fullKeyboardActive = settings.keyboardCameraMode !== false;
   const speedInfo = resolveSpeedSettings(settings);
+  const audioInfo = resolveAudioSettings(settings);
 
   const handleSelectSpeedPreset = (preset: SpeedPreset) => {
     if (preset === 'custom') {
@@ -178,6 +181,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
                   <span>{isMuted ? 'MATI' : 'AKTIF'}</span>
                 </button>
+              </div>
+
+              {/* Volume BGM (Musik Latar) */}
+              <div className="pt-2 border-t border-white/8 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-extrabold uppercase tracking-wider text-slate-200">
+                    VOLUME MUSIK (BGM)
+                  </span>
+                  <span className="font-black text-cyan-300 tabular-nums">
+                    {isMuted ? 'MATI' : `${audioInfo.bgmVolumePercent}%`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  disabled={isMuted}
+                  aria-label="Volume Musik Latar (BGM)"
+                  value={audioInfo.bgmVolumePercent}
+                  onChange={(e) =>
+                    onUpdateSettings({
+                      ...settings,
+                      bgmVolumePercent: clampAudioPercent(Number(e.target.value)),
+                    })
+                  }
+                  className="w-full accent-cyan-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              {/* Volume SFX (Efek Suara) */}
+              <div className="pt-2 border-t border-white/8 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-extrabold uppercase tracking-wider text-slate-200">
+                    VOLUME EFEK (SFX)
+                  </span>
+                  <span className="font-black text-cyan-300 tabular-nums">
+                    {isMuted ? 'MATI' : `${audioInfo.sfxVolumePercent}%`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  disabled={isMuted}
+                  aria-label="Volume Efek Suara (SFX)"
+                  value={audioInfo.sfxVolumePercent}
+                  onChange={(e) =>
+                    onUpdateSettings({
+                      ...settings,
+                      sfxVolumePercent: clampAudioPercent(Number(e.target.value)),
+                    })
+                  }
+                  className="w-full accent-cyan-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                />
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-white/8">

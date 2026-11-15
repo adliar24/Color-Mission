@@ -28,7 +28,9 @@ import { VRManager } from './xr/VRManager';
 import {
   GameSettings,
   PlayerStats,
+  clampAudioPercent,
   clampSteppedSpeedPercent,
+  resolveAudioSettings,
   resolveSpeedSettings,
 } from './types';
 import {
@@ -517,4 +519,21 @@ test('Profil audio BGM membedakan tempo dan energi antara Menu (santai), Combat 
   assert.ok(combat.filterCutoff < boss.filterCutoff);
   assert.ok(menu.masterGain < combat.masterGain);
   assert.ok(combat.masterGain < boss.masterGain);
+  assert.ok(combat.masterGain > 0.4);
+});
+
+test('resolveAudioSettings & clampAudioPercent menjaga default BGM lebih tinggi dari SFX dengan langkah 5%', () => {
+  const defaults = resolveAudioSettings({});
+  assert.equal(defaults.bgmVolumePercent, 85);
+  assert.equal(defaults.sfxVolumePercent, 65);
+  assert.ok(defaults.bgmGainScale > defaults.sfxGainScale);
+
+  assert.equal(clampAudioPercent(-20), 0);
+  assert.equal(clampAudioPercent(150), 100);
+  assert.equal(clampAudioPercent(63), 65);
+  assert.equal(clampAudioPercent(NaN), 80);
+
+  const custom = resolveAudioSettings({ bgmVolumePercent: 92, sfxVolumePercent: 34 });
+  assert.equal(custom.bgmVolumePercent, 90);
+  assert.equal(custom.sfxVolumePercent, 35);
 });

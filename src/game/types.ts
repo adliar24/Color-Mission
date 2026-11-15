@@ -253,6 +253,29 @@ export function resolveSpeedSettings(settings: GameSettings): {
   };
 }
 
+export function clampAudioPercent(val: number): number {
+  if (!Number.isFinite(val)) return 80;
+  return Math.max(0, Math.min(100, Math.round(val / 5) * 5));
+}
+
+export function resolveAudioSettings(
+  settings: Pick<GameSettings, 'bgmVolumePercent' | 'sfxVolumePercent'>
+): {
+  bgmVolumePercent: number;
+  sfxVolumePercent: number;
+  bgmGainScale: number;
+  sfxGainScale: number;
+} {
+  const bgmVolumePercent = clampAudioPercent(settings.bgmVolumePercent ?? 85);
+  const sfxVolumePercent = clampAudioPercent(settings.sfxVolumePercent ?? 65);
+  return {
+    bgmVolumePercent,
+    sfxVolumePercent,
+    bgmGainScale: bgmVolumePercent / 100,
+    sfxGainScale: sfxVolumePercent / 100,
+  };
+}
+
 export interface GameSettings {
   mouseSensitivity: number;
   touchSensitivity: number;
@@ -268,6 +291,8 @@ export interface GameSettings {
   speedPreset?: SpeedPreset;
   moveSpeedPercent?: number;
   cameraSpeedPercent?: number;
+  bgmVolumePercent?: number;
+  sfxVolumePercent?: number;
 }
 
 export type HapticEventType =

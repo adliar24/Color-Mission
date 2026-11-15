@@ -40,7 +40,9 @@ import {
   GraphicsQuality,
   PlatformMode,
   SPEED_PRESET_CONFIG,
+  clampAudioPercent,
   clampSteppedSpeedPercent,
+  resolveAudioSettings,
   resolveSpeedSettings,
 } from '../game/types';
 import {
@@ -221,6 +223,8 @@ const DEFAULT_SETTINGS: GameSettings = {
   speedPreset: 'normal',
   moveSpeedPercent: 70,
   cameraSpeedPercent: 70,
+  bgmVolumePercent: 85,
+  sfxVolumePercent: 65,
 };
 
 export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
@@ -423,6 +427,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     try {
       localStorage.setItem('color_mission_settings', JSON.stringify(settings));
     } catch { }
+    const audioInfo = resolveAudioSettings(settings);
+    sound.setVolumes(audioInfo.bgmVolumePercent, audioInfo.sfxVolumePercent);
     if (rendererRef.current) {
       const pixelRatio =
         settings.graphicsQuality === 'low'
@@ -1436,6 +1442,24 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                   speedPreset: 'custom',
                   moveSpeedPercent: info.moveSpeedPercent,
                   cameraSpeedPercent: clampSteppedSpeedPercent(info.cameraSpeedPercent + delta),
+                };
+              });
+            } else if (act === 'bgm_vol_down' || act === 'bgm_vol_up') {
+              const delta = act === 'bgm_vol_up' ? 10 : -10;
+              setSettings((prev) => {
+                const audioInfo = resolveAudioSettings(prev);
+                return {
+                  ...prev,
+                  bgmVolumePercent: clampAudioPercent(audioInfo.bgmVolumePercent + delta),
+                };
+              });
+            } else if (act === 'sfx_vol_down' || act === 'sfx_vol_up') {
+              const delta = act === 'sfx_vol_up' ? 10 : -10;
+              setSettings((prev) => {
+                const audioInfo = resolveAudioSettings(prev);
+                return {
+                  ...prev,
+                  sfxVolumePercent: clampAudioPercent(audioInfo.sfxVolumePercent + delta),
                 };
               });
             }

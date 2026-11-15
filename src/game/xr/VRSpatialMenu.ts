@@ -3,6 +3,7 @@ import {
   GameSettings,
   GameState,
   RunSummary,
+  resolveAudioSettings,
   resolveSpeedSettings,
 } from '../types';
 import { STAGE_DEFINITIONS, getColorsByCategory } from '../rules';
@@ -29,7 +30,11 @@ export type VRMenuAction =
   | 'move_speed_down'
   | 'move_speed_up'
   | 'cam_speed_down'
-  | 'cam_speed_up';
+  | 'cam_speed_up'
+  | 'bgm_vol_down'
+  | 'bgm_vol_up'
+  | 'sfx_vol_down'
+  | 'sfx_vol_up';
 
 interface MenuButtonRect {
   id: VRMenuAction;
@@ -237,6 +242,7 @@ export class VRSpatialMenu {
 
   private renderBoard(state: VRSpatialMenuState) {
     const speedInfo = resolveSpeedSettings(state.settings);
+    const audioInfo = resolveAudioSettings(state.settings);
     const sig = JSON.stringify({
       g: state.gameState,
       s: state.showSettings,
@@ -249,6 +255,8 @@ export class VRSpatialMenu {
       move: state.settings.vrMovementMode,
       vig: state.settings.vrComfortVignette,
       mute: state.isMuted,
+      bgmVol: audioInfo.bgmVolumePercent,
+      sfxVol: audioInfo.sfxVolumePercent,
       ht: Boolean(state.isHandTracking),
       sp: speedInfo.preset,
       msp: speedInfo.moveSpeedPercent,
@@ -552,6 +560,7 @@ export class VRSpatialMenu {
 
   private drawSettingsBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
     const speedInfo = resolveSpeedSettings(state.settings);
+    const audioInfo = resolveAudioSettings(state.settings);
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#22d3ee';
@@ -574,16 +583,16 @@ export class VRSpatialMenu {
         id: p.id,
         label: p.label,
         x: presetRowX + idx * (presetBtnW + presetGap),
-        y: 94,
+        y: 92,
         w: presetBtnW,
-        h: 52,
+        h: 48,
         variant: speedInfo.preset === p.key ? 'primary' : 'secondary',
       });
     });
 
     // Baris Stepper Kustom (per 10%): JALAN & KAMERA
-    const stepperY = 160;
-    const stepperH = 52;
+    const stepperY = 152;
+    const stepperH = 48;
     const stepBtnW = 84;
     const halfW = 418;
     const leftX = presetRowX;
@@ -604,7 +613,7 @@ export class VRSpatialMenu {
     ctx.fillText(
       `JALAN: ${speedInfo.moveSpeedPercent}%`,
       leftX + halfW / 2,
-      stepperY + 33
+      stepperY + 31
     );
     this.drawButton(ctx, {
       id: 'move_speed_up',
@@ -631,13 +640,69 @@ export class VRSpatialMenu {
     ctx.fillText(
       `KAMERA: ${speedInfo.cameraSpeedPercent}%`,
       rightX + halfW / 2,
-      stepperY + 33
+      stepperY + 31
     );
     this.drawButton(ctx, {
       id: 'cam_speed_up',
       label: '+10%',
       x: rightX + halfW - stepBtnW,
       y: stepperY,
+      w: stepBtnW,
+      h: stepperH,
+      variant: 'secondary',
+    });
+
+    // Baris Stepper Volume Audio (per 10%): MUSIK BGM & EFEK SFX
+    const audioY = 212;
+    this.drawButton(ctx, {
+      id: 'bgm_vol_down',
+      label: '-10%',
+      x: leftX,
+      y: audioY,
+      w: stepBtnW,
+      h: stepperH,
+      variant: 'secondary',
+    });
+    ctx.fillStyle = state.isMuted ? '#64748b' : '#22d3ee';
+    ctx.font = '800 20px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      state.isMuted ? 'BGM: MATI' : `BGM: ${audioInfo.bgmVolumePercent}%`,
+      leftX + halfW / 2,
+      audioY + 31
+    );
+    this.drawButton(ctx, {
+      id: 'bgm_vol_up',
+      label: '+10%',
+      x: leftX + halfW - stepBtnW,
+      y: audioY,
+      w: stepBtnW,
+      h: stepperH,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'sfx_vol_down',
+      label: '-10%',
+      x: rightX,
+      y: audioY,
+      w: stepBtnW,
+      h: stepperH,
+      variant: 'secondary',
+    });
+    ctx.fillStyle = state.isMuted ? '#64748b' : '#22d3ee';
+    ctx.font = '800 20px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      state.isMuted ? 'EFEK: MATI' : `EFEK: ${audioInfo.sfxVolumePercent}%`,
+      rightX + halfW / 2,
+      audioY + 31
+    );
+    this.drawButton(ctx, {
+      id: 'sfx_vol_up',
+      label: '+10%',
+      x: rightX + halfW - stepBtnW,
+      y: audioY,
       w: stepBtnW,
       h: stepperH,
       variant: 'secondary',
@@ -652,9 +717,9 @@ export class VRSpatialMenu {
         ? 'PUTARAN VR: SNAP (TANGAN KOSONG)'
         : `PUTARAN VR: ${state.settings.vrTurnMode === 'snap' ? 'SNAP' : 'HALUS'}`,
       x: bx,
-      y: 234,
+      y: 274,
       w: bw,
-      h: 54,
+      h: 48,
       variant: 'secondary',
     });
 
@@ -662,9 +727,9 @@ export class VRSpatialMenu {
       id: 'toggle_vr_move',
       label: `GERAK VR: ${state.settings.vrMovementMode === 'teleport' ? 'TELEPORT' : 'HALUS'}`,
       x: bx,
-      y: 300,
+      y: 334,
       w: bw,
-      h: 54,
+      h: 48,
       variant: 'secondary',
     });
 
@@ -672,9 +737,9 @@ export class VRSpatialMenu {
       id: 'toggle_vr_vignette',
       label: `VIGNETTE KENYAMANAN: ${state.settings.vrComfortVignette ? 'AKTIF' : 'MATI'}`,
       x: bx,
-      y: 366,
+      y: 394,
       w: bw,
-      h: 54,
+      h: 48,
       variant: 'secondary',
     });
 
@@ -682,9 +747,9 @@ export class VRSpatialMenu {
       id: 'toggle_mute',
       label: `SUARA GAME: ${state.isMuted ? 'MATI' : 'AKTIF'}`,
       x: bx,
-      y: 432,
+      y: 454,
       w: bw,
-      h: 54,
+      h: 48,
       variant: 'secondary',
     });
 
@@ -692,9 +757,9 @@ export class VRSpatialMenu {
       id: 'close_subpanel',
       label: 'SIMPAN & KEMBALI',
       x: bx,
-      y: 516,
+      y: 522,
       w: bw,
-      h: 68,
+      h: 64,
       variant: 'primary',
     });
   }
