@@ -48,7 +48,7 @@ const TABS: { id: LKPDTabId; label: string; shortLabel: string; icon: React.FC<{
   { id: 'lab', label: '2. Lab Warna', shortLabel: 'Lab', icon: FlaskConical },
   { id: 'kuis', label: '3. Kuis RYB', shortLabel: 'Kuis', icon: HelpCircle },
   { id: 'refleksi', label: '4. Refleksi', shortLabel: 'Refleksi', icon: MessageSquareText },
-  { id: 'hasil', label: '5. Rekap & Ekspor', shortLabel: 'Ekspor', icon: Award },
+  { id: 'hasil', label: '5. Rekap', shortLabel: 'Rekap', icon: Award },
 ];
 
 export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
@@ -96,7 +96,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
       setMixResult({
         mixed: null,
         matchedChallenge: false,
-        message: 'Pilih dua warna bahan terlebih dahulu pada Wadah 1 dan Wadah 2.',
+        message: 'Pilih dua warna bahan di Wadah 1 dan Wadah 2.',
       });
       return;
     }
@@ -106,7 +106,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
       setMixResult({
         mixed: null,
         matchedChallenge: false,
-        message: `${getColorDef(slotA).nameId} + ${getColorDef(slotB).nameId} tidak menghasilkan warna standar Sekunder/Tersier pada tantangan ini. Coba kombinasi lain.`,
+        message: `${getColorDef(slotA).nameId} + ${getColorDef(slotB).nameId} tidak cocok. Coba warna lain.`,
       });
       return;
     }
@@ -123,13 +123,13 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
       setMixResult({
         mixed: result,
         matchedChallenge: true,
-        message: `Tepat sekali! ${getColorDef(slotA).nameId} + ${getColorDef(slotB).nameId} = ${result.nameId} (${result.categoryLabelId}). Tantangan ini selesai.`,
+        message: `${getColorDef(slotA).nameId} + ${getColorDef(slotB).nameId} = ${result.nameId} (${result.categoryLabelId}).`,
       });
     } else {
       setMixResult({
         mixed: result,
         matchedChallenge: false,
-        message: `Hasil campuran adalah ${result.nameId} (${result.categoryLabelId}), namun target misi saat ini adalah ${targetColorDef.nameId}.`,
+        message: `Hasilnya ${result.nameId}, sedangkan target misi ini ${targetColorDef.nameId}.`,
       });
     }
   };
@@ -216,11 +216,11 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               <span className="w-3.5 h-3.5 rounded-sm bg-[#1D6FFF] border border-white/85" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg sm:text-xl font-black tracking-tight uppercase text-white truncate">
-                LKPD EVALUASI INTERAKTIF
+              <h2 className="text-base sm:text-xl font-black tracking-tight uppercase text-white leading-tight">
+                LKPD EVALUASI
               </h2>
-              <p className="text-xs sm:text-sm font-medium text-blue-400 truncate">
-                COLOR MISSION · Teori Pencampuran Warna RYB
+              <p className="text-xs sm:text-sm font-medium text-blue-400 leading-tight">
+                COLOR MISSION · Teori Warna RYB
               </p>
             </div>
           </div>
@@ -285,10 +285,10 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               <div className="bg-[#0e1e3e] border border-blue-500/35 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <span className="text-xs font-extrabold uppercase tracking-wider text-blue-300 block">
-                    MISI GAME SELESAI · LKPD TERBUKA
+                    LKPD TERBUKA
                   </span>
                   <p className="text-sm sm:text-base text-slate-100 mt-1 leading-relaxed">
-                    Lengkapi data dirimu, lalu kerjakan Laboratorium Warna, Kuis, dan Refleksi secara berurutan.
+                    Isi identitas, lalu selesaikan Lab, Kuis, dan Refleksi.
                   </p>
                 </div>
                 <div className="flex items-center gap-4 shrink-0 bg-white text-slate-950 px-4 py-2.5 rounded-xl shadow-sm">
@@ -390,9 +390,9 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                   Tujuan Pembelajaran
                 </span>
                 <ul className="text-sm sm:text-base text-slate-200 space-y-1.5 list-disc pl-5 leading-relaxed">
-                  <li>Mengelompokkan warna Primer, Sekunder, dan Tersier pada sistem pigmen RYB.</li>
-                  <li>Membuktikan hasil pencampuran warna melalui eksperimen di Laboratorium Warna.</li>
-                  <li>Menyimpulkan strategi penentuan warna pada Stage 1–3 &amp; Boss CHROMA TITAN.</li>
+                  <li>Mengelompokkan warna Primer, Sekunder, dan Tersier (RYB).</li>
+                  <li>Membuktikan hasil campuran warna di Laboratorium.</li>
+                  <li>Menyimpulkan strategi warna Stage 1–3 &amp; Boss.</li>
                 </ul>
               </div>
             </div>
@@ -445,7 +445,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-extrabold uppercase tracking-wider text-blue-300">
-                      TARGET EKSPERIMEN #{activeChallengeIdx + 1} · {targetColorDef.categoryLabelId}
+                      TARGET #{activeChallengeIdx + 1} · {targetColorDef.categoryLabelId}
                     </span>
                     {submission.labSolvedIds.includes(activeChallenge.targetColorId) && (
                       <span className="px-2.5 py-0.5 rounded-full bg-white text-slate-950 text-xs font-extrabold">
@@ -555,7 +555,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                 {/* Palet Bahan Warna */}
                 <div>
                   <span className="text-xs sm:text-sm font-semibold text-slate-200 block mb-2.5">
-                    Pilih warna untuk mengisi{' '}
+                    Isi{' '}
                     <span className="text-blue-400 font-extrabold">
                       {activeSlotPicker === 'A' ? 'Wadah 1' : 'Wadah 2'}
                     </span>
@@ -588,7 +588,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     onClick={handleMixColors}
                     className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base uppercase tracking-wide rounded-xl flex items-center justify-center cursor-pointer shadow-md"
                   >
-                    CAMPURKAN WARNA SEKARANG
+                    CAMPUR WARNA
                   </button>
                 ) : (
                   <div
@@ -685,10 +685,10 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0e1e3e] border border-blue-500/35 rounded-2xl p-4 sm:p-5">
                 <div>
                   <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-300 block">
-                    UJI PEMAHAMAN TEORI WARNA RYB (6 SOAL)
+                    KUIS TEORI WARNA RYB (6 SOAL)
                   </span>
                   <p className="text-sm text-slate-200 mt-0.5">
-                    Pilih jawaban paling tepat untuk setiap soal. Nilai dan pembahasan akan tampil di bagian Rekap Akhir.
+                    Nilai &amp; pembahasan tampil di Rekap Akhir.
                   </p>
                 </div>
                 <span className="px-3.5 py-1.5 rounded-xl bg-white text-slate-950 text-xs sm:text-sm font-black tabular-nums">
@@ -802,10 +802,10 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               <div className="bg-[#0e1e3e] border border-blue-500/35 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3">
                 <div>
                   <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-300 block">
-                    ANALISIS &amp; REFLEKSI PESERTA DIDIK
+                    REFLEKSI SISWA
                   </span>
                   <p className="text-sm text-slate-200 mt-0.5">
-                    Tuliskan jawaban dengan kalimatmu sendiri berdasarkan pengalaman menamatkan Stage 1–3.
+                    Jawab singkat sesuai pengalamanmu bermain Stage 1–3.
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-xl bg-white text-slate-950 text-xs sm:text-sm font-black shrink-0 tabular-nums">
@@ -853,7 +853,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               <div className="bg-[#0e1e3e] border border-blue-500/35 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <span className="text-xs font-extrabold uppercase tracking-wider text-blue-300 block">
-                    HASIL EVALUASI AKHIR SISWA
+                    HASIL EVALUASI AKHIR
                   </span>
                   <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
                     {submission.studentName.trim() || 'Nama Siswa Belum Diisi'}
@@ -967,7 +967,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               {/* 12 Kotak Warna RYB */}
               <div className="bg-[#0d1424] border border-blue-500/25 rounded-2xl p-4">
                 <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200 block mb-2.5">
-                  12 Warna Roda RYB yang Telah Dikuasai
+                  12 Warna Roda RYB
                 </span>
                 <div className="grid grid-cols-6 sm:grid-cols-12 gap-2">
                   {ALL_RYB_COLORS.map((c) => (
@@ -984,7 +984,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               {/* Tombol Ekspor Bukti (Biru + Putih + Hitam Kontras) */}
               <div className="space-y-3">
                 <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-300 block">
-                  Unduh / Kumpulkan Bukti Pengerjaan ke Guru
+                  Ekspor Bukti LKPD
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -994,7 +994,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     className="h-12 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Simpan Kartu PNG</span>
+                    <span>Unduh PNG</span>
                   </button>
 
                   <button
@@ -1003,7 +1003,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     className="h-12 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
                     <Printer className="w-4 h-4 text-blue-700" />
-                    <span>Cetak / Simpan PDF</span>
+                    <span>Cetak PDF</span>
                   </button>
 
                   <button
@@ -1019,7 +1019,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     ) : (
                       <>
                         <Copy className="w-4 h-4 text-blue-400" />
-                        <span>Salin Ringkasan</span>
+                        <span>Salin Teks</span>
                       </>
                     )}
                   </button>
@@ -1065,7 +1065,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
           </button>
 
           <span className="text-xs sm:text-sm font-medium text-slate-300 hidden sm:inline">
-            Guru: {submission.teacherName} · {submission.schoolName}
+            {submission.schoolName}
           </span>
 
           {activeTab !== 'hasil' ? (

@@ -113,32 +113,32 @@ export const LKPD_LAB_CHALLENGES: LKPDLabChallenge[] = [
   {
     id: 'lab_orange',
     targetColorId: 'orange',
-    prompt: 'Racik dua warna primer untuk menghasilkan warna Sekunder: JINGGA.',
-    hint: 'Gabungkan dua warna hangat dasar pada roda warna RYB.',
+    prompt: 'Buat warna Sekunder: JINGGA.',
+    hint: 'Gabungkan 2 warna primer hangat.',
   },
   {
     id: 'lab_green',
     targetColorId: 'green',
-    prompt: 'Racik dua warna primer untuk menghasilkan warna Sekunder: HIJAU.',
-    hint: 'Padukan warna primer cerah matahari dengan warna primer sejuk langit.',
+    prompt: 'Buat warna Sekunder: HIJAU.',
+    hint: 'Padukan Kuning dengan Biru.',
   },
   {
     id: 'lab_purple',
     targetColorId: 'purple',
-    prompt: 'Racik dua warna primer untuk menghasilkan warna Sekunder: UNGU.',
-    hint: 'Campurkan dua warna primer di sisi berseberangan dari kuning.',
+    prompt: 'Buat warna Sekunder: UNGU.',
+    hint: 'Campurkan Merah dengan Biru.',
   },
   {
     id: 'lab_red_orange',
     targetColorId: 'red_orange',
-    prompt: 'Racik campuran Primer + Sekunder untuk menghasilkan warna Tersier: MERAH-JINGGA.',
-    hint: 'Pilih satu warna primer dan satu warna sekunder yang berdekatan dengannya.',
+    prompt: 'Buat warna Tersier: MERAH-JINGGA.',
+    hint: '1 Primer + 1 Sekunder terdekat.',
   },
   {
     id: 'lab_blue_green',
     targetColorId: 'blue_green',
-    prompt: 'Racik campuran Primer + Sekunder untuk menghasilkan warna Tersier: BIRU-HIJAU.',
-    hint: 'Gunakan warna primer dingin bersama warna sekunder bernuansa dedaunan.',
+    prompt: 'Buat warna Tersier: BIRU-HIJAU.',
+    hint: 'Primer dingin + Sekunder dedaunan.',
   },
 ];
 
@@ -149,37 +149,37 @@ export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
   {
     id: 'q1_primer',
     type: 'multiple_choice',
-    question: 'Manakah kelompok yang merupakan 3 Warna Primer murni dalam sistem RYB?',
+    question: 'Manakah kelompok 3 Warna Primer dalam sistem RYB?',
     options: [
       {
         id: 'a',
-        label: 'Merah, Kuning, dan Biru',
+        label: 'Merah, Kuning, Biru',
         swatchHexes: ['#EF233C', '#FFD60A', '#1D6FFF'],
       },
       {
         id: 'b',
-        label: 'Jingga, Hijau, dan Ungu',
+        label: 'Jingga, Hijau, Ungu',
         swatchHexes: ['#FF7A00', '#16A34A', '#8B5CF6'],
       },
       {
         id: 'c',
-        label: 'Merah, Hijau, dan Hitam',
+        label: 'Merah, Hijau, Hitam',
         swatchHexes: ['#EF233C', '#16A34A', '#111827'],
       },
       {
         id: 'd',
-        label: 'Putih, Kuning, dan Abu-abu',
+        label: 'Putih, Kuning, Abu-abu',
         swatchHexes: ['#F8FAFC', '#FFD60A', '#64748B'],
       },
     ],
     correctOptionId: 'a',
     explanation:
-      'Dalam teori pigmen RYB (Red-Yellow-Blue), warna primer dasar terdiri atas Merah, Kuning, dan Biru yang tidak berasal dari campuran warna lain.',
+      'Warna primer RYB adalah Merah, Kuning, dan Biru (tidak berasal dari campuran lain).',
   },
   {
     id: 'q2_sekunder',
     type: 'multiple_choice',
-    question: 'Di Stage 2, instruksi HUD menampilkan petunjuk Kuning + Biru. Chromabot warna apa yang harus ditembak?',
+    question: 'Petunjuk Stage 2: Kuning + Biru. Target warnanya adalah?',
     previewColorIds: ['yellow', 'blue'],
     options: [
       { id: 'a', label: 'Jingga', swatchHexes: ['#FF7A00'] },
@@ -194,36 +194,36 @@ export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
   {
     id: 'q3_tersier_konsep',
     type: 'multiple_choice',
-    question: 'Bagaimana prinsip terbentuknya warna Tersier seperti yang dipelajari pada Stage 3?',
+    question: 'Bagaimana prinsip terbentuknya warna Tersier pada Stage 3?',
     options: [
-      { id: 'a', label: 'Mencampurkan satu warna Primer dengan satu warna Sekunder yang berdekatan' },
-      { id: 'b', label: 'Mencampurkan warna Putih dengan Hitam secara merata' },
-      { id: 'c', label: 'Menggunakan satu warna Primer tanpa bahan campuran apa pun' },
-      { id: 'd', label: 'Mencampurkan ketiga warna Sekunder sekaligus' },
+      { id: 'a', label: '1 Primer + 1 Sekunder berdekatan' },
+      { id: 'b', label: 'Putih + Hitam secara merata' },
+      { id: 'c', label: '1 warna Primer tanpa campuran' },
+      { id: 'd', label: 'Ketiga warna Sekunder sekaligus' },
     ],
     correctOptionId: 'a',
     explanation:
-      'Enam warna tersier (Merah-Jingga, Kuning-Jingga, Kuning-Hijau, Biru-Hijau, Biru-Ungu, dan Merah-Ungu) dihasilkan dari pencampuran Primer + Sekunder berdekatan.',
+      'Warna tersier terbentuk dari campuran 1 warna Primer + 1 Sekunder yang berdekatan.',
   },
   {
     id: 'q4_boss_netral',
     type: 'multiple_choice',
-    question: 'Saat melawan Boss CHROMA TITAN, kristal Putih dan Hitam muncul di arena. Mengapa Putih & Hitam tidak masuk ke 12 warna kromatik RYB?',
+    question: 'Mengapa kristal Putih & Hitam pada Boss tidak masuk 12 warna RYB?',
     previewColorIds: ['white', 'black'],
     options: [
-      { id: 'a', label: 'Karena Putih dan Hitam tergolong warna netral akromatik' },
-      { id: 'b', label: 'Karena Putih dan Hitam termasuk warna tersier khusus' },
-      { id: 'c', label: 'Karena Putih adalah campuran Kuning + Jingga' },
-      { id: 'd', label: 'Karena Hitam termasuk warna primer dingin' },
+      { id: 'a', label: 'Tergolong warna netral akromatik' },
+      { id: 'b', label: 'Termasuk warna tersier khusus' },
+      { id: 'c', label: 'Putih campuran Kuning + Jingga' },
+      { id: 'd', label: 'Hitam termasuk primer dingin' },
     ],
     correctOptionId: 'a',
     explanation:
-      'Putih dan Hitam adalah warna netral (akromatik) yang dipakai pada fase pertarungan Boss CHROMA TITAN, bukan bagian dari 12 hue roda warna RYB.',
+      'Putih dan Hitam adalah warna netral (akromatik), bukan bagian dari 12 hue roda warna RYB.',
   },
   {
     id: 'q5_match_yellow_orange',
     type: 'match_ingredients',
-    question: 'Pasangkan campuran bahan yang tepat untuk membentuk warna Tersier KUNING-JINGGA:',
+    question: 'Campuran bahan untuk warna Tersier KUNING-JINGGA:',
     previewColorIds: ['yellow_orange'],
     options: [
       { id: 'a', label: 'Kuning + Jingga', swatchHexes: ['#FFD60A', '#FF7A00'] },
@@ -233,12 +233,12 @@ export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
     ],
     correctOptionId: 'a',
     explanation:
-      'Kuning-Jingga dibentuk dari warna primer Kuning dicampur warna sekunder Jingga.',
+      'Kuning-Jingga dibentuk dari Kuning (Primer) + Jingga (Sekunder).',
   },
   {
     id: 'q6_match_red_purple',
     type: 'match_ingredients',
-    question: 'Pasangkan campuran bahan yang tepat untuk membentuk warna Tersier MERAH-UNGU:',
+    question: 'Campuran bahan untuk warna Tersier MERAH-UNGU:',
     previewColorIds: ['red_purple'],
     options: [
       { id: 'a', label: 'Biru + Hijau', swatchHexes: ['#1D6FFF', '#16A34A'] },
@@ -248,7 +248,7 @@ export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
     ],
     correctOptionId: 'c',
     explanation:
-      'Merah-Ungu adalah hasil pencampuran warna primer Merah dan warna sekunder Ungu.',
+      'Merah-Ungu dibentuk dari Merah (Primer) + Ungu (Sekunder).',
   },
 ];
 
@@ -259,20 +259,20 @@ export const LKPD_REFLECTION_PROMPTS: LKPDReflectionPrompt[] = [
   {
     id: 'ref_1_kategori',
     question:
-      '1. Jelaskan perbedaan warna Primer, Sekunder, dan Tersier berdasarkan pengalamanmu menyelesaikan Stage 1, 2, dan 3!',
-    placeholder: 'Tuliskan pemahamanmu tentang ketiga kelompok warna beserta contohnya...',
+      '1. Apa perbedaan warna Primer, Sekunder, dan Tersier di Stage 1–3?',
+    placeholder: 'Jelaskan singkat beserta contohnya...',
   },
   {
     id: 'ref_2_strategi',
     question:
-      '2. Bagaimana caramu menentukan target warna campuran pada Stage 2–3 serta kristal yang tepat saat melawan Boss CHROMA TITAN?',
-    placeholder: 'Ceritakan strategi menalar campuran warna saat bermain...',
+      '2. Bagaimana strategimu menentukan warna campuran & kristal Boss?',
+    placeholder: 'Ceritakan strategimu saat bermain...',
   },
   {
     id: 'ref_3_refleksi',
     question:
-      '3. Bagian mana dari game COLOR MISSION yang paling membantumu memahami teori pencampuran warna RYB?',
-    placeholder: 'Tuliskan kesan dan refleksi belajarmu...',
+      '3. Bagian mana yang paling membantumu memahami teori warna RYB?',
+    placeholder: 'Tuliskan refleksi belajarmu...',
   },
 ];
 
