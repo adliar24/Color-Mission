@@ -11,6 +11,7 @@ export type VRMenuAction =
   | 'start_mission'
   | 'open_tutorial'
   | 'open_settings'
+  | 'open_lkpd'
   | 'close_subpanel'
   | 'exit_vr'
   | 'continue_stage'
@@ -53,6 +54,8 @@ export interface VRSpatialMenuState {
   summary: RunSummary;
   settings: GameSettings;
   isMuted: boolean;
+  lkpdUnlocked?: boolean;
+  vrWarningMsg?: string | null;
 }
 
 const BOARD_WIDTH = 2.24;
@@ -250,6 +253,8 @@ export class VRSpatialMenu {
       sp: speedInfo.preset,
       msp: speedInfo.moveSpeedPercent,
       csp: speedInfo.cameraSpeedPercent,
+      lkpd: Boolean(state.lkpdUnlocked),
+      warn: state.vrWarningMsg || '',
     });
     if (sig === this.lastSignature || !this.ctx) return;
     this.lastSignature = sig;
@@ -273,7 +278,7 @@ export class VRSpatialMenu {
     } else if (state.showTutorial) {
       this.drawTutorialBoard(ctx);
     } else if (state.gameState === 'title') {
-      this.drawMainMenuBoard(ctx);
+      this.drawMainMenuBoard(ctx, state);
     } else if (state.gameState === 'stage_transition') {
       this.drawStageTransitionBoard(ctx, state);
     } else if (state.gameState === 'paused') {
@@ -371,7 +376,7 @@ export class VRSpatialMenu {
     ctx.restore();
   }
 
-  private drawMainMenuBoard(ctx: CanvasRenderingContext2D) {
+  private drawMainMenuBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
     // Tiga kotak warna primer RYB persis seperti Main Menu Desktop & Mobile
     const swatchColors = ['#EF233C', '#FFD60A', '#1D6FFF'];
     const swSize = 30;
@@ -382,7 +387,7 @@ export class VRSpatialMenu {
       const sx = swStartX + idx * (swSize + swGap);
       ctx.fillStyle = hex;
       ctx.beginPath();
-      ctx.roundRect(sx, 58, swSize, swSize, 8);
+      ctx.roundRect(sx, 50, swSize, swSize, 8);
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.85)';
       ctx.lineWidth = 2.5;
@@ -390,7 +395,7 @@ export class VRSpatialMenu {
     });
 
     // Logo COLOR MISSION (Putih + Cyan)
-    ctx.font = '900 72px Inter, system-ui, -apple-system, sans-serif';
+    ctx.font = '900 70px Inter, system-ui, -apple-system, sans-serif';
     ctx.textBaseline = 'alphabetic';
     const part1 = 'COLOR ';
     const part2 = 'MISSION';
@@ -400,14 +405,14 @@ export class VRSpatialMenu {
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(part1, titleStartX, 174);
+    ctx.fillText(part1, titleStartX, 162);
     ctx.fillStyle = '#22d3ee';
-    ctx.fillText(part2, titleStartX + w1, 174);
+    ctx.fillText(part2, titleStartX + w1, 162);
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '600 22px Inter, system-ui, -apple-system, sans-serif';
-    ctx.fillText('Kuasai Warna. Selesaikan Misi.', CANVAS_W / 2, 218);
+    ctx.font = '600 21px Inter, system-ui, -apple-system, sans-serif';
+    ctx.fillText('Kuasai Warna. Selesaikan Misi.', CANVAS_W / 2, 202);
 
     const bw = 540;
     const bx = (CANVAS_W - bw) / 2;
@@ -416,9 +421,9 @@ export class VRSpatialMenu {
       id: 'start_mission',
       label: 'MULAI MISI',
       x: bx,
-      y: 268,
+      y: 234,
       w: bw,
-      h: 76,
+      h: 72,
       variant: 'primary',
     });
 
@@ -427,9 +432,9 @@ export class VRSpatialMenu {
       id: 'open_tutorial',
       label: 'CARA MAIN',
       x: bx,
-      y: 364,
+      y: 320,
       w: halfW,
-      h: 68,
+      h: 64,
       variant: 'secondary',
     });
 
@@ -437,9 +442,19 @@ export class VRSpatialMenu {
       id: 'open_settings',
       label: 'PENGATURAN',
       x: bx + halfW + 18,
-      y: 364,
+      y: 320,
       w: halfW,
-      h: 68,
+      h: 64,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'open_lkpd',
+      label: state.lkpdUnlocked ? 'LKPD EVALUASI · TERBUKA' : '🔒 LKPD EVALUASI · TERKUNCI',
+      x: bx,
+      y: 398,
+      w: bw,
+      h: 64,
       variant: 'secondary',
     });
 
@@ -447,11 +462,26 @@ export class VRSpatialMenu {
       id: 'exit_vr',
       label: 'KELUAR MODE VR',
       x: bx,
-      y: 454,
+      y: 478,
       w: bw,
-      h: 60,
+      h: 58,
       variant: 'danger',
     });
+
+    if (state.vrWarningMsg) {
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.18)';
+      ctx.beginPath();
+      ctx.roundRect(112, 554, CANVAS_W - 224, 44, 14);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.65)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#fde68a';
+      ctx.font = '700 19px Inter, system-ui, -apple-system, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(state.vrWarningMsg, CANVAS_W / 2, 576);
+    }
   }
 
   private drawTutorialBoard(ctx: CanvasRenderingContext2D) {
@@ -800,27 +830,57 @@ export class VRSpatialMenu {
       258
     );
 
-    const bw = 440;
+    const bw = 460;
     const bx = (CANVAS_W - bw) / 2;
 
-    this.drawButton(ctx, {
-      id: 'restart',
-      label: isVictory ? 'MAIN LAGI' : 'COBA LAGI',
-      x: bx,
-      y: 344,
-      w: bw,
-      h: 74,
-      variant: 'primary',
-    });
-    this.drawButton(ctx, {
-      id: 'return_menu',
-      label: 'MENU UTAMA',
-      x: bx,
-      y: 440,
-      w: bw,
-      h: 68,
-      variant: 'secondary',
-    });
+    if (isVictory) {
+      this.drawButton(ctx, {
+        id: 'open_lkpd',
+        label: 'BUKA LKPD EVALUASI (KELUAR VR)',
+        x: bx,
+        y: 308,
+        w: bw,
+        h: 70,
+        variant: 'primary',
+      });
+      this.drawButton(ctx, {
+        id: 'restart',
+        label: 'MAIN LAGI',
+        x: bx,
+        y: 396,
+        w: bw,
+        h: 64,
+        variant: 'secondary',
+      });
+      this.drawButton(ctx, {
+        id: 'return_menu',
+        label: 'MENU UTAMA',
+        x: bx,
+        y: 478,
+        w: bw,
+        h: 60,
+        variant: 'secondary',
+      });
+    } else {
+      this.drawButton(ctx, {
+        id: 'restart',
+        label: 'COBA LAGI',
+        x: bx,
+        y: 344,
+        w: bw,
+        h: 74,
+        variant: 'primary',
+      });
+      this.drawButton(ctx, {
+        id: 'return_menu',
+        label: 'MENU UTAMA',
+        x: bx,
+        y: 440,
+        w: bw,
+        h: 68,
+        variant: 'secondary',
+      });
+    }
   }
 
   public dispose() {

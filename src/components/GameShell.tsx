@@ -19,8 +19,14 @@ import { StageTransitionModal } from './StageTransitionModal';
 import { GameOverModal } from './GameOverModal';
 import { VictoryModal } from './VictoryModal';
 import { PauseModal } from './PauseModal';
+import { LKPDModal } from './LKPDModal';
 import { AnimatedPresence } from './AnimatedPresence';
 import { GamepadBadge } from './GamepadBadge';
+import {
+  GameCompletionProgress,
+  loadGameCompletionProgress,
+  saveGameCompletionProgress,
+} from '../game/lkpd';
 import {
   PlayerStats,
   WeaponType,
@@ -60,6 +66,10 @@ import {
   Maximize2,
   Minimize2,
   RotateCw,
+  Lock,
+  ClipboardCheck,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 
 interface GameShellProps {
@@ -243,6 +253,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const [finalScore, setFinalScore] = useState<number>(0);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
+  const [lkpdProgress, setLkpdProgress] = useState<GameCompletionProgress>(() =>
+    loadGameCompletionProgress()
+  );
+  const [showLKPD, setShowLKPD] = useState<boolean>(false);
+  const [showLKPDLockedAlert, setShowLKPDLockedAlert] = useState<boolean>(false);
+  const [vrWarningMsg, setVrWarningMsg] = useState<string | null>(null);
+  const vrWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hitmarkerActive, setHitmarkerActive] = useState<boolean>(false);
   const [hitmarkerCrit, setHitmarkerCrit] = useState<boolean>(false);
   const [hitmarkerWrong, setHitmarkerWrong] = useState<boolean>(false);
@@ -270,7 +287,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     try {
       const saved = localStorage.getItem('color_mission_settings');
       if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
-    } catch {}
+    } catch { }
     return DEFAULT_SETTINGS;
   });
 
@@ -312,6 +329,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     bossMaxHp,
     showTutorial,
     showSettings,
+    showLKPD,
+    showLKPDLockedAlert,
   });
 
   useEffect(() => {
@@ -327,6 +346,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       bossMaxHp,
       showTutorial,
       showSettings,
+      showLKPD,
+      showLKPDLockedAlert,
     };
     document.body.dataset.state = gameState;
   }, [
@@ -341,6 +362,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     bossMaxHp,
     showTutorial,
     showSettings,
+    showLKPD,
+    showLKPDLockedAlert,
   ]);
 
   const menuCallbacksRef = useRef<{
@@ -348,9 +371,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     returnToMenu: () => void;
     continueStage: () => void;
   }>({
-    startRun: () => {},
-    returnToMenu: () => {},
-    continueStage: () => {},
+    startRun: () => { },
+    returnToMenu: () => { },
+    continueStage: () => { },
   });
 
   const vrTriggerReleaseGuardRef = useRef<boolean>(false);
@@ -363,6 +386,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     runSummary,
     finalScore,
     isMuted,
+    lkpdUnlocked: lkpdProgress.gameCompleted,
+    vrWarningMsg,
   });
 
   useEffect(() => {
@@ -373,20 +398,38 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       runSummary,
       finalScore,
       isMuted,
+      lkpdUnlocked: lkpdProgress.gameCompleted,
+      vrWarningMsg,
     };
-  }, [stageModalMode, stageModalNumber, stageClearScore, runSummary, finalScore, isMuted]);
+  }, [
+    stageModalMode,
+    stageModalNumber,
+    stageClearScore,
+    runSummary,
+    finalScore,
+    isMuted,
+    lkpdProgress.gameCompleted,
+    vrWarningMsg,
+  ]);
+
+  useEffect(() => {
+    if (gameState === 'victory' && runSummary?.won) {
+      const saved = saveGameCompletionProgress(runSummary);
+      setLkpdProgress(saved);
+    }
+  }, [gameState, runSummary]);
 
   useEffect(() => {
     try {
       localStorage.setItem('color_mission_settings', JSON.stringify(settings));
-    } catch {}
+    } catch { }
     if (rendererRef.current) {
       const pixelRatio =
         settings.graphicsQuality === 'low'
           ? 1.0
           : settings.graphicsQuality === 'medium'
-          ? Math.min(window.devicePixelRatio, 1.15)
-          : Math.min(window.devicePixelRatio, 1.5);
+            ? Math.min(window.devicePixelRatio, 1.15)
+            : Math.min(window.devicePixelRatio, 1.5);
       rendererRef.current.setPixelRatio(pixelRatio);
       rendererRef.current.shadowMap.enabled = settings.graphicsQuality === 'high';
       if (arenaRef.current && 'setGraphicsQuality' in arenaRef.current) {
@@ -583,6 +626,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
             const elapsed = (Date.now() - runStartTime.current) / 1000;
             const summary = calculateRunSummary(updated, elapsed, true);
+            saveGameCompletionProgress(summary);
             setRunSummary(summary);
             setFinalScore(summary.score);
             return updated;
@@ -910,6 +954,65 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     const tracers = new VisualShotSystem(scene);
     tracersRef.current = tracers;
 
+    const shotScene = new URLSearchParams(window.location.search).get('shotScene');
+    if (shotScene) {
+      setDesktopFullscreenConfirmed(true);
+      setMobileFullscreenConfirmed(true);
+      if (shotScene === 'stage1') {
+        arena.setStageTheme(1);
+        arena.resetArenaPickups(1);
+        weapons.switchWeapon('laser_rifle');
+        setCurrentWeapon('laser_rifle');
+        setAmmo(weapons.ammoCount);
+        setTargetColorId('red');
+        setPlayer((p) => ({ ...p, stage: 1, stageKills: 3, score: 400, combo: 2 }));
+        enemies.spawnEnemy('chromabot_normal', 'yellow', new THREE.Vector3(-4.2, 0, -11.5), 0.9, 0);
+        enemies.spawnEnemy('chromabot_normal', 'red', new THREE.Vector3(0.2, 0, -10.5), 0.9, 0);
+        enemies.spawnEnemy('chromabot_normal', 'blue', new THREE.Vector3(4.4, 0, -12.0), 0.9, 0);
+        setGameState('playing');
+      } else if (shotScene === 'stage2') {
+        arena.setStageTheme(2);
+        arena.resetArenaPickups(2);
+        weapons.switchWeapon('cyber_shotgun');
+        setCurrentWeapon('cyber_shotgun');
+        setAmmo(weapons.ammoCount);
+        setTargetColorId('orange');
+        setPlayer((p) => ({ ...p, stage: 2, stageKills: 6, score: 1850, combo: 3 }));
+        enemies.spawnEnemy('chromabot_normal', 'green', new THREE.Vector3(-4.3, 0, -11.2), 1.0, 0);
+        enemies.spawnEnemy('chromabot_elite', 'orange', new THREE.Vector3(0.1, 0, -10.2), 1.0, 0);
+        enemies.spawnEnemy('chromabot_normal', 'purple', new THREE.Vector3(4.5, 0, -11.8), 1.0, 0);
+        setGameState('playing');
+      } else if (shotScene === 'stage3') {
+        arena.setStageTheme(3);
+        arena.resetArenaPickups(3);
+        weapons.switchWeapon('railgun');
+        setCurrentWeapon('railgun');
+        setAmmo(weapons.ammoCount);
+        setTargetColorId('blue_green');
+        setPlayer((p) => ({ ...p, stage: 3, stageKills: 11, score: 4950, combo: 5 }));
+        enemies.spawnEnemy('chromabot_normal', 'red_orange', new THREE.Vector3(-4.6, 0, -12.2), 1.08, 0);
+        enemies.spawnEnemy('chromabot_elite', 'blue_green', new THREE.Vector3(0.2, 0, -10.6), 1.08, 0);
+        enemies.spawnEnemy('chromabot_normal', 'red_purple', new THREE.Vector3(4.8, 0, -12.4), 1.08, 0);
+        setGameState('playing');
+      } else if (shotScene === 'boss') {
+        arena.setStageTheme(3);
+        arena.resetArenaPickups(3);
+        weapons.switchWeapon('railgun');
+        setCurrentWeapon('railgun');
+        setAmmo(weapons.ammoCount);
+        const bossCol = 'purple';
+        setTargetColorId(bossCol);
+        setPlayer((p) => ({ ...p, stage: 3, stageKills: 20, score: 9200, combo: 4 }));
+        const boss = enemies.spawnEnemy('chroma_titan', bossCol, new THREE.Vector3(0, 0, -15.5), 1.0, 0);
+        bossInstanceRef.current = boss;
+        setBossMaxHp(boss.maxHp);
+        setBossHp(980);
+        boss.hp = 980;
+        arena.spawnBossCrystals(bossCol, BOSS_PHASES[1].colorPool);
+        setGameState('playing');
+      }
+    }
+
     const vrWatch = new VRWristWatch();
     const vrSpatialMenu = new VRSpatialMenu();
     const vrHandGestures = new VRHandGestures();
@@ -925,7 +1028,14 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         inputManagerRef.current.setMode('vr');
         setPlatformMode('vr');
         sound.unlockBgm();
-        sound.setBgmMode(stateRef.current.gameState === 'playing' ? 'combat' : 'menu');
+        const curState = stateRef.current;
+        sound.setBgmMode(
+          curState.gameState === 'playing'
+            ? curState.bossHp !== undefined && curState.bossHp > 0
+              ? 'boss'
+              : 'combat'
+            : 'menu'
+        );
       } else {
         weapons.attachToVRHand(null);
         vrManager.setRightHandModelVisible(true);
@@ -1010,18 +1120,18 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
       const handGestures = isPresentingVR
         ? vrHandGestures.update(
-            vrManager.leftHand,
-            vrManager.rightHand,
-            camera,
-            dt,
-            curSettings,
-            vrManager.leftController,
-            vrManager.isLeftSelectActive,
-            vrManager.consumeLeftSelectPulse(),
-            vrManager.isRightSelectActive,
-            vrManager.consumeRightSelectPulse(),
-            vrManager.rightController
-          )
+          vrManager.leftHand,
+          vrManager.rightHand,
+          camera,
+          dt,
+          curSettings,
+          vrManager.leftController,
+          vrManager.isLeftSelectActive,
+          vrManager.consumeLeftSelectPulse(),
+          vrManager.isRightSelectActive,
+          vrManager.consumeRightSelectPulse(),
+          vrManager.rightController
+        )
         : null;
 
       if (isPresentingVR) {
@@ -1062,10 +1172,20 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       }
 
       // Navigasi Arah Terpusat Menu & Modal via Gamepad (D-Pad / Analog + A Konfirmasi + B/Start Kembali)
-      if (currentState !== 'playing' || stateRef.current.showSettings || stateRef.current.showTutorial) {
+      if (
+        currentState !== 'playing' ||
+        stateRef.current.showSettings ||
+        stateRef.current.showTutorial ||
+        stateRef.current.showLKPD ||
+        stateRef.current.showLKPDLockedAlert
+      ) {
         const menuGp = inputManagerRef.current.pollMenuGamepad();
         if (menuGp.back || menuGp.start) {
-          if (stateRef.current.showTutorial) {
+          if (stateRef.current.showLKPD) {
+            setShowLKPD(false);
+          } else if (stateRef.current.showLKPDLockedAlert) {
+            setShowLKPDLockedAlert(false);
+          } else if (stateRef.current.showTutorial) {
             setShowTutorial(false);
           } else if (stateRef.current.showSettings) {
             setShowSettings(false);
@@ -1191,6 +1311,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             settings: curSettings,
             isMuted: vrInfo.isMuted,
             isHandTracking: vrManager.isHandTrackingLeft || vrManager.isHandTrackingRight,
+            lkpdUnlocked: vrInfo.lkpdUnlocked,
+            vrWarningMsg: vrInfo.vrWarningMsg,
           },
           vrManager.rightController,
           vrManager.currentSession,
@@ -1218,6 +1340,22 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               setShowTutorial(true);
             } else if (act === 'open_settings') {
               setShowSettings(true);
+            } else if (act === 'open_lkpd') {
+              if (vrMenuInfoRef.current.lkpdUnlocked) {
+                setVrWarningMsg(null);
+                setShowLKPD(true);
+                menuCallbacksRef.current.returnToMenu();
+                vrManager.exitVR();
+              } else {
+                setVrWarningMsg('Selesaikan Stage 1–3 & Boss dahulu untuk membuka LKPD!');
+                if (vrWarningTimerRef.current) {
+                  clearTimeout(vrWarningTimerRef.current);
+                }
+                vrWarningTimerRef.current = setTimeout(() => {
+                  vrWarningTimerRef.current = null;
+                  setVrWarningMsg(null);
+                }, 3500);
+              }
             } else if (act === 'close_subpanel') {
               setShowTutorial(false);
               setShowSettings(false);
@@ -2300,7 +2438,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       vrManagerRef.current &&
       !rendererRef.current?.xr.isPresenting
     ) {
-      vrManagerRef.current.enterVR().catch(() => {});
+      vrManagerRef.current.enterVR().catch(() => { });
     } else if (inputManagerRef.current.mode === 'desktop') {
       inputManagerRef.current.desktop.requestPointerLock();
     }
@@ -2351,11 +2489,17 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
   // Navigasi Keyboard untuk Menu & Modal (Esc: kembali/lanjutkan, Panah: pindah tombol, Enter: konfirmasi)
   useEffect(() => {
-    const isMenuActive = gameState !== 'playing' || showSettings || showTutorial;
+    const isMenuActive =
+      gameState !== 'playing' ||
+      showSettings ||
+      showTutorial ||
+      showLKPD ||
+      showLKPDLockedAlert;
     if (!isMenuActive) return;
 
     // Fokus otomatis pada tombol utama saat papan berpindah
     const focusTimer = setTimeout(() => {
+      if (showLKPD) return;
       const board = getActiveUiBoard();
       if (board) focusDefaultBoardControl(board);
     }, 30);
@@ -2366,7 +2510,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (showSettings) {
+        if (showLKPD) {
+          setShowLKPD(false);
+        } else if (showLKPDLockedAlert) {
+          setShowLKPDLockedAlert(false);
+        } else if (showSettings) {
           setShowSettings(false);
         } else if (showTutorial) {
           setShowTutorial(false);
@@ -2378,6 +2526,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         } else if (gameState === 'gameover' || gameState === 'victory') {
           menuCallbacksRef.current.returnToMenu();
         }
+        return;
+      }
+
+      if (showLKPD) {
         return;
       }
 
@@ -2412,7 +2564,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       clearTimeout(focusTimer);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [gameState, showSettings, showTutorial, mobileFullscreenConfirmed, desktopFullscreenConfirmed, isGamepadConnected]);
+  }, [
+    gameState,
+    showSettings,
+    showTutorial,
+    showLKPD,
+    showLKPDLockedAlert,
+    mobileFullscreenConfirmed,
+    desktopFullscreenConfirmed,
+    isGamepadConnected,
+  ]);
 
   useEffect(() => {
     const syncFullscreen = () => {
@@ -2434,7 +2595,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           await document.documentElement.requestFullscreen();
         }
       }
-    } catch {}
+    } catch { }
     if (orientation) {
       setMobileOrientation(orientation);
       try {
@@ -2444,7 +2605,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         if (ori?.lock) {
           await ori.lock(orientation);
         }
-      } catch {}
+      } catch { }
     }
   }, []);
 
@@ -2452,7 +2613,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen();
-      } catch {}
+      } catch { }
     } else {
       await enterFullscreenAndLock(platformMode === 'mobile' ? mobileOrientation : undefined);
     }
@@ -2600,13 +2761,12 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
       {/* Backdrop Transisi Halus (Mencegah kedipan antar Menu Utama, Papan Stage, dan Arena 3D) */}
       <div
-        className={`fixed inset-0 z-20 pointer-events-none transition-all duration-300 ease-out ${
-          gameState === 'title'
-            ? 'bg-[#050811]/65 opacity-100'
-            : gameState === 'stage_transition'
-              ? 'bg-[#050811]/92 opacity-100'
-              : 'bg-[#050811]/92 opacity-0'
-        }`}
+        className={`fixed inset-0 z-20 pointer-events-none transition-all duration-300 ease-out ${gameState === 'title'
+          ? 'bg-[#050811]/65 opacity-100'
+          : gameState === 'stage_transition'
+            ? 'bg-[#050811]/92 opacity-100'
+            : 'bg-[#050811]/92 opacity-0'
+          }`}
       />
 
       {/* ====================================================================
@@ -2680,113 +2840,146 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         !(platformMode === 'mobile' && !mobileFullscreenConfirmed) &&
         !(platformMode === 'desktop' && !desktopFullscreenConfirmed) &&
         !(platformMode === 'vr' && !isVRActive) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
-          {/* Tombol Ikon Pojok Kanan Atas: Orientasi (Mobile) & Fullscreen */}
-          <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
-            {platformMode === 'mobile' && (
-              <button
-                type="button"
-                onClick={handleToggleMobileOrientation}
-                title={
-                  mobileOrientation === 'landscape'
-                    ? 'Ubah ke Mode Portrait'
-                    : 'Ubah ke Mode Landscape'
-                }
-                aria-label={
-                  mobileOrientation === 'landscape'
-                    ? 'Ubah ke Mode Portrait'
-                    : 'Ubah ke Mode Landscape'
-                }
-                className="p-2.5 rounded-xl bg-[#090d18]/90 hover:bg-slate-900 border border-white/15 text-cyan-400 transition-colors cursor-pointer shadow-xl"
-              >
-                <RotateCw className="w-4 h-4" />
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleToggleFullscreen}
-              title={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
-              aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
-              className="p-2.5 rounded-xl bg-[#090d18]/90 hover:bg-slate-900 border border-white/15 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl"
-            >
-              {isFullscreen ? (
-                <Minimize2 className="w-4 h-4 text-slate-300" />
-              ) : (
-                <Maximize2 className="w-4 h-4 text-cyan-400" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
+            {/* Tombol Ikon Pojok Kanan Atas: Orientasi (Mobile) & Fullscreen */}
+            <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
+              {platformMode === 'mobile' && (
+                <button
+                  type="button"
+                  onClick={handleToggleMobileOrientation}
+                  title={
+                    mobileOrientation === 'landscape'
+                      ? 'Ubah ke Mode Portrait'
+                      : 'Ubah ke Mode Landscape'
+                  }
+                  aria-label={
+                    mobileOrientation === 'landscape'
+                      ? 'Ubah ke Mode Portrait'
+                      : 'Ubah ke Mode Landscape'
+                  }
+                  className="p-2.5 rounded-xl bg-[#090d18]/90 hover:bg-slate-900 border border-white/15 text-cyan-400 transition-colors cursor-pointer shadow-xl"
+                >
+                  <RotateCw className="w-4 h-4" />
+                </button>
               )}
-            </button>
-          </div>
 
-          {/* Kartu Utama Tengah */}
-          <div data-ui-board="true" className="bg-[#090d18]/96 border border-white/15 px-8 py-10 md:px-12 md:py-12 rounded-3xl shadow-2xl flex flex-col items-center text-center max-w-md w-full ui-panel-enter">
-            {/* Tiga Kotak Polos Warna Primer RYB */}
-            <div className="flex items-center gap-3 mb-5">
-              <span className="w-5 h-5 rounded-md bg-[#EF233C] border border-white/80 shadow-sm" />
-              <span className="w-5 h-5 rounded-md bg-[#FFD60A] border border-white/80 shadow-sm" />
-              <span className="w-5 h-5 rounded-md bg-[#1D6FFF] border border-white/80 shadow-sm" />
-            </div>
-
-            {/* Logo COLOR MISSION */}
-            <h1 className="text-5xl md:text-6xl font-black tracking-tight text-white uppercase leading-none">
-              COLOR <span className="text-cyan-400">MISSION</span>
-            </h1>
-
-            <p className="text-sm font-semibold text-slate-400 mt-2 mb-8">
-              Kuasai Warna. Selesaikan Misi.
-            </p>
-
-            {/* Tiga Tombol Utama Kontras Tinggi */}
-            <div className="flex flex-col gap-3 w-full">
               <button
                 type="button"
-                onClick={handleStartRun}
-                data-start="true"
-                className="w-full h-13 bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-base font-black tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-lg"
+                onClick={handleToggleFullscreen}
+                title={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+                aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+                className="p-2.5 rounded-xl bg-[#090d18]/90 hover:bg-slate-900 border border-white/15 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl"
               >
-                <Play className="w-5 h-5 fill-current" />
-                <span>MULAI MISI</span>
+                {isFullscreen ? (
+                  <Minimize2 className="w-4 h-4 text-slate-300" />
+                ) : (
+                  <Maximize2 className="w-4 h-4 text-cyan-400" />
+                )}
               </button>
-
-              <div className="grid grid-cols-2 gap-3 w-full">
-                <button
-                  type="button"
-                  onClick={() => setShowTutorial(true)}
-                  className="h-12 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-sm font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                >
-                  <BookOpen className="w-4 h-4 text-cyan-400" />
-                  <span>CARA MAIN</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(true)}
-                  className="h-12 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-sm font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                >
-                  <Sliders className="w-4 h-4 text-cyan-400" />
-                  <span>PENGATURAN</span>
-                </button>
-              </div>
             </div>
 
-            {isGamepadConnected && (
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold text-slate-400 tracking-wide">
-                <span>↕↔ Pilih</span>
-                <span className="text-slate-600">•</span>
-                <span className="inline-flex items-center gap-1">
-                  <GamepadBadge button="A" visible size="sm" />
-                  <span>Konfirmasi</span>
-                </span>
-                <span className="text-slate-600">•</span>
-                <span className="inline-flex items-center gap-1">
-                  <GamepadBadge button="B" visible size="sm" />
-                  <span>Kembali</span>
-                </span>
+            {/* Kartu Utama Tengah */}
+            <div data-ui-board="true" className="bg-[#090d18]/96 border border-white/15 px-8 py-10 md:px-12 md:py-12 rounded-3xl shadow-2xl flex flex-col items-center text-center max-w-md w-full ui-panel-enter">
+              {/* Tiga Kotak Polos Warna Primer RYB */}
+              <div className="flex items-center gap-3 mb-5">
+                <span className="w-5 h-5 rounded-md bg-[#EF233C] border border-white/80 shadow-sm" />
+                <span className="w-5 h-5 rounded-md bg-[#FFD60A] border border-white/80 shadow-sm" />
+                <span className="w-5 h-5 rounded-md bg-[#1D6FFF] border border-white/80 shadow-sm" />
               </div>
-            )}
+
+              {/* Logo COLOR MISSION */}
+              <h1 className="text-5xl md:text-6xl font-black tracking-tight text-white uppercase leading-none">
+                COLOR <span className="text-cyan-400">MISSION</span>
+              </h1>
+
+              <p className="text-sm font-semibold text-slate-400 mt-2 mb-8">
+                Kuasai Warna. Selesaikan Misi.
+              </p>
+
+              {/* Tiga Tombol Utama Kontras Tinggi */}
+              <div className="flex flex-col gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={handleStartRun}
+                  data-start="true"
+                  className="w-full h-13 bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-base font-black tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-lg"
+                >
+                  <Play className="w-5 h-5 fill-current" />
+                  <span>MULAI MISI</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-3 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setShowTutorial(true)}
+                    className="h-12 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-sm font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <BookOpen className="w-4 h-4 text-cyan-400" />
+                    <span>CARA MAIN</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSettings(true)}
+                    className="h-12 bg-white/6 hover:bg-white/12 text-white border border-white/15 text-sm font-bold tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Sliders className="w-4 h-4 text-cyan-400" />
+                    <span>PENGATURAN</span>
+                  </button>
+                </div>
+              </div>
+
+              {isGamepadConnected && (
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold text-slate-400 tracking-wide">
+                  <span>↕↔ Pilih</span>
+                  <span className="text-slate-600">•</span>
+                  <span className="inline-flex items-center gap-1">
+                    <GamepadBadge button="A" visible size="sm" />
+                    <span>Konfirmasi</span>
+                  </span>
+                  <span className="text-slate-600">•</span>
+                  <span className="inline-flex items-center gap-1">
+                    <GamepadBadge button="B" visible size="sm" />
+                    <span>Kembali</span>
+                  </span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (lkpdProgress.gameCompleted) {
+                    setShowLKPD(true);
+                  } else {
+                    setShowLKPDLockedAlert(true);
+                  }
+                }}
+                data-lkpd-button="true"
+                className={`w-full h-12 text-sm font-bold tracking-wide uppercase rounded-2xl flex items-center justify-between px-4 border transition-colors cursor-pointer ${lkpdProgress.gameCompleted
+                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-200 border-emerald-400/40'
+                  : 'bg-white/4 hover:bg-white/10 text-slate-300 border-white/12'
+                  }`}
+              >
+                <span className="flex items-center gap-2">
+                  {lkpdProgress.gameCompleted ? (
+                    <ClipboardCheck className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Lock className="w-4 h-4 text-amber-400" />
+                  )}
+                  <span>LKPD EVALUASI</span>
+                </span>
+                <span
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${lkpdProgress.gameCompleted
+                    ? 'bg-emerald-400 text-slate-950'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
+                    }`}
+                >
+                  {lkpdProgress.gameCompleted ? 'Terbuka' : 'Terkunci'}
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* === HUD PERMAINAN & KONTROL SENTUH MOBILE === */}
       {gameState === 'playing' && (
@@ -2893,6 +3086,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             score={finalScore}
             onRestart={handleStartRun}
             onReturnToMenu={handleReturnToMenu}
+            onOpenLKPD={() => {
+              handleReturnToMenu();
+              setShowLKPD(true);
+            }}
             isGamepadConnected={isGamepadConnected}
           />
         )}
@@ -2944,6 +3141,70 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           }}
           onClose={() => setShowSettings(false)}
           isGamepadConnected={isGamepadConnected}
+        />
+      </AnimatedPresence>
+
+      {/* === MODAL PERINGATAN LKPD TERKUNCI === */}
+      <AnimatedPresence show={showLKPDLockedAlert}>
+        <div className="fixed inset-0 bg-[#050811]/85 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
+          <div
+            data-ui-board="true"
+            className="max-w-md w-full bg-[#090d18] border border-amber-400/35 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center ui-panel-enter"
+          >
+            <div className="flex items-center justify-between w-full mb-3">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-300">
+                AKSES TERKUNCI
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowLKPDLockedAlert(false)}
+                className="p-1.5 rounded-xl bg-white/6 hover:bg-white/12 text-slate-300 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-400/35 text-amber-300 mb-3">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+
+            <h3 className="text-xl font-black uppercase tracking-tight text-white mb-2">
+              Selesaikan Game Terlebih Dahulu!
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-5">
+              LKPD Evaluasi Interaktif hanya terbuka setelah kamu menamatkan seluruh misi dari{' '}
+              <strong className="text-white">Stage 1, Stage 2, hingga mengalahkan Boss CHROMA TITAN di Stage 3</strong>.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2.5 w-full">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLKPDLockedAlert(false);
+                  handleStartRun();
+                }}
+                className="w-full h-11 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs uppercase tracking-wide rounded-2xl flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>MULAI MISI</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLKPDLockedAlert(false)}
+                className="w-full h-11 bg-white/6 hover:bg-white/12 border border-white/15 text-white font-bold text-xs uppercase tracking-wide rounded-2xl cursor-pointer"
+              >
+                MENGERTI
+              </button>
+            </div>
+          </div>
+        </div>
+      </AnimatedPresence>
+
+      {/* === MODAL LKPD EVALUASI INTERAKTIF === */}
+      <AnimatedPresence show={showLKPD}>
+        <LKPDModal
+          progress={lkpdProgress}
+          onClose={() => setShowLKPD(false)}
         />
       </AnimatedPresence>
     </div>

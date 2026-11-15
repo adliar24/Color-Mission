@@ -6,6 +6,7 @@ import {
   Trophy,
   RotateCcw,
   Home,
+  ClipboardCheck,
 } from 'lucide-react';
 
 interface VictoryModalProps {
@@ -13,6 +14,7 @@ interface VictoryModalProps {
   score: number;
   onRestart: () => void;
   onReturnToMenu: () => void;
+  onOpenLKPD?: () => void;
   isGamepadConnected?: boolean;
 }
 
@@ -21,6 +23,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   score,
   onRestart,
   onReturnToMenu,
+  onOpenLKPD,
   isGamepadConnected = false,
 }) => {
   useEffect(() => {
@@ -94,24 +97,37 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
         </div>
 
         {/* Tombol Aksi */}
-        <div className="flex flex-col sm:flex-row gap-2.5 w-full">
-          <button
-            type="button"
-            onClick={onRestart}
-            className="w-full h-11 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wide rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>MAIN LAGI</span>
-          </button>
+        <div className="flex flex-col gap-2.5 w-full">
+          {onOpenLKPD && (
+            <button
+              type="button"
+              onClick={onOpenLKPD}
+              className="w-full h-12 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wide rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-lg"
+            >
+              <ClipboardCheck className="w-4 h-4" />
+              <span>BUKA LKPD EVALUASI (TERBUKA)</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={onReturnToMenu}
-            className="w-full h-11 bg-white/6 hover:bg-white/12 text-white border border-white/12 font-bold text-xs uppercase tracking-wide rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
-          >
-            <Home className="w-4 h-4 text-slate-300" />
-            <span>MENU UTAMA</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={onRestart}
+              className="w-full h-11 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wide rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>MAIN LAGI</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onReturnToMenu}
+              className="w-full h-11 bg-white/6 hover:bg-white/12 text-white border border-white/12 font-bold text-xs uppercase tracking-wide rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <Home className="w-4 h-4 text-slate-300" />
+              <span>MENU UTAMA</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

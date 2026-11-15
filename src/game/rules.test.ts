@@ -31,6 +31,15 @@ import {
   clampSteppedSpeedPercent,
   resolveSpeedSettings,
 } from './types';
+import {
+  DEFAULT_LKPD_SUBMISSION,
+  LKPD_LAB_CHALLENGES,
+  LKPD_QUIZ_QUESTIONS,
+  LKPD_REFLECTION_PROMPTS,
+  calculateLKPDScore,
+  mixRYBColors,
+} from './lkpd';
+import { getBgmProfile } from './audio';
 
 const TEST_SETTINGS: GameSettings = {
   mouseSensitivity: 1.0,
@@ -453,4 +462,59 @@ test('Preset kecepatan jalan & kamera (Lambat, Normal, Cepat, Kustom terpatok 10
   assert.equal(custom.moveSpeedPercent, 30);
   assert.equal(custom.cameraSpeedPercent, 150);
   assert.equal(clampSteppedSpeedPercent(5), 10);
+});
+
+test('LKPD interaktif: pencampuran lab warna RYB bersifat komutatif dan perhitungan skor akurat', () => {
+  assert.equal(LKPD_LAB_CHALLENGES.length, 5);
+  assert.equal(LKPD_QUIZ_QUESTIONS.length, 6);
+  assert.equal(LKPD_REFLECTION_PROMPTS.length, 3);
+
+  assert.equal(mixRYBColors('red', 'yellow')?.id, 'orange');
+  assert.equal(mixRYBColors('yellow', 'red')?.id, 'orange');
+  assert.equal(mixRYBColors('blue', 'green')?.id, 'blue_green');
+  assert.equal(mixRYBColors('red', 'green'), null);
+
+  const partial = {
+    ...DEFAULT_LKPD_SUBMISSION,
+    labSolvedIds: ['orange', 'green'] as ('orange' | 'green')[],
+    quizAnswers: {
+      q1_primer: 'a',
+      q2_sekunder: 'b',
+      q3_tersier_konsep: 'd',
+    },
+    reflectionAnswers: {
+      ref_1_kategori: 'Primer adalah merah kuning biru, sekunder campuran primer.',
+    },
+  };
+  const partialScore = calculateLKPDScore(partial);
+  assert.equal(partialScore.labCorrect, 2);
+  assert.equal(partialScore.quizCorrect, 2);
+  assert.equal(partialScore.reflectionAnswered, 1);
+  assert.equal(partialScore.objectiveScore, Math.round((4 / 11) * 100));
+
+  const full = {
+    ...DEFAULT_LKPD_SUBMISSION,
+    labSolvedIds: LKPD_LAB_CHALLENGES.map((c) => c.targetColorId),
+    quizAnswers: Object.fromEntries(LKPD_QUIZ_QUESTIONS.map((q) => [q.id, q.correctOptionId])),
+    reflectionAnswers: Object.fromEntries(
+      LKPD_REFLECTION_PROMPTS.map((p) => [p.id, 'Jawaban refleksi siswa yang lengkap dan jelas.'])
+    ),
+  };
+  const fullScore = calculateLKPDScore(full);
+  assert.equal(fullScore.objectiveScore, 100);
+  assert.equal(fullScore.predicate, 'Sangat Baik');
+  assert.equal(fullScore.reflectionAnswered, 3);
+});
+
+test('Profil audio BGM membedakan tempo dan energi antara Menu (santai), Combat (energik), dan Boss (cepat ngebeat)', () => {
+  const menu = getBgmProfile('menu');
+  const combat = getBgmProfile('combat');
+  const boss = getBgmProfile('boss');
+
+  assert.ok(menu.bpm > 0 && menu.bpm < combat.bpm);
+  assert.ok(combat.bpm < boss.bpm);
+  assert.ok(menu.filterCutoff < combat.filterCutoff);
+  assert.ok(combat.filterCutoff < boss.filterCutoff);
+  assert.ok(menu.masterGain < combat.masterGain);
+  assert.ok(combat.masterGain < boss.masterGain);
 });

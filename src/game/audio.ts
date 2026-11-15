@@ -1,6 +1,46 @@
 // Generator suara prosedural Web Audio API untuk COLOR MISSION
 export type BgmMode = 'off' | 'menu' | 'combat' | 'boss';
 
+export interface BgmProfile {
+  mode: BgmMode;
+  bpm: number;
+  filterCutoff: number;
+  masterGain: number;
+}
+
+export function getBgmProfile(mode: BgmMode): BgmProfile {
+  if (mode === 'boss') {
+    return {
+      mode,
+      bpm: 164,
+      filterCutoff: 5800,
+      masterGain: 0.25,
+    };
+  }
+  if (mode === 'combat') {
+    return {
+      mode,
+      bpm: 138,
+      filterCutoff: 3600,
+      masterGain: 0.21,
+    };
+  }
+  if (mode === 'menu') {
+    return {
+      mode,
+      bpm: 88,
+      filterCutoff: 1500,
+      masterGain: 0.14,
+    };
+  }
+  return {
+    mode: 'off',
+    bpm: 0,
+    filterCutoff: 1500,
+    masterGain: 0,
+  };
+}
+
 const MENU_CHORDS = [
   // A minor -> F major -> C major -> G major (Chill cyber-lounge main menu)
   { bass: 55.0, pad: [220.0, 261.63, 329.63], arp: [440.0, 523.25, 659.25, 523.25] }, // Am
@@ -510,11 +550,21 @@ class SoundManager {
     }
 
     this.initContext();
+    const profile = getBgmProfile(mode);
+
+    // Reset fase beat agar transisi antara Menu (santai), Combat (energik), dan Boss (ngebeat cepat) langsung terasa instan
+    this.bgmStep = 0;
+    if (this.ctx) {
+      this.nextNoteTime = this.ctx.currentTime + 0.03;
+    }
+
     if (this.ctx && this.bgmFilter && this.bgmMasterGain) {
-      const targetCutoff = mode === 'menu' ? 1900 : mode === 'boss' ? 4200 : 3200;
-      const targetVol = this.isMuted ? 0 : mode === 'menu' ? 0.16 : mode === 'boss' ? 0.22 : 0.19;
-      this.bgmFilter.frequency.setTargetAtTime(targetCutoff, this.ctx.currentTime, 0.2);
-      this.bgmMasterGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.12);
+      this.bgmFilter.frequency.setTargetAtTime(profile.filterCutoff, this.ctx.currentTime, 0.12);
+      this.bgmMasterGain.gain.setTargetAtTime(
+        this.isMuted ? 0 : profile.masterGain,
+        this.ctx.currentTime,
+        0.08
+      );
     }
 
     if (this.bgmTimer === null && typeof window !== 'undefined') {
@@ -531,7 +581,7 @@ class SoundManager {
 
   private startBgmScheduler() {
     if (!this.ctx || typeof window === 'undefined') return;
-    this.nextNoteTime = this.ctx.currentTime + 0.05;
+    this.nextNoteTime = this.ctx.currentTime + 0.04;
     this.bgmTimer = window.setInterval(() => {
       if (!this.ctx || this.bgmMode === 'off') return;
       if (this.ctx.state === 'suspended') {
@@ -539,16 +589,22 @@ class SoundManager {
       }
       if (this.ctx.state !== 'running') return;
 
-      const bpm = this.bgmMode === 'menu' ? 114 : this.bgmMode === 'boss' ? 138 : 126;
+      const profile = getBgmProfile(this.bgmMode);
+      const bpm = profile.bpm || 88;
       const stepDur = 60 / bpm / 4; // 16th note
       const lookahead = 0.14;
+
+      // Cegah penumpukan nada jika tab sempat backgrounded/jeda
+      if (this.nextNoteTime < this.ctx.currentTime - 0.15) {
+        this.nextNoteTime = this.ctx.currentTime + 0.02;
+      }
 
       while (this.nextNoteTime < this.ctx.currentTime + lookahead) {
         this.scheduleBgmStep(this.bgmStep, this.nextNoteTime, stepDur);
         this.nextNoteTime += stepDur;
         this.bgmStep = (this.bgmStep + 1) % 64;
       }
-    }, 35);
+    }, 30);
   }
 
   private scheduleBgmStep(step: number, time: number, stepDur: number) {
@@ -556,25 +612,23 @@ class SoundManager {
 
     const bar = Math.floor(step / 16);
     const stepInBar = step % 16;
-    const prog =
-      this.bgmMode === 'menu'
-        ? MENU_CHORDS
-        : this.bgmMode === 'boss'
-          ? BOSS_CHORDS
-          : BGM_CHORDS;
+    const isMenu = this.bgmMode === 'menu';
+    const isBoss = this.bgmMode === 'boss';
+
+    const prog = isMenu ? MENU_CHORDS : isBoss ? BOSS_CHORDS : BGM_CHORDS;
     const chord = prog[bar % prog.length];
 
-    // 1. Warm Cyber Pad on beat 1 of each bar
+    // 1. Cyber Pad (Menu: hangat tebal & santai; Combat/Boss: penyangga harmoni tipis)
     if (stepInBar === 0) {
       const padDur = stepDur * 15.5;
       chord.pad.forEach((freq) => {
         if (!this.ctx || !this.bgmFilter) return;
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
-        osc.type = 'triangle';
+        osc.type = isMenu ? 'sine' : 'triangle';
         osc.frequency.setValueAtTime(freq, time);
         g.gain.setValueAtTime(0.001, time);
-        g.gain.linearRampToValueAtTime(this.bgmMode === 'menu' ? 0.09 : 0.06, time + 0.12);
+        g.gain.linearRampToValueAtTime(isMenu ? 0.11 : 0.045, time + 0.1);
         g.gain.exponentialRampToValueAtTime(0.001, time + padDur);
         osc.connect(g);
         g.connect(this.bgmFilter);
@@ -583,19 +637,29 @@ class SoundManager {
       });
     }
 
-    // 2. Driving Synthwave Bass (Menu: upbeat 8th-note groove, Combat/Boss: punchy 16th/8th)
-    const playBass =
-      this.bgmMode === 'menu'
-        ? stepInBar % 2 === 0
-        : stepInBar % 2 === 0 || (this.bgmMode === 'boss' && stepInBar % 4 === 3);
+    // 2. Bassline (Menu: pulse lembut 1/2 bar; Combat: rolling offbeat synthwave; Boss: 16th-note ngebut)
+    const playBass = isMenu
+      ? stepInBar === 0 || stepInBar === 8
+      : isBoss
+        ? true
+        : stepInBar % 2 === 0 || stepInBar === 7 || stepInBar === 15;
+
     if (playBass) {
       const osc = this.ctx.createOscillator();
       const g = this.ctx.createGain();
-      osc.type = this.bgmMode === 'menu' ? 'triangle' : 'sawtooth';
-      const octaveBoost = stepInBar % 4 === 2 ? 2 : 1;
+      osc.type = isMenu ? 'sine' : 'sawtooth';
+      const octaveBoost = isMenu
+        ? 1
+        : isBoss
+          ? stepInBar % 2 === 1
+            ? 2
+            : 1
+          : stepInBar % 4 === 2
+            ? 2
+            : 1;
       osc.frequency.setValueAtTime(chord.bass * octaveBoost, time);
-      const dur = stepDur * (this.bgmMode === 'menu' ? 1.6 : 1.35);
-      g.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.14 : 0.18, time);
+      const dur = stepDur * (isMenu ? 5.2 : isBoss ? 0.9 : 1.35);
+      g.gain.setValueAtTime(isMenu ? 0.13 : isBoss ? 0.22 : 0.19, time);
       g.gain.exponentialRampToValueAtTime(0.001, time + dur);
       osc.connect(g);
       g.connect(this.bgmFilter);
@@ -603,19 +667,22 @@ class SoundManager {
       osc.stop(time + dur + 0.01);
     }
 
-    // 3. Retro-Futuristic Arpeggio Lead (Menu: upbeat cyber-lounge bell, Combat/Boss: sharp synth lead)
-    const playArp =
-      this.bgmMode === 'menu'
-        ? stepInBar % 2 === 0 || stepInBar === 11
-        : stepInBar % 2 === 0 || stepInBar === 7 || stepInBar === 15;
+    // 3. Lead / Arpeggio (Menu: lonceng ambient jarang; Combat: 16th synth aktif; Boss: dual-octave cepat & intens)
+    const playArp = isMenu
+      ? stepInBar === 0 || stepInBar === 6 || stepInBar === 10
+      : isBoss
+        ? true
+        : stepInBar % 2 === 0 || stepInBar === 3 || stepInBar === 11 || stepInBar === 15;
+
     if (playArp) {
       const arpNote = chord.arp[(stepInBar + bar) % chord.arp.length];
       const osc = this.ctx.createOscillator();
       const g = this.ctx.createGain();
-      osc.type = this.bgmMode === 'menu' ? 'sine' : this.bgmMode === 'boss' ? 'square' : 'sawtooth';
-      osc.frequency.setValueAtTime(arpNote, time);
-      const dur = stepDur * (this.bgmMode === 'menu' ? 1.8 : 1.1);
-      g.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.075 : 0.065, time);
+      osc.type = isMenu ? 'sine' : isBoss ? 'square' : 'sawtooth';
+      const freqMult = isBoss && stepInBar % 4 === 3 ? 2 : 1;
+      osc.frequency.setValueAtTime(arpNote * freqMult, time);
+      const dur = stepDur * (isMenu ? 3.2 : isBoss ? 0.8 : 1.05);
+      g.gain.setValueAtTime(isMenu ? 0.065 : isBoss ? 0.08 : 0.07, time);
       g.gain.exponentialRampToValueAtTime(0.001, time + dur);
       osc.connect(g);
       g.connect(this.bgmFilter);
@@ -623,36 +690,52 @@ class SoundManager {
       osc.stop(time + dur + 0.01);
     }
 
-    // 4. Punchy Kick & Crisp Hi-Hat/Snare (Menu: ringan & groovy, Combat/Boss: penuh)
-    if (stepInBar % 4 === 0) {
+    // 4. Drum Beat (Menu: tanpa kick club berat agar terasa tenang; Combat: 4-on-the-floor energik; Boss: double-kick ngebeat!)
+    const playKick = !isMenu && (stepInBar % 4 === 0 || (isBoss && (stepInBar === 10 || stepInBar === 14)));
+    if (playKick) {
       const kick = this.ctx.createOscillator();
       const kg = this.ctx.createGain();
       kick.type = 'sine';
-      kick.frequency.setValueAtTime(this.bgmMode === 'menu' ? 110 : 135, time);
-      kick.frequency.exponentialRampToValueAtTime(42, time + 0.09);
-      kg.gain.setValueAtTime(this.bgmMode === 'menu' ? 0.14 : 0.32, time);
-      kg.gain.exponentialRampToValueAtTime(0.001, time + 0.11);
+      kick.frequency.setValueAtTime(isBoss ? 155 : 138, time);
+      kick.frequency.exponentialRampToValueAtTime(38, time + 0.085);
+      kg.gain.setValueAtTime(isBoss ? 0.38 : 0.32, time);
+      kg.gain.exponentialRampToValueAtTime(0.001, time + 0.105);
       kick.connect(kg);
       kg.connect(this.bgmFilter);
       kick.start(time);
-      kick.stop(time + 0.12);
+      kick.stop(time + 0.11);
     }
 
-    if (
-      (this.bgmMode === 'menu' && stepInBar % 4 === 2) ||
-      (this.bgmMode !== 'menu' && (stepInBar % 4 === 2 || stepInBar === 4 || stepInBar === 12))
-    ) {
+    // Perkusi Snare & Hi-Hat (Menu: tick super ringan di 4 & 12; Combat: snare + offbeat hat; Boss: snare + full 16th hat roll)
+    const isSnare = !isMenu && (stepInBar === 4 || stepInBar === 12 || (isBoss && stepInBar === 15));
+    const isHiHat = isMenu
+      ? stepInBar === 4 || stepInBar === 12
+      : isBoss
+        ? stepInBar % 2 === 1
+        : stepInBar % 4 === 2 || stepInBar === 14;
+
+    if (isSnare || isHiHat) {
       const buf = this.ensureNoiseBuffer();
       if (buf) {
         const src = this.ctx.createBufferSource();
         src.buffer = buf;
         const hp = this.ctx.createBiquadFilter();
         hp.type = 'highpass';
-        const isSnare = this.bgmMode !== 'menu' && (stepInBar === 4 || stepInBar === 12);
-        hp.frequency.value = isSnare ? 1800 : 6200;
+        hp.frequency.value = isSnare ? 1700 : isMenu ? 7200 : 6200;
         const ng = this.ctx.createGain();
-        ng.gain.setValueAtTime(isSnare ? 0.13 : this.bgmMode === 'menu' ? 0.028 : 0.045, time);
-        ng.gain.exponentialRampToValueAtTime(0.001, time + (isSnare ? 0.1 : 0.04));
+        const peak = isSnare
+          ? isBoss && stepInBar === 15
+            ? 0.09
+            : isBoss
+              ? 0.17
+              : 0.14
+          : isMenu
+            ? 0.018
+            : isBoss
+              ? 0.065
+              : 0.045;
+        ng.gain.setValueAtTime(peak, time);
+        ng.gain.exponentialRampToValueAtTime(0.001, time + (isSnare ? 0.095 : 0.038));
         src.connect(hp);
         hp.connect(ng);
         ng.connect(this.bgmFilter);

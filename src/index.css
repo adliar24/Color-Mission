@@ -182,3 +182,28 @@ canvas {
     transform: none;
   }
 }
+
+@media print {
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  .lkpd-modal-overlay {
+    position: static !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .lkpd-interactive-shell {
+    display: none !important;
+  }
+
+  .lkpd-print-sheet {
+    display: block !important;
+  }
+}
