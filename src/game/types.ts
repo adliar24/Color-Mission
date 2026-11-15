@@ -208,6 +208,50 @@ export type GraphicsQuality = 'low' | 'medium' | 'high';
 
 export type VRMovementMode = 'smooth' | 'teleport';
 export type VRTurnMode = 'snap' | 'smooth';
+export type SpeedPreset = 'slow' | 'normal' | 'fast' | 'custom';
+
+export const SPEED_PRESET_CONFIG: Record<
+  Exclude<SpeedPreset, 'custom'>,
+  { moveSpeedPercent: number; cameraSpeedPercent: number; label: string }
+> = {
+  slow: { moveSpeedPercent: 40, cameraSpeedPercent: 40, label: 'LAMBAT' },
+  normal: { moveSpeedPercent: 70, cameraSpeedPercent: 70, label: 'NORMAL' },
+  fast: { moveSpeedPercent: 100, cameraSpeedPercent: 100, label: 'CEPAT' },
+};
+
+export function clampSteppedSpeedPercent(value: number): number {
+  const snapped = Math.round(value / 10) * 10;
+  return Math.max(10, Math.min(150, snapped));
+}
+
+export function resolveSpeedSettings(settings: GameSettings): {
+  preset: SpeedPreset;
+  moveSpeedPercent: number;
+  cameraSpeedPercent: number;
+  moveMult: number;
+  cameraMult: number;
+} {
+  const preset: SpeedPreset = settings.speedPreset ?? 'normal';
+  if (preset !== 'custom') {
+    const cfg = SPEED_PRESET_CONFIG[preset];
+    return {
+      preset,
+      moveSpeedPercent: cfg.moveSpeedPercent,
+      cameraSpeedPercent: cfg.cameraSpeedPercent,
+      moveMult: cfg.moveSpeedPercent / 100,
+      cameraMult: cfg.cameraSpeedPercent / 100,
+    };
+  }
+  const moveSpeedPercent = clampSteppedSpeedPercent(settings.moveSpeedPercent ?? 70);
+  const cameraSpeedPercent = clampSteppedSpeedPercent(settings.cameraSpeedPercent ?? 70);
+  return {
+    preset,
+    moveSpeedPercent,
+    cameraSpeedPercent,
+    moveMult: moveSpeedPercent / 100,
+    cameraMult: cameraSpeedPercent / 100,
+  };
+}
 
 export interface GameSettings {
   mouseSensitivity: number;
@@ -221,6 +265,9 @@ export interface GameSettings {
   vrSmoothTurnSpeed: number;
   vrMovementMode: VRMovementMode;
   vrComfortVignette: boolean;
+  speedPreset?: SpeedPreset;
+  moveSpeedPercent?: number;
+  cameraSpeedPercent?: number;
 }
 
 export type HapticEventType =

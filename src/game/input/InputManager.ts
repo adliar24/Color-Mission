@@ -10,6 +10,7 @@ import {
   HapticEventType,
   PlatformMode,
   WeaponType,
+  resolveSpeedSettings,
 } from '../types';
 
 /**
@@ -274,7 +275,8 @@ export class DesktopInput {
         // Analog Kanan (Kamera)
         const rx = gp.axes[2] || 0;
         const ry = gp.axes[3] || 0;
-        const gpLookSpeed = 2.6 * settings.mouseSensitivity;
+        const { cameraMult } = resolveSpeedSettings(settings);
+        const gpLookSpeed = 2.6 * settings.mouseSensitivity * cameraMult;
         if (Math.abs(rx) > 0.14) lookDeltaX -= rx * gpLookSpeed * dt;
         if (Math.abs(ry) > 0.14) lookDeltaY -= ry * gpLookSpeed * dt;
 
@@ -338,7 +340,8 @@ export class DesktopInput {
       moveZ += 1;
     }
 
-    const sens = 0.0055 * settings.mouseSensitivity;
+    const { cameraMult } = resolveSpeedSettings(settings);
+    const sens = 0.0055 * settings.mouseSensitivity * cameraMult;
     const rawMouseX = -this.lookAccumX * sens;
     const rawMouseY = -this.lookAccumY * sens;
     this.lookAccumX = 0;
@@ -356,7 +359,7 @@ export class DesktopInput {
     if (Math.abs(this.smoothLookY) < 1e-6) this.smoothLookY = 0;
 
     if (isFullKeyboard) {
-      const kbdLookSpeed = 2.3 * settings.mouseSensitivity;
+      const kbdLookSpeed = 2.3 * settings.mouseSensitivity * cameraMult;
       if (this.keysPressed.has('ArrowLeft')) lookDeltaX += kbdLookSpeed * dt;
       if (this.keysPressed.has('ArrowRight')) lookDeltaX -= kbdLookSpeed * dt;
       if (this.keysPressed.has('ArrowUp')) lookDeltaY += kbdLookSpeed * dt;
@@ -584,7 +587,8 @@ export class MobileInput {
   }
 
   public poll(settings: GameSettings): GameplayInputCommand {
-    const sens = 0.0052 * settings.touchSensitivity;
+    const { cameraMult } = resolveSpeedSettings(settings);
+    const sens = 0.0052 * settings.touchSensitivity * cameraMult;
     let lookDeltaX = -this.lookAccumX * sens;
     let lookDeltaY = -this.lookAccumY * sens;
     this.lookAccumX = 0;
@@ -592,7 +596,7 @@ export class MobileInput {
 
     // Jika Gyro HP diaktifkan di Pengaturan, tambahkan rotasi yaw/pitch dari sensor gyro (tanpa roll/miring!)
     if (settings.mobileGyroEnabled) {
-      const gyroSens = 0.012 * settings.touchSensitivity;
+      const gyroSens = 0.012 * settings.touchSensitivity * cameraMult;
       lookDeltaX += this.gyroAccumX * gyroSens;
       lookDeltaY += this.gyroAccumY * gyroSens;
     } else {
@@ -737,7 +741,8 @@ export class VRInput {
               this.snapTurnCooldown = 0.35;
             }
           } else {
-            lookDeltaX = -stickX * settings.vrSmoothTurnSpeed * dt;
+            const { cameraMult } = resolveSpeedSettings(settings);
+            lookDeltaX = -stickX * settings.vrSmoothTurnSpeed * cameraMult * dt;
           }
         }
       }

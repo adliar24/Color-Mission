@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { GameSettings, GraphicsQuality, VRMovementMode, VRTurnMode } from '../game/types';
+import {
+  GameSettings,
+  GraphicsQuality,
+  SPEED_PRESET_CONFIG,
+  SpeedPreset,
+  VRMovementMode,
+  VRTurnMode,
+  clampSteppedSpeedPercent,
+  resolveSpeedSettings,
+} from '../game/types';
 import { MobileInput } from '../game/input/InputManager';
 import {
   X,
@@ -64,6 +73,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const fullKeyboardActive = settings.keyboardCameraMode !== false;
+  const speedInfo = resolveSpeedSettings(settings);
+
+  const handleSelectSpeedPreset = (preset: SpeedPreset) => {
+    if (preset === 'custom') {
+      onUpdateSettings({
+        ...settings,
+        speedPreset: 'custom',
+        moveSpeedPercent: speedInfo.moveSpeedPercent,
+        cameraSpeedPercent: speedInfo.cameraSpeedPercent,
+      });
+      return;
+    }
+    const cfg = SPEED_PRESET_CONFIG[preset];
+    onUpdateSettings({
+      ...settings,
+      speedPreset: preset,
+      moveSpeedPercent: cfg.moveSpeedPercent,
+      cameraSpeedPercent: cfg.cameraSpeedPercent,
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-[#050811]/92 flex items-center justify-center p-3 sm:p-4 z-50 font-sans text-white ui-backdrop-enter">
@@ -219,6 +248,120 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span className="text-cyan-300 font-bold">Kontrol</span> untuk melihat skema
                 tombol &amp; mengatur sensitivitas per perangkat.
               </p>
+            </div>
+
+            {/* Kecepatan Gerak & Kamera (Semua Versi: Desktop, Mobile, VR) */}
+            <div className="sm:col-span-2 bg-white/4 border border-white/10 p-4 rounded-2xl space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-cyan-400 block">
+                    KECEPATAN JALAN &amp; KAMERA (SEMUA VERSI)
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Berlaku di Desktop, Mobile, &amp; VR · Normal (70%) direkomendasikan
+                  </span>
+                </div>
+                <span className="text-xs font-extrabold text-cyan-300 tabular-nums">
+                  Jalan {speedInfo.moveSpeedPercent}% · Kamera {speedInfo.cameraSpeedPercent}%
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(
+                  [
+                    { id: 'slow', label: 'LAMBAT', sub: '40%' },
+                    { id: 'normal', label: 'NORMAL', sub: '70%' },
+                    { id: 'fast', label: 'CEPAT', sub: '100%' },
+                    { id: 'custom', label: 'KUSTOM', sub: '10%–150%' },
+                  ] as { id: SpeedPreset; label: string; sub: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleSelectSpeedPreset(opt.id)}
+                    className={`py-2 px-3 rounded-xl text-xs font-extrabold border cursor-pointer transition-colors flex flex-col items-center justify-center ${
+                      speedInfo.preset === opt.id
+                        ? 'bg-cyan-400 text-slate-950 border-cyan-300'
+                        : 'bg-white/5 border-white/10 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    <span
+                      className={`text-[10px] font-bold ${
+                        speedInfo.preset === opt.id ? 'text-slate-900/80' : 'text-slate-400'
+                      }`}
+                    >
+                      {opt.sub}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {speedInfo.preset === 'custom' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/8">
+                  <div>
+                    <div className="flex justify-between text-xs font-bold mb-1.5">
+                      <span className="text-slate-200">KECEPATAN JALAN</span>
+                      <span className="text-cyan-400 tabular-nums">
+                        {speedInfo.moveSpeedPercent}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="150"
+                      step="10"
+                      value={speedInfo.moveSpeedPercent}
+                      onChange={(e) =>
+                        onUpdateSettings({
+                          ...settings,
+                          speedPreset: 'custom',
+                          moveSpeedPercent: clampSteppedSpeedPercent(Number(e.target.value)),
+                          cameraSpeedPercent: speedInfo.cameraSpeedPercent,
+                        })
+                      }
+                      className="w-full accent-cyan-400 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500 font-bold mt-0.5 tabular-nums">
+                      <span>10%</span>
+                      <span>50%</span>
+                      <span>100%</span>
+                      <span>150%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs font-bold mb-1.5">
+                      <span className="text-slate-200">KECEPATAN KAMERA</span>
+                      <span className="text-cyan-400 tabular-nums">
+                        {speedInfo.cameraSpeedPercent}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="150"
+                      step="10"
+                      value={speedInfo.cameraSpeedPercent}
+                      onChange={(e) =>
+                        onUpdateSettings({
+                          ...settings,
+                          speedPreset: 'custom',
+                          moveSpeedPercent: speedInfo.moveSpeedPercent,
+                          cameraSpeedPercent: clampSteppedSpeedPercent(Number(e.target.value)),
+                        })
+                      }
+                      className="w-full accent-cyan-400 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500 font-bold mt-0.5 tabular-nums">
+                      <span>10%</span>
+                      <span>50%</span>
+                      <span>100%</span>
+                      <span>150%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : (

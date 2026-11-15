@@ -25,7 +25,12 @@ import {
 } from './rules';
 import { InputManager } from './input/InputManager';
 import { VRManager } from './xr/VRManager';
-import { GameSettings, PlayerStats } from './types';
+import {
+  GameSettings,
+  PlayerStats,
+  clampSteppedSpeedPercent,
+  resolveSpeedSettings,
+} from './types';
 
 const TEST_SETTINGS: GameSettings = {
   mouseSensitivity: 1.0,
@@ -423,4 +428,29 @@ test('Progresi senjata per stage membuka 1 -> 2 -> 3 senjata dengan damage lebih
   assert.equal(WEAPON_REGISTRY.railgun.magSize, 10);
 
   assert.ok(WEAPON_REGISTRY.railgun.damage > WEAPON_REGISTRY.laser_rifle.damage);
+});
+
+test('Preset kecepatan jalan & kamera (Lambat, Normal, Cepat, Kustom terpatok 10%) berfungsi di semua versi', () => {
+  const def = resolveSpeedSettings(TEST_SETTINGS);
+  assert.equal(def.preset, 'normal');
+  assert.equal(def.moveSpeedPercent, 70);
+  assert.equal(def.cameraSpeedPercent, 70);
+
+  const slow = resolveSpeedSettings({ ...TEST_SETTINGS, speedPreset: 'slow' });
+  assert.equal(slow.moveMult, 0.4);
+  assert.equal(slow.cameraMult, 0.4);
+
+  const fast = resolveSpeedSettings({ ...TEST_SETTINGS, speedPreset: 'fast' });
+  assert.equal(fast.moveMult, 1.0);
+  assert.equal(fast.cameraMult, 1.0);
+
+  const custom = resolveSpeedSettings({
+    ...TEST_SETTINGS,
+    speedPreset: 'custom',
+    moveSpeedPercent: 34,
+    cameraSpeedPercent: 180,
+  });
+  assert.equal(custom.moveSpeedPercent, 30);
+  assert.equal(custom.cameraSpeedPercent, 150);
+  assert.equal(clampSteppedSpeedPercent(5), 10);
 });

@@ -33,6 +33,9 @@ import {
   GameSettings,
   GraphicsQuality,
   PlatformMode,
+  SPEED_PRESET_CONFIG,
+  clampSteppedSpeedPercent,
+  resolveSpeedSettings,
 } from '../game/types';
 import {
   STAGE_DEFINITIONS,
@@ -205,6 +208,9 @@ const DEFAULT_SETTINGS: GameSettings = {
   vrSmoothTurnSpeed: 2.0,
   vrMovementMode: 'smooth',
   vrComfortVignette: true,
+  speedPreset: 'normal',
+  moveSpeedPercent: 70,
+  cameraSpeedPercent: 70,
 };
 
 export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
@@ -1248,6 +1254,52 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             } else if (act === 'toggle_mute') {
               const m = sound.toggleMute();
               setIsMuted(m);
+            } else if (
+              act === 'speed_slow' ||
+              act === 'speed_normal' ||
+              act === 'speed_fast'
+            ) {
+              const preset =
+                act === 'speed_slow' ? 'slow' : act === 'speed_normal' ? 'normal' : 'fast';
+              const cfg = SPEED_PRESET_CONFIG[preset];
+              setSettings((prev) => ({
+                ...prev,
+                speedPreset: preset,
+                moveSpeedPercent: cfg.moveSpeedPercent,
+                cameraSpeedPercent: cfg.cameraSpeedPercent,
+              }));
+            } else if (act === 'speed_custom') {
+              setSettings((prev) => {
+                const info = resolveSpeedSettings(prev);
+                return {
+                  ...prev,
+                  speedPreset: 'custom',
+                  moveSpeedPercent: info.moveSpeedPercent,
+                  cameraSpeedPercent: info.cameraSpeedPercent,
+                };
+              });
+            } else if (act === 'move_speed_down' || act === 'move_speed_up') {
+              const delta = act === 'move_speed_up' ? 10 : -10;
+              setSettings((prev) => {
+                const info = resolveSpeedSettings(prev);
+                return {
+                  ...prev,
+                  speedPreset: 'custom',
+                  moveSpeedPercent: clampSteppedSpeedPercent(info.moveSpeedPercent + delta),
+                  cameraSpeedPercent: info.cameraSpeedPercent,
+                };
+              });
+            } else if (act === 'cam_speed_down' || act === 'cam_speed_up') {
+              const delta = act === 'cam_speed_up' ? 10 : -10;
+              setSettings((prev) => {
+                const info = resolveSpeedSettings(prev);
+                return {
+                  ...prev,
+                  speedPreset: 'custom',
+                  moveSpeedPercent: info.moveSpeedPercent,
+                  cameraSpeedPercent: clampSteppedSpeedPercent(info.cameraSpeedPercent + delta),
+                };
+              });
             }
           };
           dispatchVRMenuAction(action);
@@ -1305,7 +1357,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           Math.min(Math.PI / 2.2, cameraRot.current.pitch + cmd.lookDeltaY)
         );
 
-        const moveSpeed = 12.0 * pStats.moveSpeedMult;
+        const { moveMult } = resolveSpeedSettings(stateRef.current.settings);
+        const moveSpeed = 12.0 * pStats.moveSpeedMult * moveMult;
         _scratchWishDir.set(cmd.moveX, 0, cmd.moveZ);
 
         if (_scratchWishDir.lengthSq() > 0.001) {

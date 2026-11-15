@@ -1,5 +1,10 @@
 import * as THREE from 'three';
-import { GameSettings, GameState, RunSummary } from '../types';
+import {
+  GameSettings,
+  GameState,
+  RunSummary,
+  resolveSpeedSettings,
+} from '../types';
 import { STAGE_DEFINITIONS, getColorsByCategory } from '../rules';
 
 export type VRMenuAction =
@@ -15,7 +20,15 @@ export type VRMenuAction =
   | 'toggle_vr_turn'
   | 'toggle_vr_move'
   | 'toggle_vr_vignette'
-  | 'toggle_mute';
+  | 'toggle_mute'
+  | 'speed_slow'
+  | 'speed_normal'
+  | 'speed_fast'
+  | 'speed_custom'
+  | 'move_speed_down'
+  | 'move_speed_up'
+  | 'cam_speed_down'
+  | 'cam_speed_up';
 
 interface MenuButtonRect {
   id: VRMenuAction;
@@ -220,6 +233,7 @@ export class VRSpatialMenu {
   }
 
   private renderBoard(state: VRSpatialMenuState) {
+    const speedInfo = resolveSpeedSettings(state.settings);
     const sig = JSON.stringify({
       g: state.gameState,
       s: state.showSettings,
@@ -233,6 +247,9 @@ export class VRSpatialMenu {
       vig: state.settings.vrComfortVignette,
       mute: state.isMuted,
       ht: Boolean(state.isHandTracking),
+      sp: speedInfo.preset,
+      msp: speedInfo.moveSpeedPercent,
+      csp: speedInfo.cameraSpeedPercent,
     });
     if (sig === this.lastSignature || !this.ctx) return;
     this.lastSignature = sig;
@@ -496,12 +513,99 @@ export class VRSpatialMenu {
   }
 
   private drawSettingsBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
+    const speedInfo = resolveSpeedSettings(state.settings);
+
     ctx.textAlign = 'center';
     ctx.fillStyle = '#22d3ee';
-    ctx.font = '900 38px system-ui, sans-serif';
-    ctx.fillText('PENGATURAN VR', CANVAS_W / 2, 78);
+    ctx.font = '900 34px system-ui, sans-serif';
+    ctx.fillText('PENGATURAN VR', CANVAS_W / 2, 62);
 
-    const bw = 540;
+    // Baris Preset Kecepatan: LAMBAT | NORMAL | CEPAT | KUSTOM
+    const presetRowW = 860;
+    const presetRowX = (CANVAS_W - presetRowW) / 2;
+    const presetGap = 12;
+    const presetBtnW = (presetRowW - presetGap * 3) / 4;
+    const presets: { id: VRMenuAction; key: string; label: string }[] = [
+      { id: 'speed_slow', key: 'slow', label: 'LAMBAT 40%' },
+      { id: 'speed_normal', key: 'normal', label: 'NORMAL 70%' },
+      { id: 'speed_fast', key: 'fast', label: 'CEPAT 100%' },
+      { id: 'speed_custom', key: 'custom', label: 'KUSTOM' },
+    ];
+    presets.forEach((p, idx) => {
+      this.drawButton(ctx, {
+        id: p.id,
+        label: p.label,
+        x: presetRowX + idx * (presetBtnW + presetGap),
+        y: 94,
+        w: presetBtnW,
+        h: 52,
+        variant: speedInfo.preset === p.key ? 'primary' : 'secondary',
+      });
+    });
+
+    // Baris Stepper Kustom (per 10%): JALAN & KAMERA
+    const stepperY = 160;
+    const stepperH = 52;
+    const stepBtnW = 84;
+    const halfW = 418;
+    const leftX = presetRowX;
+    const rightX = presetRowX + presetRowW - halfW;
+
+    this.drawButton(ctx, {
+      id: 'move_speed_down',
+      label: '-10%',
+      x: leftX,
+      y: stepperY,
+      w: stepBtnW,
+      h: stepperH,
+      variant: 'secondary',
+    });
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '800 20px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `JALAN: ${speedInfo.moveSpeedPercent}%`,
+      leftX + halfW / 2,
+      stepperY + 33
+    );
+    this.drawButton(ctx, {
+      id: 'move_speed_up',
+      label: '+10%',
+      x: leftX + halfW - stepBtnW,
+      y: stepperY,
+      w: stepBtnW,
+      h: stepperH,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'cam_speed_down',
+      label: '-10%',
+      x: rightX,
+      y: stepperY,
+      w: stepBtnW,
+      h: stepperH,
+      variant: 'secondary',
+    });
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '800 20px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `KAMERA: ${speedInfo.cameraSpeedPercent}%`,
+      rightX + halfW / 2,
+      stepperY + 33
+    );
+    this.drawButton(ctx, {
+      id: 'cam_speed_up',
+      label: '+10%',
+      x: rightX + halfW - stepBtnW,
+      y: stepperY,
+      w: stepBtnW,
+      h: stepperH,
+      variant: 'secondary',
+    });
+
+    const bw = 560;
     const bx = (CANVAS_W - bw) / 2;
 
     this.drawButton(ctx, {
@@ -510,9 +614,9 @@ export class VRSpatialMenu {
         ? 'PUTARAN VR: SNAP (TANGAN KOSONG)'
         : `PUTARAN VR: ${state.settings.vrTurnMode === 'snap' ? 'SNAP' : 'HALUS'}`,
       x: bx,
-      y: 140,
+      y: 234,
       w: bw,
-      h: 66,
+      h: 54,
       variant: 'secondary',
     });
 
@@ -520,9 +624,9 @@ export class VRSpatialMenu {
       id: 'toggle_vr_move',
       label: `GERAK VR: ${state.settings.vrMovementMode === 'teleport' ? 'TELEPORT' : 'HALUS'}`,
       x: bx,
-      y: 224,
+      y: 300,
       w: bw,
-      h: 66,
+      h: 54,
       variant: 'secondary',
     });
 
@@ -530,9 +634,9 @@ export class VRSpatialMenu {
       id: 'toggle_vr_vignette',
       label: `VIGNETTE KENYAMANAN: ${state.settings.vrComfortVignette ? 'AKTIF' : 'MATI'}`,
       x: bx,
-      y: 308,
+      y: 366,
       w: bw,
-      h: 66,
+      h: 54,
       variant: 'secondary',
     });
 
@@ -540,9 +644,9 @@ export class VRSpatialMenu {
       id: 'toggle_mute',
       label: `SUARA GAME: ${state.isMuted ? 'MATI' : 'AKTIF'}`,
       x: bx,
-      y: 392,
+      y: 432,
       w: bw,
-      h: 66,
+      h: 54,
       variant: 'secondary',
     });
 
@@ -550,9 +654,9 @@ export class VRSpatialMenu {
       id: 'close_subpanel',
       label: 'SIMPAN & KEMBALI',
       x: bx,
-      y: 492,
+      y: 516,
       w: bw,
-      h: 72,
+      h: 68,
       variant: 'primary',
     });
   }
