@@ -180,39 +180,43 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
          ==================================================================== */}
       <div
         className={`absolute flex flex-col pointer-events-none ${
-          isMobile
-            ? 'top-3 left-3.5 gap-3'
-            : 'top-4 left-4 md:top-6 md:left-7 gap-3'
+          isMobilePortrait
+            ? 'top-3 left-2 gap-2 w-[104px]'
+            : isMobile
+              ? 'top-3 left-3.5 gap-2.5 w-[126px]'
+              : 'top-4 left-4 md:top-6 md:left-7 gap-3'
         }`}
       >
         {/* Kartu Stage & Bar Progres */}
         <div
           className={`bg-[#090d18]/92 border border-white/12 shadow-xl ${
-            isMobile
-              ? 'px-3 py-2 rounded-xl w-[126px]'
-              : 'px-4 py-3 rounded-2xl min-w-[170px] md:min-w-[200px]'
+            isMobilePortrait
+              ? 'px-2.5 py-1.5 rounded-xl w-full'
+              : isMobile
+                ? 'px-3 py-2 rounded-xl w-full'
+                : 'px-4 py-3 rounded-2xl min-w-[170px] md:min-w-[200px]'
           }`}
         >
           <div
             className={`flex items-center justify-between ${
-              isMobile ? 'gap-2 mb-1.5' : 'gap-3 mb-2'
+              isMobile ? 'gap-1.5 mb-1' : 'gap-3 mb-2'
             }`}
           >
             <span
               className={`font-extrabold uppercase tracking-wider text-cyan-400 ${
-                isMobile ? 'text-[10px]' : 'text-xs'
+                isMobilePortrait ? 'text-[9px]' : isMobile ? 'text-[10px]' : 'text-xs'
               }`}
             >
               {isBossActive ? 'TITAN' : `STAGE ${player.stage}`}
             </span>
             <span
               className={`font-bold tabular-nums text-white ${
-                isMobile ? 'text-xs' : 'text-sm'
+                isMobilePortrait ? 'text-[11px]' : isMobile ? 'text-xs' : 'text-sm'
               }`}
             >
               {isBossActive
                 ? `${Math.max(0, Math.round(bossHp || 0))}`
-                : `${player.stageKills} / ${stageDef.targetEliminations}`}
+                : `${player.stageKills}/${stageDef.targetEliminations}`}
             </span>
           </div>
 
@@ -232,31 +236,37 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           </div>
 
           <div
-            className={`mt-1.5 flex items-center justify-between gap-1.5 font-bold text-slate-300 ${
-              isMobile ? 'text-[9px]' : 'text-[10px]'
+            className={`mt-1 flex items-center justify-between gap-1 font-bold text-slate-300 ${
+              isMobilePortrait ? 'text-[8px]' : isMobile ? 'text-[9px]' : 'mt-1.5 text-[10px]'
             }`}
           >
-            <span className="truncate">{charProfile.name}</span>
-            <span className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 uppercase leading-none">
+            <span className="truncate">
+              {isMobilePortrait ? charProfile.name.replace('Agen ', '') : charProfile.name}
+            </span>
+            <span className="px-1 py-0.5 rounded bg-white/10 text-cyan-300 uppercase leading-none shrink-0">
               {diffCfg.label}
             </span>
           </div>
         </div>
 
-        {/* Di Mobile: Kartu HP & Shield berada langsung di bawah kartu Stage dengan jarak gap-3 (12px) */}
+        {/* Di Mobile: Kartu HP & Shield berada langsung di bawah kartu Stage dalam kolom kiri */}
         {isMobile && (
-          <div className="bg-[#090d18]/92 border border-white/12 shadow-xl px-3 py-2 rounded-xl w-[126px] pointer-events-auto">
+          <div
+            className={`bg-[#090d18]/92 border border-white/12 shadow-xl rounded-xl w-full pointer-events-auto ${
+              isMobilePortrait ? 'px-2.5 py-1.5' : 'px-3 py-2'
+            }`}
+          >
             {/* HP */}
-            <div className="flex items-center justify-between text-[10px] mb-1">
+            <div className="flex items-center justify-between text-[9px] mb-0.5">
               <div className="flex items-center gap-1 text-slate-300 font-bold">
-                <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
+                <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" />
                 <span>HP</span>
               </div>
-              <span className="font-extrabold tabular-nums text-white text-xs">
+              <span className="font-extrabold tabular-nums text-white text-[11px]">
                 {Math.round(player.hp)}
               </span>
             </div>
-            <div className="w-full bg-white/10 rounded-full overflow-hidden h-1.5 mb-2">
+            <div className="w-full bg-white/10 rounded-full overflow-hidden h-1.5 mb-1.5">
               <div
                 className="h-full bg-rose-500 transition-all duration-150"
                 style={{ width: `${hpPercent}%` }}
@@ -264,12 +274,12 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             </div>
 
             {/* SHIELD */}
-            <div className="flex items-center justify-between text-[10px] mb-1">
+            <div className="flex items-center justify-between text-[9px] mb-0.5">
               <div className="flex items-center gap-1 text-slate-300 font-bold">
-                <Shield className="w-3 h-3 text-cyan-400 fill-cyan-400/30" />
+                <Shield className="w-2.5 h-2.5 text-cyan-400 fill-cyan-400/30" />
                 <span>SHIELD</span>
               </div>
-              <span className="font-extrabold tabular-nums text-white text-xs">
+              <span className="font-extrabold tabular-nums text-white text-[11px]">
                 {Math.round(player.shield)}
               </span>
             </div>
@@ -289,143 +299,238 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       <div
         data-ui="true"
         className={`absolute flex flex-col items-end pointer-events-auto ${
-          isMobile
-            ? 'top-3 right-3.5 gap-3'
-            : 'top-4 right-4 md:top-6 md:right-7 gap-2.5'
+          isMobilePortrait
+            ? 'top-3 right-2 gap-2 w-[104px]'
+            : isMobile
+              ? 'top-3 right-3.5 gap-2.5'
+              : 'top-4 right-4 md:top-6 md:right-7 gap-2.5'
         }`}
       >
-        <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-2.5'}`}>
-          <div
-            className={`bg-[#090d18]/92 border border-white/12 flex items-center shadow-xl ${
-              isMobile
-                ? 'px-3 py-1.5 rounded-xl gap-2.5'
-                : 'px-4 py-2.5 rounded-2xl gap-4'
-            }`}
-          >
-            <div>
-              <span
-                className={`font-bold uppercase tracking-wider text-slate-400 block ${
-                  isMobile ? 'text-[9px]' : 'text-[10px]'
-                }`}
+        {isMobilePortrait ? (
+          /* === KHUSUS MOBILE PORTRAIT: KOLOM KANAN SIMETRIS 104PX AGAR TENGAH ATAS TERBUKA UNTUK TARGET === */
+          <>
+            {/* Baris 1 Kanan Portrait: 3 Tombol Utilitas Rapi */}
+            <div className="grid grid-cols-3 gap-1 w-full">
+              <button
+                type="button"
+                onClick={onToggleMute}
+                className="bg-[#090d18]/92 hover:bg-slate-900 border border-white/12 text-slate-200 p-1.5 rounded-xl flex items-center justify-center shadow-xl cursor-pointer"
+                aria-label={isMuted ? 'Aktifkan Suara' : 'Bisukan Suara'}
               >
-                SKOR
-              </span>
-              <span
-                className={`font-extrabold tabular-nums text-white leading-none ${
-                  isMobile ? 'text-sm' : 'text-lg md:text-xl'
-                }`}
+                {isMuted ? (
+                  <VolumeX className="w-3.5 h-3.5 text-slate-500" />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                )}
+              </button>
+
+              {onToggleFullscreen ? (
+                <button
+                  type="button"
+                  onClick={onToggleFullscreen}
+                  className="bg-[#090d18]/92 hover:bg-slate-900 border border-white/12 text-slate-200 p-1.5 rounded-xl flex items-center justify-center shadow-xl cursor-pointer"
+                  aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+                >
+                  {isFullscreen ? (
+                    <Minimize2 className="w-3.5 h-3.5 text-slate-300" />
+                  ) : (
+                    <Maximize2 className="w-3.5 h-3.5 text-cyan-400" />
+                  )}
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <button
+                type="button"
+                onClick={onPause}
+                className="bg-[#090d18]/92 hover:bg-slate-900 border border-white/12 text-slate-200 p-1.5 rounded-xl flex items-center justify-center shadow-xl cursor-pointer"
+                aria-label="Jeda"
               >
-                {player.score.toLocaleString('id-ID')}
-              </span>
+                <Pause className="w-3.5 h-3.5 text-cyan-400" />
+              </button>
             </div>
 
-            {player.combo > 0 && (
-              <>
-                <div className="h-5 w-px bg-white/12" />
-                <div className="text-right">
+            {/* Baris 2 Kanan Portrait: Kartu Skor & Kombo */}
+            <div className="bg-[#090d18]/92 border border-white/12 px-2 py-1.5 rounded-xl shadow-xl w-full flex items-center justify-between">
+              <div>
+                <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 block leading-none">
+                  SKOR
+                </span>
+                <span className="text-xs font-extrabold tabular-nums text-white leading-tight">
+                  {player.score.toLocaleString('id-ID')}
+                </span>
+              </div>
+              {player.combo > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md bg-cyan-400/15 border border-cyan-400/30 text-[9px] font-extrabold tabular-nums text-cyan-300 leading-none">
+                  {player.combo}x
+                </span>
+              )}
+            </div>
+
+            {/* Baris 3 Kanan Portrait: Kartu Visual 2D Senjata & Peluru */}
+            <div className="bg-[#090d18]/92 border border-white/12 px-2 py-1.5 rounded-xl shadow-xl w-full flex flex-col items-end">
+              <div className="flex items-center justify-between w-full gap-1">
+                <div className="w-12 h-6.5 rounded-lg bg-[#0b1122] border border-white/12 px-1 py-0.5 flex items-center justify-center shrink-0">
+                  <Weapon2DIcon weaponId={currentWeapon} />
+                </div>
+                <div className="flex flex-col items-end leading-none">
+                  <span className="text-[7px] font-extrabold uppercase tracking-wider text-slate-400 mb-0.5">
+                    PELURU
+                  </span>
+                  <span
+                    className={`text-sm font-black tabular-nums leading-none ${
+                      ammo <= 8 ? 'text-rose-400' : 'text-white'
+                    }`}
+                  >
+                    {ammo}
+                  </span>
+                </div>
+              </div>
+              {ammo === 0 && (
+                <span className="text-[8px] font-extrabold text-rose-400 tracking-wide mt-1">
+                  HABIS
+                </span>
+              )}
+            </div>
+          </>
+        ) : (
+          /* === TAMPILAN MOBILE LANDSCAPE & DESKTOP / VR === */
+          <>
+            <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-2.5'}`}>
+              <div
+                className={`bg-[#090d18]/92 border border-white/12 flex items-center shadow-xl ${
+                  isMobile
+                    ? 'px-3 py-1.5 rounded-xl gap-2.5'
+                    : 'px-4 py-2.5 rounded-2xl gap-4'
+                }`}
+              >
+                <div>
                   <span
                     className={`font-bold uppercase tracking-wider text-slate-400 block ${
                       isMobile ? 'text-[9px]' : 'text-[10px]'
                     }`}
                   >
-                    KOMBO
+                    SKOR
                   </span>
                   <span
-                    className={`font-extrabold tabular-nums text-cyan-400 leading-none ${
-                      isMobile ? 'text-xs' : 'text-base md:text-lg'
+                    className={`font-extrabold tabular-nums text-white leading-none ${
+                      isMobile ? 'text-sm' : 'text-lg md:text-xl'
                     }`}
                   >
-                    {player.combo}x{comboMult > 1 ? ` (x${comboMult})` : ''}
+                    {player.score.toLocaleString('id-ID')}
                   </span>
                 </div>
-              </>
-            )}
-          </div>
 
-          {platformMode === 'vr' && onExitVR && (
-            <button
-              type="button"
-              onClick={onExitVR}
-              className="bg-[#090d18]/90 hover:bg-slate-900 border border-rose-500/50 text-rose-300 px-3.5 py-3 rounded-2xl text-xs font-bold cursor-pointer transition-colors"
-            >
-              KELUAR VR
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onToggleMute}
-            className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl ${
-              isMobile ? 'p-2.5 rounded-xl' : 'p-3 rounded-2xl'
-            }`}
-            title="Suara [M]"
-            aria-label={isMuted ? 'Aktifkan Suara' : 'Bisukan Suara'}
-          >
-            {isMuted ? (
-              <VolumeX className="w-4 h-4 text-slate-500" />
-            ) : (
-              <Volume2 className="w-4 h-4 text-cyan-400" />
-            )}
-          </button>
-
-          {onToggleFullscreen && (
-            <button
-              type="button"
-              onClick={onToggleFullscreen}
-              className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl ${
-                isMobile ? 'p-2.5 rounded-xl' : 'p-3 rounded-2xl'
-              }`}
-              title={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
-              aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
-            >
-              {isFullscreen ? (
-                <Minimize2 className="w-4 h-4 text-slate-300" />
-              ) : (
-                <Maximize2 className="w-4 h-4 text-cyan-400" />
-              )}
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onPause}
-            className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl flex items-center gap-1.5 ${
-              isMobile ? 'p-2.5 rounded-xl' : 'p-3 rounded-2xl'
-            }`}
-            title="Jeda [Esc]"
-            aria-label="Jeda"
-          >
-            <Pause className="w-4 h-4 text-cyan-400" />
-            <GamepadBadge button="START" visible={isGamepadConnected} size="sm" />
-          </button>
-        </div>
-
-        {/* Di Mobile: Kartu Senjata 2D & Peluru berada langsung di bawah baris Skor/Tombol dengan gap-3 (12px) */}
-        {isMobile && (
-          <div className="bg-[#090d18]/92 border border-white/12 px-3 py-2 rounded-xl shadow-xl flex flex-col items-end">
-            <div className="flex items-center gap-2.5">
-              <div className="w-15 h-8 rounded-lg bg-[#0b1122] border border-white/12 px-1.5 py-0.5 flex items-center justify-center shrink-0">
-                <Weapon2DIcon weaponId={currentWeapon} />
+                {player.combo > 0 && (
+                  <>
+                    <div className="h-5 w-px bg-white/12" />
+                    <div className="text-right">
+                      <span
+                        className={`font-bold uppercase tracking-wider text-slate-400 block ${
+                          isMobile ? 'text-[9px]' : 'text-[10px]'
+                        }`}
+                      >
+                        KOMBO
+                      </span>
+                      <span
+                        className={`font-extrabold tabular-nums text-cyan-400 leading-none ${
+                          isMobile ? 'text-xs' : 'text-base md:text-lg'
+                        }`}
+                      >
+                        {player.combo}x{comboMult > 1 ? ` (x${comboMult})` : ''}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="flex flex-col items-end leading-none">
-                <span className="text-[8px] font-extrabold uppercase tracking-wider text-slate-400 mb-0.5">
-                  PELURU
-                </span>
-                <span
-                  className={`text-lg font-black tabular-nums leading-none ${
-                    ammo <= 8 ? 'text-rose-400' : 'text-white'
-                  }`}
+
+              {platformMode === 'vr' && onExitVR && (
+                <button
+                  type="button"
+                  onClick={onExitVR}
+                  className="bg-[#090d18]/90 hover:bg-slate-900 border border-rose-500/50 text-rose-300 px-3.5 py-3 rounded-2xl text-xs font-bold cursor-pointer transition-colors"
                 >
-                  {ammo}
-                </span>
-              </div>
+                  KELUAR VR
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onToggleMute}
+                className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl ${
+                  isMobile ? 'p-2.5 rounded-xl' : 'p-3 rounded-2xl'
+                }`}
+                title="Suara [M]"
+                aria-label={isMuted ? 'Aktifkan Suara' : 'Bisukan Suara'}
+              >
+                {isMuted ? (
+                  <VolumeX className="w-4 h-4 text-slate-500" />
+                ) : (
+                  <Volume2 className="w-4 h-4 text-cyan-400" />
+                )}
+              </button>
+
+              {onToggleFullscreen && (
+                <button
+                  type="button"
+                  onClick={onToggleFullscreen}
+                  className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl ${
+                    isMobile ? 'p-2.5 rounded-xl' : 'p-3 rounded-2xl'
+                  }`}
+                  title={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+                  aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+                >
+                  {isFullscreen ? (
+                    <Minimize2 className="w-4 h-4 text-slate-300" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4 text-cyan-400" />
+                  )}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onPause}
+                className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl flex items-center gap-1.5 ${
+                  isMobile ? 'p-2.5 rounded-xl' : 'p-3 rounded-2xl'
+                }`}
+                title="Jeda [Esc]"
+                aria-label="Jeda"
+              >
+                <Pause className="w-4 h-4 text-cyan-400" />
+                <GamepadBadge button="START" visible={isGamepadConnected} size="sm" />
+              </button>
             </div>
-            {ammo === 0 && (
-              <span className="text-[9px] font-extrabold text-rose-400 tracking-wide mt-1">
-                PELURU HABIS
-              </span>
+
+            {/* Di Mobile Landscape: Kartu Senjata 2D & Peluru berada langsung di bawah baris Skor/Tombol */}
+            {isMobile && (
+              <div className="bg-[#090d18]/92 border border-white/12 px-3 py-2 rounded-xl shadow-xl flex flex-col items-end">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-15 h-8 rounded-lg bg-[#0b1122] border border-white/12 px-1.5 py-0.5 flex items-center justify-center shrink-0">
+                    <Weapon2DIcon weaponId={currentWeapon} />
+                  </div>
+                  <div className="flex flex-col items-end leading-none">
+                    <span className="text-[8px] font-extrabold uppercase tracking-wider text-slate-400 mb-0.5">
+                      PELURU
+                    </span>
+                    <span
+                      className={`text-lg font-black tabular-nums leading-none ${
+                        ammo <= 8 ? 'text-rose-400' : 'text-white'
+                      }`}
+                    >
+                      {ammo}
+                    </span>
+                  </div>
+                </div>
+                {ammo === 0 && (
+                  <span className="text-[9px] font-extrabold text-rose-400 tracking-wide mt-1">
+                    PELURU HABIS
+                  </span>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
@@ -435,7 +540,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       <div
         className={`absolute left-1/2 -translate-x-1/2 flex flex-col items-center ${
           isMobilePortrait
-            ? 'top-[172px] mt-[env(safe-area-inset-top,0px)] gap-2'
+            ? 'top-11 mt-[env(safe-area-inset-top,0px)] gap-1.5'
             : isMobile
               ? 'top-3 gap-2'
               : 'top-20 md:top-6 gap-2'
@@ -444,28 +549,30 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
         <div
           data-ui="true"
           className={`bg-[#090d18]/92 border border-white/15 shadow-2xl pointer-events-auto flex flex-col items-center ${
-            platformMode === 'mobile'
-              ? 'px-2.5 py-1.5 rounded-xl'
-              : 'px-5 py-3 rounded-2xl'
+            isMobilePortrait
+              ? 'px-2 py-1.5 rounded-xl'
+              : isMobile
+                ? 'px-2.5 py-1.5 rounded-xl'
+                : 'px-5 py-3 rounded-2xl'
           }`}
         >
           {clue.displayMode === 'direct' ? (
             /* STAGE 1 — SATU KOTAK POLOS BERWARNA */
             <div
               className={`flex items-center ${
-                platformMode === 'mobile' ? 'gap-2' : 'gap-3.5'
+                isMobile ? 'gap-2' : 'gap-3.5'
               }`}
             >
               <span
                 className={`font-extrabold uppercase tracking-widest text-slate-300 ${
-                  platformMode === 'mobile' ? 'text-[10px]' : 'text-xs'
+                  isMobilePortrait ? 'text-[9px]' : isMobile ? 'text-[10px]' : 'text-xs'
                 }`}
               >
                 TARGET
               </span>
               <div
                 className={`border-2 border-white shadow-lg ${
-                  platformMode === 'mobile'
+                  isMobile
                     ? 'w-7 h-7 rounded-lg'
                     : 'w-12 h-12 md:w-14 md:h-14 rounded-xl'
                 }`}
@@ -477,22 +584,24 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             <div className="flex flex-col items-center">
               <div
                 className={`flex items-center ${
-                  platformMode === 'mobile' ? 'gap-1.5' : 'gap-3 md:gap-3.5'
+                  isMobilePortrait ? 'gap-1' : isMobile ? 'gap-1.5' : 'gap-3 md:gap-3.5'
                 }`}
               >
                 {/* Kotak Polos Warna 1 */}
                 <div
                   className={`border-2 border-white shadow-md ${
-                    platformMode === 'mobile'
-                      ? 'w-7 h-7 rounded-lg'
-                      : 'w-11 h-11 md:w-13 md:h-13 rounded-xl'
+                    isMobilePortrait
+                      ? 'w-5.5 h-5.5 rounded-md'
+                      : isMobile
+                        ? 'w-7 h-7 rounded-lg'
+                        : 'w-11 h-11 md:w-13 md:h-13 rounded-xl'
                   }`}
                   style={{ backgroundColor: clue.ingredient1?.hex }}
                 />
 
                 <span
                   className={`font-black text-cyan-400 ${
-                    platformMode === 'mobile' ? 'text-sm' : 'text-xl md:text-2xl'
+                    isMobilePortrait ? 'text-[11px]' : isMobile ? 'text-sm' : 'text-xl md:text-2xl'
                   }`}
                 >
                   +
@@ -501,16 +610,18 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
                 {/* Kotak Polos Warna 2 */}
                 <div
                   className={`border-2 border-white shadow-md ${
-                    platformMode === 'mobile'
-                      ? 'w-7 h-7 rounded-lg'
-                      : 'w-11 h-11 md:w-13 md:h-13 rounded-xl'
+                    isMobilePortrait
+                      ? 'w-5.5 h-5.5 rounded-md'
+                      : isMobile
+                        ? 'w-7 h-7 rounded-lg'
+                        : 'w-11 h-11 md:w-13 md:h-13 rounded-xl'
                   }`}
                   style={{ backgroundColor: clue.ingredient2?.hex }}
                 />
 
                 <span
                   className={`font-black text-slate-400 ${
-                    platformMode === 'mobile' ? 'text-sm' : 'text-xl md:text-2xl'
+                    isMobilePortrait ? 'text-[11px]' : isMobile ? 'text-sm' : 'text-xl md:text-2xl'
                   }`}
                 >
                   =
@@ -519,9 +630,11 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
                 {/* Kotak Misteri ? */}
                 <div
                   className={`bg-white/5 border-2 border-cyan-400/70 flex items-center justify-center font-black text-cyan-300 ${
-                    platformMode === 'mobile'
-                      ? 'w-7 h-7 rounded-lg text-sm'
-                      : 'w-11 h-11 md:w-13 md:h-13 rounded-xl text-xl'
+                    isMobilePortrait
+                      ? 'w-5.5 h-5.5 rounded-md text-[11px]'
+                      : isMobile
+                        ? 'w-7 h-7 rounded-lg text-sm'
+                        : 'w-11 h-11 md:w-13 md:h-13 rounded-xl text-xl'
                   }`}
                 >
                   ?
@@ -533,16 +646,22 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
                     onClick={onToggleHint}
                     title="Petunjuk [H]"
                     className={`border transition-colors cursor-pointer flex items-center gap-1 ${
-                      platformMode === 'mobile'
-                        ? 'ml-0.5 p-1.5 rounded-lg'
-                        : 'ml-1 p-2 rounded-xl'
+                      isMobilePortrait
+                        ? 'ml-0.5 p-1 rounded-md'
+                        : isMobile
+                          ? 'ml-0.5 p-1.5 rounded-lg'
+                          : 'ml-1 p-2 rounded-xl'
                     } ${
                       showHint
                         ? 'bg-cyan-400 text-slate-950 border-cyan-300'
                         : 'bg-white/5 border-white/15 text-slate-300 hover:text-white'
                     }`}
                   >
-                    <HelpCircle className={platformMode === 'mobile' ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+                    <HelpCircle
+                      className={
+                        isMobilePortrait ? 'w-3 h-3' : isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'
+                      }
+                    />
                     <GamepadBadge button="BACK" visible={isGamepadConnected} size="sm" />
                   </button>
                 )}
