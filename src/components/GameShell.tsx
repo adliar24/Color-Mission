@@ -3083,6 +3083,30 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                   <span>MULAI MISI</span>
                 </button>
 
+                {/* Tombol Khusus Pemilihan Tingkat Kesulitan di Main Menu */}
+                <div className="grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl bg-white/5 border border-white/12 w-full">
+                  {(['easy', 'normal', 'hard'] as DifficultyLevel[]).map((diffId) => {
+                    const cfg = DIFFICULTY_REGISTRY[diffId];
+                    const active = (settings.difficulty ?? 'normal') === diffId;
+                    return (
+                      <button
+                        key={diffId}
+                        type="button"
+                        onClick={() =>
+                          setSettings((prev) => ({ ...prev, difficulty: diffId }))
+                        }
+                        className={`h-9 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                          active
+                            ? 'bg-white text-slate-950 shadow-sm'
+                            : 'text-slate-300 hover:text-white hover:bg-white/8'
+                        }`}
+                      >
+                        {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 w-full">
                   <button
                     type="button"
@@ -3301,16 +3325,12 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         />
       </AnimatedPresence>
 
-      {/* === MODAL PEMILIHAN KARAKTER & TINGKAT KESULITAN SEBELUM MULAI MISI === */}
+      {/* === MODAL PEMILIHAN 2 KARAKTER SEBELUM MULAI MISI === */}
       <AnimatedPresence show={showMissionSetup}>
         <MissionSetupModal
           selectedCharacter={settings.characterId ?? 'raka'}
-          selectedDifficulty={settings.difficulty ?? 'normal'}
           onSelectCharacter={(characterId) =>
             setSettings((prev) => ({ ...prev, characterId }))
-          }
-          onSelectDifficulty={(difficulty) =>
-            setSettings((prev) => ({ ...prev, difficulty }))
           }
           onConfirmStart={() => {
             setShowMissionSetup(false);
