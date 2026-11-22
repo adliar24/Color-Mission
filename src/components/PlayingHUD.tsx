@@ -13,6 +13,7 @@ import {
 import {
   CHARACTER_REGISTRY,
   DIFFICULTY_REGISTRY,
+  WEAPON_REGISTRY,
   buildColorInstructionClue,
   getColorDef,
   getComboMultiplier,
@@ -30,6 +31,7 @@ import {
   Minimize2,
 } from 'lucide-react';
 import { GamepadBadge } from './GamepadBadge';
+import { Weapon2DIcon } from './Weapon2DIcon';
 
 interface PlayingHUDProps {
   player: PlayerStats;
@@ -698,7 +700,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       </div>
 
       {/* ====================================================================
-          BAGIAN BAWAH KANAN: AMUNISI & SENJATA
+          BAGIAN BAWAH KANAN: AMUNISI & SENJATA (DENGAN VISUAL 2D SENJATA AKTIF)
          ==================================================================== */}
       <div
         data-ui="true"
@@ -709,11 +711,29 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
         <div
           className={`bg-[#090d18]/92 border border-white/12 flex flex-col items-end shadow-xl ${
             platformMode === 'mobile'
-              ? 'px-3 py-1.5 rounded-xl min-w-[96px]'
-              : 'px-5 py-3.5 rounded-2xl min-w-[160px] md:min-w-[190px]'
+              ? 'px-2.5 py-1.5 rounded-xl min-w-[112px]'
+              : 'px-4 py-3 rounded-2xl min-w-[175px] md:min-w-[210px]'
           }`}
         >
-          <div className="flex items-baseline justify-between w-full gap-2.5">
+          {/* Visual 2D Senjata yang Sedang Dipakai */}
+          <div className="w-full flex flex-col items-center mb-2">
+            <div
+              className={`w-full rounded-xl bg-[#0b1122] border border-white/12 flex items-center justify-center ${
+                platformMode === 'mobile' ? 'h-9 px-1.5 py-0.5' : 'h-14 px-2.5 py-1'
+              }`}
+            >
+              <Weapon2DIcon weaponId={currentWeapon} />
+            </div>
+            <span
+              className={`font-black uppercase tracking-wider text-cyan-300 truncate max-w-full mt-1 ${
+                platformMode === 'mobile' ? 'text-[9px]' : 'text-[11px]'
+              }`}
+            >
+              {WEAPON_REGISTRY[currentWeapon].name}
+            </span>
+          </div>
+
+          <div className="flex items-baseline justify-between w-full gap-2.5 pt-1.5 border-t border-white/10">
             <span
               className={`font-extrabold uppercase tracking-wider text-slate-400 ${
                 platformMode === 'mobile' ? 'text-[10px]' : 'text-xs'
@@ -736,7 +756,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           )}
 
           {(platformMode !== 'mobile' || isGamepadConnected) && unlockedWeapons.length > 1 && (
-            <div className="flex items-center gap-1.5 w-full mt-3 pt-2.5 border-t border-white/10">
+            <div className="flex items-center gap-1.5 w-full mt-2.5 pt-2 border-t border-white/10">
               {isGamepadConnected && <GamepadBadge button="Y" visible size="sm" />}
               <div
                 className={`grid gap-1.5 flex-1 ${
