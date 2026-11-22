@@ -139,7 +139,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         onTouchCancel={handleLookEnd}
       />
 
-      {/* KIRI BAWAH: Virtual Joystick Transparan Tanpa Teks */}
+      {/* KIRI BAWAH: Virtual Joystick Transparan Tanpa Teks (Dinaikkan sedikit agar lebih ergonomis di Landscape & Portrait) */}
       <div
         ref={joystickBaseRef}
         data-ui="true"
@@ -147,7 +147,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         onTouchMove={handleJoystickMove}
         onTouchEnd={handleJoystickEnd}
         onTouchCancel={handleJoystickEnd}
-        className="absolute bottom-8 left-6 sm:left-10 w-28 h-28 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
+        className="absolute bottom-14 left-6 sm:left-10 w-28 h-28 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
       >
         <div className="w-16 h-16 rounded-full border border-white/15" />
         <div
@@ -158,10 +158,10 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         />
       </div>
 
-      {/* KANAN BAWAH: Tombol Aksi Transparan (Hanya Ikon) */}
+      {/* KANAN BAWAH: Tombol Aksi Transparan (Dinaikkan sedikit sejajar dengan Virtual Joystick) */}
       <div
         data-ui="true"
-        className="absolute bottom-8 right-6 sm:right-10 flex flex-col items-end gap-3 pointer-events-auto"
+        className="absolute bottom-14 right-6 sm:right-10 flex flex-col items-end gap-3 pointer-events-auto"
       >
         {unlockedWeapons.length > 1 && (
           <div className="flex gap-2 bg-slate-950/45 p-1.5 rounded-xl border border-white/15">

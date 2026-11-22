@@ -820,8 +820,8 @@ export class EnemyManager {
 
     const telegraph = makeSharedMesh(geos.unitSphereGeo, coreGlowMat);
     telegraph.name = 'attack_telegraph';
-    telegraph.position.set(0, 1.18, 0.85);
-    telegraph.scale.setScalar(def.projectileSize);
+    telegraph.position.set(0, 1.18, 0.65);
+    telegraph.scale.setScalar(def.projectileSize * 0.4);
     telegraph.visible = false;
     bodyGroup.add(telegraph);
 
@@ -1065,12 +1065,10 @@ export class EnemyManager {
       headPivot.add(horn);
     }
 
-    const telegraph = new THREE.Mesh(
-      new THREE.SphereGeometry(def.projectileSize, 10, 10),
-      corePureMat
-    );
+    const telegraph = makeSharedMesh(geos.unitSphereGeo, corePureMat);
     telegraph.name = 'attack_telegraph';
-    telegraph.position.set(0, 3.65, 2.3);
+    telegraph.position.set(0, 3.65, 2.0);
+    telegraph.scale.setScalar(def.projectileSize * 0.4);
     telegraph.visible = false;
     bodyGroup.add(telegraph);
 
@@ -1594,10 +1592,14 @@ export class EnemyManager {
 
         if (e.telegraphMesh) {
           e.telegraphMesh.visible = true;
-          const pulse = 0.5 + chargeRatio * 0.7;
+          // Skala dikalikan dengan def.projectileSize agar ukuran bola pengisian tidak membesar melebihi peluru asli
+          const pulse = (0.35 + chargeRatio * 0.65) * def.projectileSize;
           e.telegraphMesh.scale.setScalar(pulse);
         }
       } else if (e.attackAnimTimer > 0) {
+        if (e.telegraphMesh && e.telegraphMesh.visible) {
+          e.telegraphMesh.visible = false;
+        }
         // Recoil lengan & siku sesaat setelah menembak
         e.attackAnimTimer = Math.max(0, e.attackAnimTimer - dt);
         e.rig.leftArmPivot.rotation.x = -0.28;
@@ -1605,6 +1607,9 @@ export class EnemyManager {
         e.rig.leftForearmPivot.rotation.x = -0.62;
         e.rig.rightForearmPivot.rotation.x = -0.62;
       } else {
+        if (e.telegraphMesh && e.telegraphMesh.visible) {
+          e.telegraphMesh.visible = false;
+        }
         // Ayunan lengan & tekukan siku dinamis berlawanan fase dengan kaki
         const armAmp = isBoss ? 0.24 : 0.38;
         const armSwingL = isWalking
@@ -1657,7 +1662,7 @@ export class EnemyManager {
         e.attackAnimTimer = 0.25;
         if (e.telegraphMesh) {
           e.telegraphMesh.visible = false;
-          e.telegraphMesh.scale.setScalar(1);
+          e.telegraphMesh.scale.setScalar(def.projectileSize * 0.35);
         }
       }
     }
