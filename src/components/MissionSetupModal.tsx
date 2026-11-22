@@ -64,7 +64,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                 }`}
               >
                 {/* Ruang Gambar Karakter */}
-                <div className="relative w-full aspect-[4/5] max-h-56 rounded-xl overflow-hidden bg-[#050811] border border-white/10 flex items-center justify-center">
+                <div className="relative w-full aspect-square max-h-60 rounded-xl overflow-hidden bg-[#050811] border border-white/10 p-1.5 flex items-center justify-center">
                   {!imgFailed ? (
                     <img
                       src={profile.imagePath}
@@ -72,7 +72,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                       onError={() =>
                         setFailedImages((prev) => ({ ...prev, [charId]: true }))
                       }
-                      className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-103"
+                      className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-105 drop-shadow-[0_6px_16px_rgba(0,0,0,0.45)]"
                     />
                   ) : (
                     <div
