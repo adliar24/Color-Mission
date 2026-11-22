@@ -42,6 +42,8 @@ import {
   mixRYBColors,
 } from './lkpd';
 import { getBgmProfile } from './audio';
+import * as THREE from 'three';
+import { EnemyManager } from './engine/enemies';
 
 const TEST_SETTINGS: GameSettings = {
   mouseSensitivity: 1.0,
@@ -536,4 +538,43 @@ test('resolveAudioSettings & clampAudioPercent menjaga default BGM lebih tinggi 
   const custom = resolveAudioSettings({ bgmVolumePercent: 92, sfxVolumePercent: 34 });
   assert.equal(custom.bgmVolumePercent, 90);
   assert.equal(custom.sfxVolumePercent, 35);
+});
+
+test('EnemyManager membangun model 3D stylized Chromabot & CHROMA TITAN memakai cache geometri bersama yang ringan', () => {
+  const scene = new THREE.Scene();
+  const manager = new EnemyManager(scene);
+
+  const unitA = manager.spawnEnemy('chromabot_normal', 'red', new THREE.Vector3(0, 0, -5));
+  const unitB = manager.spawnEnemy('chromabot_elite', 'orange', new THREE.Vector3(3, 0, -6));
+  const boss = manager.spawnEnemy('chroma_titan', 'blue', new THREE.Vector3(0, 0, -14));
+
+  assert.ok(unitA.rig.chestCore);
+  assert.ok(unitB.rig.chestCore);
+  assert.ok(boss.rig.chestCore);
+  assert.ok(boss.rig.coreRingOuter);
+  assert.ok(boss.rig.coreRingInner);
+
+  const unitMeshGeos: THREE.BufferGeometry[] = [];
+  unitA.mesh.traverse((child) => {
+    const m = child as THREE.Mesh;
+    if (m.isMesh && m.userData?.sharedGeo) {
+      unitMeshGeos.push(m.geometry);
+    }
+  });
+  assert.ok(unitMeshGeos.length >= 20);
+
+  let sharedMatches = 0;
+  unitB.mesh.traverse((child) => {
+    const m = child as THREE.Mesh;
+    if (m.isMesh && m.userData?.sharedGeo && unitMeshGeos.includes(m.geometry)) {
+      sharedMatches++;
+    }
+  });
+  assert.ok(sharedMatches >= 20, 'Unit dan Elite berbagi BufferGeometry bersama tanpa duplikasi');
+
+  manager.setEnemyColor(unitA, 'purple');
+  assert.equal(unitA.colorId, 'purple');
+
+  manager.clearAll();
+  assert.equal(manager.enemies.length, 0);
 });

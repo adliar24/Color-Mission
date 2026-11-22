@@ -13,7 +13,9 @@ export function disposeHierarchy(obj: THREE.Object3D) {
   obj.traverse((child) => {
     if ((child as THREE.Mesh).isMesh) {
       const mesh = child as THREE.Mesh;
-      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.geometry && !mesh.userData?.sharedGeo) {
+        mesh.geometry.dispose();
+      }
       if (mesh.material) {
         if (Array.isArray(mesh.material)) {
           mesh.material.forEach((m) => m.dispose());
@@ -23,6 +25,269 @@ export function disposeHierarchy(obj: THREE.Object3D) {
       }
     }
   });
+}
+
+function createChamferedPlateGeo(
+  width: number,
+  height: number,
+  depth: number,
+  chamfer: number = 0.06,
+  bevel: number = 0.03
+): THREE.BufferGeometry {
+  const hw = Math.max(0.02, width / 2 - bevel);
+  const hh = Math.max(0.02, height / 2 - bevel);
+  const c = Math.min(chamfer, hw * 0.6, hh * 0.6);
+
+  const shape = new THREE.Shape();
+  shape.moveTo(-hw + c, -hh);
+  shape.lineTo(hw - c, -hh);
+  shape.lineTo(hw, -hh + c);
+  shape.lineTo(hw, hh - c);
+  shape.lineTo(hw - c, hh);
+  shape.lineTo(-hw + c, hh);
+  shape.lineTo(-hw, hh - c);
+  shape.lineTo(-hw, -hh + c);
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: Math.max(0.01, depth - bevel * 2),
+    bevelEnabled: true,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    bevelSegments: 1,
+    curveSegments: 2,
+  });
+  geo.center();
+  return geo;
+}
+
+function createEliteCrestGeo(): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.2, -0.02);
+  shape.lineTo(0.18, -0.02);
+  shape.lineTo(0.12, 0.24);
+  shape.lineTo(-0.08, 0.27);
+  shape.lineTo(-0.22, 0.08);
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.07,
+    bevelEnabled: true,
+    bevelThickness: 0.02,
+    bevelSize: 0.02,
+    bevelSegments: 1,
+  });
+  geo.center();
+  // Putar agar sirip memanjang di sumbu Z (depan-belakang)
+  geo.rotateY(Math.PI / 2);
+  return geo;
+}
+
+function createTitanWingGeo(): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, -0.42);
+  shape.lineTo(1.25, -0.18);
+  shape.lineTo(1.42, 0.68);
+  shape.lineTo(0.18, 0.44);
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.34,
+    bevelEnabled: true,
+    bevelThickness: 0.05,
+    bevelSize: 0.05,
+    bevelSegments: 1,
+  });
+  geo.center();
+  return geo;
+}
+
+function createSweptHornGeo(): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.14, -0.2);
+  shape.lineTo(0.18, -0.14);
+  shape.lineTo(0.46, 0.28);
+  shape.lineTo(0.38, 0.92);
+  shape.lineTo(0.16, 0.56);
+  shape.lineTo(0.06, 0.16);
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: 0.2,
+    bevelEnabled: true,
+    bevelThickness: 0.03,
+    bevelSize: 0.03,
+    bevelSegments: 1,
+  });
+  geo.center();
+  return geo;
+}
+
+interface SharedEnemyGeometryBank {
+  // Chromabot shared geos
+  botHipJoint: THREE.BufferGeometry;
+  botThigh: THREE.BufferGeometry;
+  botKneeBall: THREE.BufferGeometry;
+  botKneePlate: THREE.BufferGeometry;
+  botShin: THREE.BufferGeometry;
+  botFootUpper: THREE.BufferGeometry;
+  botFootSole: THREE.BufferGeometry;
+  botPelvis: THREE.BufferGeometry;
+  botWaistCore: THREE.BufferGeometry;
+  botChest: THREE.BufferGeometry;
+  botCollar: THREE.BufferGeometry;
+  botBackpack: THREE.BufferGeometry;
+  botPackVent: THREE.BufferGeometry;
+  botCoreFrame: THREE.BufferGeometry;
+  botCoreRing: THREE.BufferGeometry;
+  botChestGem: THREE.BufferGeometry;
+  botShoulderBall: THREE.BufferGeometry;
+  botShoulderCap: THREE.BufferGeometry;
+  botElitePauldron: THREE.BufferGeometry;
+  botElitePauldronTrim: THREE.BufferGeometry;
+  botUpperArm: THREE.BufferGeometry;
+  botElbowBall: THREE.BufferGeometry;
+  botForearm: THREE.BufferGeometry;
+  botWristCuff: THREE.BufferGeometry;
+  botPalm: THREE.BufferGeometry;
+  botHandGuard: THREE.BufferGeometry;
+  botFingers: THREE.BufferGeometry;
+  botHeadDome: THREE.BufferGeometry;
+  botBrowPlate: THREE.BufferGeometry;
+  botJawGuard: THREE.BufferGeometry;
+  botVisorArc: THREE.BufferGeometry;
+  botEye: THREE.BufferGeometry;
+  botEarOuter: THREE.BufferGeometry;
+  botEarInner: THREE.BufferGeometry;
+  botEliteCrest: THREE.BufferGeometry;
+  botEliteGorget: THREE.BufferGeometry;
+  // Titan shared geos
+  titanThigh: THREE.BufferGeometry;
+  titanKneeHex: THREE.BufferGeometry;
+  titanKneeTrim: THREE.BufferGeometry;
+  titanShin: THREE.BufferGeometry;
+  titanBoot: THREE.BufferGeometry;
+  titanBootToe: THREE.BufferGeometry;
+  titanWaist: THREE.BufferGeometry;
+  titanChestHull: THREE.BufferGeometry;
+  titanChestPlate: THREE.BufferGeometry;
+  titanCollarRim: THREE.BufferGeometry;
+  titanWing: THREE.BufferGeometry;
+  titanBackpack: THREE.BufferGeometry;
+  titanCoreHousing: THREE.BufferGeometry;
+  titanCoreBezel: THREE.BufferGeometry;
+  titanCoreRingOuter: THREE.BufferGeometry;
+  titanCoreRingInner: THREE.BufferGeometry;
+  titanChestGem: THREE.BufferGeometry;
+  titanPauldronBody: THREE.BufferGeometry;
+  titanPauldronTrim: THREE.BufferGeometry;
+  titanUpperArm: THREE.BufferGeometry;
+  titanElbowCuff: THREE.BufferGeometry;
+  titanCannonBarrel: THREE.BufferGeometry;
+  titanCannonSleeve: THREE.BufferGeometry;
+  titanCannonFin: THREE.BufferGeometry;
+  titanMuzzleRing: THREE.BufferGeometry;
+  titanMuzzleGlow: THREE.BufferGeometry;
+  titanHelm: THREE.BufferGeometry;
+  titanVisor: THREE.BufferGeometry;
+  titanHorn: THREE.BufferGeometry;
+}
+
+let cachedEnemyGeos: SharedEnemyGeometryBank | null = null;
+
+function getSharedEnemyGeometries(): SharedEnemyGeometryBank {
+  if (cachedEnemyGeos) return cachedEnemyGeos;
+
+  const botVisorArc = new THREE.CylinderGeometry(
+    0.295,
+    0.285,
+    0.19,
+    12,
+    1,
+    false,
+    -Math.PI * 0.36,
+    Math.PI * 0.72
+  );
+
+  cachedEnemyGeos = {
+    botHipJoint: new THREE.SphereGeometry(0.105, 8, 8),
+    botThigh: new THREE.CylinderGeometry(0.095, 0.082, 0.28, 10),
+    botKneeBall: new THREE.SphereGeometry(0.095, 8, 8),
+    botKneePlate: createChamferedPlateGeo(0.18, 0.16, 0.08, 0.04, 0.02),
+    botShin: new THREE.CylinderGeometry(0.135, 0.095, 0.32, 10),
+    botFootUpper: createChamferedPlateGeo(0.22, 0.12, 0.31, 0.05, 0.025),
+    botFootSole: new THREE.BoxGeometry(0.23, 0.045, 0.33),
+    botPelvis: createChamferedPlateGeo(0.46, 0.18, 0.34, 0.07, 0.03),
+    botWaistCore: new THREE.CylinderGeometry(0.21, 0.24, 0.22, 10),
+    botChest: createChamferedPlateGeo(0.84, 0.48, 0.56, 0.14, 0.06),
+    botCollar: new THREE.CylinderGeometry(0.29, 0.37, 0.12, 12),
+    botBackpack: createChamferedPlateGeo(0.44, 0.38, 0.22, 0.07, 0.03),
+    botPackVent: new THREE.CylinderGeometry(0.065, 0.08, 0.1, 8),
+    botCoreFrame: new THREE.CylinderGeometry(0.185, 0.185, 0.08, 14),
+    botCoreRing: new THREE.TorusGeometry(0.155, 0.018, 6, 16),
+    botChestGem: new THREE.IcosahedronGeometry(0.13, 0),
+    botShoulderBall: new THREE.SphereGeometry(0.12, 8, 8),
+    botShoulderCap: new THREE.SphereGeometry(0.175, 10, 10),
+    botElitePauldron: createChamferedPlateGeo(0.32, 0.18, 0.38, 0.07, 0.03),
+    botElitePauldronTrim: createChamferedPlateGeo(0.34, 0.06, 0.4, 0.05, 0.015),
+    botUpperArm: new THREE.CylinderGeometry(0.072, 0.068, 0.24, 8),
+    botElbowBall: new THREE.SphereGeometry(0.082, 8, 8),
+    botForearm: new THREE.CylinderGeometry(0.105, 0.128, 0.28, 10),
+    botWristCuff: new THREE.CylinderGeometry(0.105, 0.105, 0.06, 10),
+    botPalm: new THREE.BoxGeometry(0.11, 0.11, 0.12),
+    botHandGuard: createChamferedPlateGeo(0.12, 0.1, 0.11, 0.03, 0.015),
+    botFingers: new THREE.BoxGeometry(0.08, 0.09, 0.09),
+    botHeadDome: new THREE.SphereGeometry(0.315, 14, 12),
+    botBrowPlate: createChamferedPlateGeo(0.42, 0.08, 0.16, 0.04, 0.02),
+    botJawGuard: createChamferedPlateGeo(0.46, 0.13, 0.36, 0.08, 0.03),
+    botVisorArc,
+    botEye: new THREE.CapsuleGeometry(0.028, 0.055, 4, 6),
+    botEarOuter: new THREE.CylinderGeometry(0.1, 0.1, 0.09, 10),
+    botEarInner: new THREE.CylinderGeometry(0.065, 0.065, 0.11, 10),
+    botEliteCrest: createEliteCrestGeo(),
+    botEliteGorget: createChamferedPlateGeo(0.66, 0.15, 0.34, 0.08, 0.025),
+    // CHROMA TITAN geos
+    titanThigh: createChamferedPlateGeo(0.76, 0.96, 0.84, 0.12, 0.05),
+    titanKneeHex: new THREE.CylinderGeometry(0.44, 0.44, 0.28, 6),
+    titanKneeTrim: new THREE.CylinderGeometry(0.5, 0.5, 0.22, 6),
+    titanShin: new THREE.CylinderGeometry(0.54, 0.68, 1.12, 8),
+    titanBoot: createChamferedPlateGeo(1.06, 0.38, 1.44, 0.16, 0.05),
+    titanBootToe: createChamferedPlateGeo(0.92, 0.24, 0.55, 0.1, 0.035),
+    titanWaist: new THREE.CylinderGeometry(1.26, 1.04, 0.72, 8),
+    titanChestHull: new THREE.CylinderGeometry(2.02, 1.4, 2.04, 8),
+    titanChestPlate: createChamferedPlateGeo(3.2, 1.75, 0.72, 0.32, 0.09),
+    titanCollarRim: createChamferedPlateGeo(2.2, 0.34, 1.35, 0.2, 0.05),
+    titanWing: createTitanWingGeo(),
+    titanBackpack: createChamferedPlateGeo(2.2, 1.5, 0.85, 0.2, 0.06),
+    titanCoreHousing: new THREE.CylinderGeometry(1.16, 1.24, 0.44, 14),
+    titanCoreBezel: new THREE.TorusGeometry(1.14, 0.09, 8, 20),
+    titanCoreRingOuter: new THREE.TorusGeometry(0.98, 0.085, 8, 24),
+    titanCoreRingInner: new THREE.TorusGeometry(0.72, 0.06, 6, 20),
+    titanChestGem: new THREE.IcosahedronGeometry(0.56, 0),
+    titanPauldronBody: createChamferedPlateGeo(1.42, 1.22, 1.56, 0.24, 0.07),
+    titanPauldronTrim: createChamferedPlateGeo(1.48, 0.28, 1.62, 0.2, 0.04),
+    titanUpperArm: createChamferedPlateGeo(0.68, 1.02, 0.68, 0.1, 0.04),
+    titanElbowCuff: createChamferedPlateGeo(0.78, 0.36, 0.82, 0.1, 0.03),
+    titanCannonBarrel: new THREE.CylinderGeometry(0.42, 0.52, 1.68, 10),
+    titanCannonSleeve: new THREE.CylinderGeometry(0.49, 0.55, 0.58, 10),
+    titanCannonFin: createChamferedPlateGeo(0.14, 0.26, 0.95, 0.04, 0.02),
+    titanMuzzleRing: new THREE.TorusGeometry(0.39, 0.075, 8, 16),
+    titanMuzzleGlow: new THREE.CircleGeometry(0.33, 14),
+    titanHelm: new THREE.CylinderGeometry(0.62, 0.72, 0.86, 8),
+    titanVisor: createChamferedPlateGeo(0.84, 0.24, 0.22, 0.06, 0.02),
+    titanHorn: createSweptHornGeo(),
+  };
+
+  return cachedEnemyGeos;
+}
+
+function makeSharedMesh(
+  geo: THREE.BufferGeometry,
+  mat: THREE.Material
+): THREE.Mesh {
+  const m = new THREE.Mesh(geo, mat);
+  m.userData.sharedGeo = true;
+  return m;
 }
 
 export function resolveCircleXZCollision(
@@ -241,335 +506,322 @@ export class EnemyManager {
     armorMaterials: THREE.MeshStandardMaterial[];
     emissiveBasicMaterials: THREE.MeshBasicMaterial[];
   } {
+    const geos = getSharedEnemyGeometries();
+    if (type === 'chromabot_normal' || type === 'chromabot_elite') {
+      return this.buildChromabotRig(type === 'chromabot_elite', colorId, def, geos);
+    }
+    return this.buildChromaTitanRig(def, geos);
+  }
+
+  private buildChromabotRig(
+    isElite: boolean,
+    colorId: GameColorId,
+    def: EnemyDef,
+    geos: SharedEnemyGeometryBank
+  ) {
     const group = new THREE.Group();
     const cDef = getColorDef(colorId);
+    const scale = isElite ? 1.32 : 1.0;
 
     const armorMaterials: THREE.MeshStandardMaterial[] = [];
     const emissiveBasicMaterials: THREE.MeshBasicMaterial[] = [];
 
-    if (type === 'chromabot_normal' || type === 'chromabot_elite') {
-      const isElite = type === 'chromabot_elite';
-      const scale = isElite ? 1.32 : 1.0;
+    // Material Utama Warna RYB: Solid, Jelas, Rim Halus, Tetap Terbaca di Semua Pencahayaan
+    const primaryColorMat = new THREE.MeshStandardMaterial({
+      color: cDef.hex,
+      emissive: cDef.hex,
+      emissiveIntensity: 0.36,
+      roughness: 0.28,
+      metalness: 0.16,
+    });
+    armorMaterials.push(primaryColorMat);
 
-      // Material Utama Warna RYB: Solid, Jelas, Shading Halus, Tidak Terdistorsi Bayangan
-      const primaryColorMat = new THREE.MeshStandardMaterial({
-        color: cDef.hex,
-        emissive: cDef.hex,
-        emissiveIntensity: 0.38,
-        roughness: 0.32,
-        metalness: 0.12,
-      });
-      armorMaterials.push(primaryColorMat);
+    const coreGlowMat = new THREE.MeshBasicMaterial({
+      color: cDef.hex,
+    });
+    emissiveBasicMaterials.push(coreGlowMat);
 
-      // Material Cahaya Inti & Aksen Murni
-      const coreGlowMat = new THREE.MeshBasicMaterial({
-        color: cDef.hex,
-      });
-      emissiveBasicMaterials.push(coreGlowMat);
+    const darkJointMat = new THREE.MeshStandardMaterial({
+      color: '#172030',
+      roughness: 0.42,
+      metalness: 0.68,
+    });
 
-      // Material Sendi Mekanis Gelap Netral
-      const darkJointMat = new THREE.MeshStandardMaterial({
-        color: '#1e293b',
-        roughness: 0.45,
-        metalness: 0.65,
-      });
+    const visorGlassMat = new THREE.MeshStandardMaterial({
+      color: '#070b14',
+      roughness: 0.12,
+      metalness: 0.92,
+    });
 
-      // Material Visor Gelap Mengkilap
-      const visorGlassMat = new THREE.MeshStandardMaterial({
-        color: '#090d16',
-        roughness: 0.15,
-        metalness: 0.9,
-      });
+    const eyeLightMat = new THREE.MeshBasicMaterial({
+      color: '#f8fafc',
+    });
 
-      // Material Mata Optik Putih-Terang Ekspresif
-      const eyeLightMat = new THREE.MeshBasicMaterial({
-        color: '#f8fafc',
-      });
+    const bodyGroup = new THREE.Group();
+    bodyGroup.scale.setScalar(scale);
+    group.add(bodyGroup);
 
-      const bodyGroup = new THREE.Group();
-      bodyGroup.scale.setScalar(scale);
-      group.add(bodyGroup);
+    // === 1. DUA KAKI MEKANIS BER-ARMOR LUTUT & SEPATU STABILIZER ===
+    const leftLegPivot = new THREE.Group();
+    leftLegPivot.position.set(-0.23, 0.72, 0);
+    bodyGroup.add(leftLegPivot);
 
-      // === 1. DUA KAKI MEKANIS SEIMBANG (BERARTIKULASI) ===
-      const leftLegPivot = new THREE.Group();
-      leftLegPivot.position.set(-0.24, 0.72, 0);
-      bodyGroup.add(leftLegPivot);
+    const rightLegPivot = new THREE.Group();
+    rightLegPivot.position.set(0.23, 0.72, 0);
+    bodyGroup.add(rightLegPivot);
 
-      const rightLegPivot = new THREE.Group();
-      rightLegPivot.position.set(0.24, 0.72, 0);
-      bodyGroup.add(rightLegPivot);
+    [leftLegPivot, rightLegPivot].forEach((legPivot) => {
+      legPivot.add(makeSharedMesh(geos.botHipJoint, darkJointMat));
 
-      [leftLegPivot, rightLegPivot].forEach((legPivot) => {
-        // Sendi Pinggul
-        const hipJoint = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 10), darkJointMat);
-        legPivot.add(hipJoint);
+      const thigh = makeSharedMesh(geos.botThigh, darkJointMat);
+      thigh.position.set(0, -0.17, 0);
+      legPivot.add(thigh);
 
-        // Paha Mekanis
-        const thigh = new THREE.Mesh(
-          new THREE.CapsuleGeometry(0.095, 0.2, 8, 12),
-          darkJointMat
-        );
-        thigh.position.set(0, -0.18, 0);
-        legPivot.add(thigh);
+      const kneeBall = makeSharedMesh(geos.botKneeBall, darkJointMat);
+      kneeBall.position.set(0, -0.33, 0.01);
+      legPivot.add(kneeBall);
 
-        // Pelindung Lutut & Betis Berwarna RYB (Greave Armor)
-        const shinArmor = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.13, 0.1, 0.34, 12),
-          primaryColorMat
-        );
-        shinArmor.position.set(0, -0.44, 0.02);
-        legPivot.add(shinArmor);
+      const kneePlate = makeSharedMesh(geos.botKneePlate, primaryColorMat);
+      kneePlate.position.set(0, -0.32, 0.09);
+      kneePlate.rotation.x = -0.18;
+      legPivot.add(kneePlate);
 
-        // Sepatu Stabilizer Mekanis
-        const foot = new THREE.Mesh(
-          new THREE.BoxGeometry(0.22, 0.12, 0.32),
-          primaryColorMat
-        );
-        foot.position.set(0, -0.64, 0.05);
-        legPivot.add(foot);
+      const shin = makeSharedMesh(geos.botShin, primaryColorMat);
+      shin.position.set(0, -0.49, 0.02);
+      legPivot.add(shin);
 
-        const sole = new THREE.Mesh(
-          new THREE.BoxGeometry(0.23, 0.04, 0.34),
-          darkJointMat
-        );
-        sole.position.set(0, -0.7, 0.05);
-        legPivot.add(sole);
-      });
+      const footUpper = makeSharedMesh(geos.botFootUpper, primaryColorMat);
+      footUpper.position.set(0, -0.64, 0.055);
+      legPivot.add(footUpper);
 
-      // === 2. BADAN KOMPAK & ARMOR BERLAPIS (TORSO & PELVIS) ===
-      const pelvis = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.28, 0.22, 0.2, 12),
-        darkJointMat
-      );
-      pelvis.position.set(0, 0.78, 0);
-      bodyGroup.add(pelvis);
+      const sole = makeSharedMesh(geos.botFootSole, darkJointMat);
+      sole.position.set(0, -0.7, 0.055);
+      legPivot.add(sole);
+    });
 
-      // Dada Utama Stylized (Rounded Chest Armor)
-      const chest = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.42, 0.3, 0.56, 14),
-        primaryColorMat
-      );
-      chest.position.set(0, 1.14, 0);
-      chest.scale.set(1.12, 1.0, 0.85);
-      bodyGroup.add(chest);
+    // === 2. PINGGUL, PINGGANG MEKANIS & DADA BEVELED STYLIZED ===
+    const pelvis = makeSharedMesh(geos.botPelvis, primaryColorMat);
+    pelvis.position.set(0, 0.76, 0);
+    bodyGroup.add(pelvis);
 
-      // Kerah Pelindung Leher
-      const collar = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.32, 0.38, 0.12, 12),
-        primaryColorMat
-      );
-      collar.position.set(0, 1.44, 0);
-      bodyGroup.add(collar);
+    const waistCore = makeSharedMesh(geos.botWaistCore, darkJointMat);
+    waistCore.position.set(0, 0.92, 0);
+    bodyGroup.add(waistCore);
 
-      // Backpack Reaktor di Punggung
-      const backpack = new THREE.Mesh(
-        new THREE.BoxGeometry(0.46, 0.38, 0.22),
-        primaryColorMat
-      );
-      backpack.position.set(0, 1.16, -0.32);
-      bodyGroup.add(backpack);
+    const chest = makeSharedMesh(geos.botChest, primaryColorMat);
+    chest.position.set(0, 1.18, 0.02);
+    bodyGroup.add(chest);
 
-      // === 3. INTI ENERGI DI BAGIAN DADA (CHEST CORE) ===
-      const coreFrame = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.18, 0.18, 0.08, 16),
-        darkJointMat
-      );
-      coreFrame.rotation.x = Math.PI / 2;
-      coreFrame.position.set(0, 1.15, 0.34);
-      bodyGroup.add(coreFrame);
+    const collar = makeSharedMesh(geos.botCollar, primaryColorMat);
+    collar.position.set(0, 1.44, 0);
+    bodyGroup.add(collar);
 
-      const chestCore = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.14, 1),
-        coreGlowMat
-      );
-      chestCore.position.set(0, 1.15, 0.38);
-      bodyGroup.add(chestCore);
+    const backpack = makeSharedMesh(geos.botBackpack, primaryColorMat);
+    backpack.position.set(0, 1.19, -0.32);
+    bodyGroup.add(backpack);
 
-      // === 4. DUA TANGAN MEKANIS JELAS (BERARTIKULASI) ===
-      const leftArmPivot = new THREE.Group();
-      leftArmPivot.position.set(-0.52, 1.32, 0);
-      bodyGroup.add(leftArmPivot);
-
-      const rightArmPivot = new THREE.Group();
-      rightArmPivot.position.set(0.52, 1.32, 0);
-      bodyGroup.add(rightArmPivot);
-
-      [leftArmPivot, rightArmPivot].forEach((armPivot, idx) => {
-        const side = idx === 0 ? -1 : 1;
-
-        // Pelindung Bahu Membulat (Shoulder Armor)
-        const shoulderPad = new THREE.Mesh(
-          new THREE.SphereGeometry(0.18, 12, 12),
-          primaryColorMat
-        );
-        shoulderPad.scale.set(1.1, 0.9, 1.0);
-        shoulderPad.position.set(side * 0.04, 0.04, 0);
-        armPivot.add(shoulderPad);
-
-        // Variasi Armor Bahu Tambahan khusus ELITE CHROMABOT
-        if (isElite) {
-          const elitePauldron = new THREE.Mesh(
-            new THREE.BoxGeometry(0.28, 0.16, 0.36),
-            primaryColorMat
-          );
-          elitePauldron.position.set(side * 0.1, 0.14, 0);
-          elitePauldron.rotation.z = -side * 0.32;
-          armPivot.add(elitePauldron);
-        }
-
-        // Lengan Atas Mekanis
-        const upperArm = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.075, 0.07, 0.26, 10),
-          darkJointMat
-        );
-        upperArm.position.set(side * 0.06, -0.18, 0);
-        armPivot.add(upperArm);
-
-        // Lengan Bawah Berlapis Armor (Forearm Gauntlet)
-        const forearm = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.11, 0.13, 0.32, 12),
-          primaryColorMat
-        );
-        forearm.position.set(side * 0.08, -0.42, 0.08);
-        forearm.rotation.x = 0.35;
-        armPivot.add(forearm);
-
-        // Tangan Penjepit Mekanis (Claw Hand)
-        const hand = new THREE.Mesh(
-          new THREE.SphereGeometry(0.09, 10, 10),
-          darkJointMat
-        );
-        hand.position.set(side * 0.08, -0.58, 0.16);
-        armPivot.add(hand);
-      });
-
-      // === 5. KEPALA ROBOT STYLIZED DENGAN VISOR EKSPRESIF ===
-      const headPivot = new THREE.Group();
-      headPivot.position.set(0, 1.52, 0);
-      bodyGroup.add(headPivot);
-
-      // Kubah Kepala Stylized (Smooth Rounded Helmet)
-      const headDome = new THREE.Mesh(
-        new THREE.SphereGeometry(0.32, 16, 14),
-        primaryColorMat
-      );
-      headDome.scale.set(1.08, 0.92, 1.02);
-      headDome.position.set(0, 0.22, 0);
-      headPivot.add(headDome);
-
-      // Pelindung Dagu / Rahang Rapi
-      const jawGuard = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.3, 0.24, 0.16, 12),
-        primaryColorMat
-      );
-      jawGuard.position.set(0, 0.09, 0.02);
-      headPivot.add(jawGuard);
-
-      // Visor Cekung Gelap di Wajah
-      const visorPlate = new THREE.Mesh(
-        new THREE.BoxGeometry(0.46, 0.18, 0.14),
-        visorGlassMat
-      );
-      visorPlate.position.set(0, 0.22, 0.24);
-      headPivot.add(visorPlate);
-
-      // Dua Mata Optik Bercahaya Ekspresif di dalam Visor
-      for (let side = -1; side <= 1; side += 2) {
-        const eye = new THREE.Mesh(
-          new THREE.CapsuleGeometry(0.032, 0.055, 6, 8),
-          eyeLightMat
-        );
-        eye.rotation.z = Math.PI / 2 - side * 0.12;
-        eye.position.set(side * 0.12, 0.22, 0.315);
-        headPivot.add(eye);
-
-        // Modul Telinga / Sensor Samping Kepala
-        const earPod = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.09, 0.09, 0.1, 10),
-          darkJointMat
-        );
-        earPod.rotation.z = Math.PI / 2;
-        earPod.position.set(side * 0.34, 0.22, 0);
-        headPivot.add(earPod);
-      }
-
-      // Jambul / Mahkota Tambahan untuk membedakan Siluet ELITE CHROMABOT
-      if (isElite) {
-        const crest = new THREE.Mesh(
-          new THREE.BoxGeometry(0.12, 0.24, 0.38),
-          primaryColorMat
-        );
-        crest.position.set(0, 0.52, -0.02);
-        headPivot.add(crest);
-
-        const chestGuardFin = new THREE.Mesh(
-          new THREE.BoxGeometry(0.62, 0.14, 0.18),
-          primaryColorMat
-        );
-        chestGuardFin.position.set(0, 1.34, 0.26);
-        bodyGroup.add(chestGuardFin);
-      }
-
-      // Bola Telegrap Serangan di depan dada saat mengisi tembakan
-      const telegraph = new THREE.Mesh(
-        new THREE.SphereGeometry(def.projectileSize, 12, 12),
-        coreGlowMat
-      );
-      telegraph.name = 'attack_telegraph';
-      telegraph.position.set(0, 1.15, 0.85);
-      telegraph.visible = false;
-      bodyGroup.add(telegraph);
-
-      return {
-        group,
-        rig: {
-          bodyGroup,
-          headPivot,
-          leftArmPivot,
-          rightArmPivot,
-          leftLegPivot,
-          rightLegPivot,
-          chestCore,
-        },
-        telegraphMesh: telegraph,
-        armorMaterials,
-        emissiveBasicMaterials,
-      };
+    for (let side = -1; side <= 1; side += 2) {
+      const vent = makeSharedMesh(geos.botPackVent, darkJointMat);
+      vent.position.set(side * 0.12, 1.02, -0.36);
+      vent.rotation.x = 0.25;
+      bodyGroup.add(vent);
     }
 
-    // ============================================================================
-    // === 2. REDESAIN FINAL BOSS — CHROMA TITAN (COLOSSUS MECH) ===
-    // ============================================================================
+    // === 3. INTI ENERGI DADA BERFESET (CHEST CORE) ===
+    const coreFrame = makeSharedMesh(geos.botCoreFrame, darkJointMat);
+    coreFrame.rotation.x = Math.PI / 2;
+    coreFrame.position.set(0, 1.18, 0.29);
+    bodyGroup.add(coreFrame);
+
+    const coreRing = makeSharedMesh(geos.botCoreRing, coreGlowMat);
+    coreRing.position.set(0, 1.18, 0.34);
+    bodyGroup.add(coreRing);
+
+    const chestCore = makeSharedMesh(geos.botChestGem, coreGlowMat);
+    chestCore.position.set(0, 1.18, 0.35);
+    bodyGroup.add(chestCore);
+
+    // === 4. DUA LENGAN MEKANIS + TANGAN JARI STYLIZED ===
+    const leftArmPivot = new THREE.Group();
+    leftArmPivot.position.set(-0.52, 1.32, 0);
+    bodyGroup.add(leftArmPivot);
+
+    const rightArmPivot = new THREE.Group();
+    rightArmPivot.position.set(0.52, 1.32, 0);
+    bodyGroup.add(rightArmPivot);
+
+    [leftArmPivot, rightArmPivot].forEach((armPivot, idx) => {
+      const side = idx === 0 ? -1 : 1;
+
+      const shoulderSocket = makeSharedMesh(geos.botShoulderBall, darkJointMat);
+      armPivot.add(shoulderSocket);
+
+      const shoulderCap = makeSharedMesh(geos.botShoulderCap, primaryColorMat);
+      shoulderCap.scale.set(1.06, 0.92, 1.0);
+      shoulderCap.position.set(side * 0.04, 0.03, 0);
+      armPivot.add(shoulderCap);
+
+      if (isElite) {
+        const elitePauldron = makeSharedMesh(geos.botElitePauldron, primaryColorMat);
+        elitePauldron.position.set(side * 0.11, 0.12, 0);
+        elitePauldron.rotation.z = -side * 0.36;
+        armPivot.add(elitePauldron);
+
+        const pauldronTrim = makeSharedMesh(geos.botElitePauldronTrim, darkJointMat);
+        pauldronTrim.position.set(side * 0.1, 0.05, 0);
+        pauldronTrim.rotation.z = -side * 0.36;
+        armPivot.add(pauldronTrim);
+      }
+
+      const upperArm = makeSharedMesh(geos.botUpperArm, darkJointMat);
+      upperArm.position.set(side * 0.07, -0.18, 0);
+      armPivot.add(upperArm);
+
+      const elbow = makeSharedMesh(geos.botElbowBall, darkJointMat);
+      elbow.position.set(side * 0.08, -0.31, 0.01);
+      armPivot.add(elbow);
+
+      const forearm = makeSharedMesh(geos.botForearm, primaryColorMat);
+      forearm.position.set(side * 0.085, -0.45, 0.07);
+      forearm.rotation.x = 0.28;
+      armPivot.add(forearm);
+
+      const wristCuff = makeSharedMesh(geos.botWristCuff, darkJointMat);
+      wristCuff.position.set(side * 0.085, -0.58, 0.12);
+      wristCuff.rotation.x = 0.28;
+      armPivot.add(wristCuff);
+
+      const palm = makeSharedMesh(geos.botPalm, darkJointMat);
+      palm.position.set(side * 0.085, -0.65, 0.14);
+      armPivot.add(palm);
+
+      const handGuard = makeSharedMesh(geos.botHandGuard, primaryColorMat);
+      handGuard.position.set(side * 0.115, -0.64, 0.15);
+      armPivot.add(handGuard);
+
+      const fingers = makeSharedMesh(geos.botFingers, darkJointMat);
+      fingers.position.set(side * 0.065, -0.71, 0.16);
+      fingers.rotation.z = side * 0.18;
+      armPivot.add(fingers);
+    });
+
+    // === 5. KEPALA HELM STYLIZED DENGAN VISOR MELENGKUNG & MATA EKSPRESIF ===
+    const headPivot = new THREE.Group();
+    headPivot.position.set(0, 1.53, 0);
+    bodyGroup.add(headPivot);
+
+    const headDome = makeSharedMesh(geos.botHeadDome, primaryColorMat);
+    headDome.scale.set(1.06, 0.94, 1.02);
+    headDome.position.set(0, 0.22, 0);
+    headPivot.add(headDome);
+
+    const browPlate = makeSharedMesh(geos.botBrowPlate, primaryColorMat);
+    browPlate.position.set(0, 0.315, 0.235);
+    browPlate.rotation.x = 0.24;
+    headPivot.add(browPlate);
+
+    const jawGuard = makeSharedMesh(geos.botJawGuard, primaryColorMat);
+    jawGuard.position.set(0, 0.075, 0.06);
+    headPivot.add(jawGuard);
+
+    const visorArc = makeSharedMesh(geos.botVisorArc, visorGlassMat);
+    visorArc.position.set(0, 0.21, 0.055);
+    headPivot.add(visorArc);
+
+    for (let side = -1; side <= 1; side += 2) {
+      const eye = makeSharedMesh(geos.botEye, eyeLightMat);
+      eye.rotation.z = Math.PI / 2 - side * 0.16;
+      eye.rotation.y = side * 0.25;
+      eye.position.set(side * 0.105, 0.22, 0.33);
+      headPivot.add(eye);
+
+      const earOuter = makeSharedMesh(geos.botEarOuter, primaryColorMat);
+      earOuter.rotation.z = Math.PI / 2;
+      earOuter.position.set(side * 0.33, 0.22, 0);
+      headPivot.add(earOuter);
+
+      const earInner = makeSharedMesh(geos.botEarInner, darkJointMat);
+      earInner.rotation.z = Math.PI / 2;
+      earInner.position.set(side * 0.345, 0.22, 0);
+      headPivot.add(earInner);
+    }
+
+    // Mahkota Sirip & Gorget Pelindung Dada khusus ELITE CHROMABOT
+    if (isElite) {
+      const crest = makeSharedMesh(geos.botEliteCrest, primaryColorMat);
+      crest.position.set(0, 0.51, -0.02);
+      headPivot.add(crest);
+
+      const gorget = makeSharedMesh(geos.botEliteGorget, primaryColorMat);
+      gorget.position.set(0, 1.42, 0.15);
+      gorget.rotation.x = -0.18;
+      bodyGroup.add(gorget);
+    }
+
+    const telegraph = new THREE.Mesh(
+      new THREE.SphereGeometry(def.projectileSize, 10, 10),
+      coreGlowMat
+    );
+    telegraph.name = 'attack_telegraph';
+    telegraph.position.set(0, 1.18, 0.85);
+    telegraph.visible = false;
+    bodyGroup.add(telegraph);
+
+    return {
+      group,
+      rig: {
+        bodyGroup,
+        headPivot,
+        leftArmPivot,
+        rightArmPivot,
+        leftLegPivot,
+        rightLegPivot,
+        chestCore,
+      },
+      telegraphMesh: telegraph,
+      armorMaterials,
+      emissiveBasicMaterials,
+    };
+  }
+
+  private buildChromaTitanRig(
+    def: EnemyDef,
+    geos: SharedEnemyGeometryBank
+  ) {
+    const group = new THREE.Group();
+    const armorMaterials: THREE.MeshStandardMaterial[] = [];
+    const emissiveBasicMaterials: THREE.MeshBasicMaterial[] = [];
+
     const titanArmorMat = new THREE.MeshStandardMaterial({
       color: '#111827',
       roughness: 0.3,
-      metalness: 0.8,
+      metalness: 0.82,
     });
 
     const titanSubArmorMat = new THREE.MeshStandardMaterial({
       color: '#1e293b',
-      roughness: 0.4,
-      metalness: 0.7,
+      roughness: 0.38,
+      metalness: 0.72,
     });
 
     const coreAccentArmorMat = new THREE.MeshStandardMaterial({
       color: '#64748b',
       emissive: '#475569',
-      emissiveIntensity: 0.45,
+      emissiveIntensity: 0.42,
       roughness: 0.25,
-      metalness: 0.35,
+      metalness: 0.4,
     });
     armorMaterials.push(coreAccentArmorMat);
 
     const corePureMat = new THREE.MeshBasicMaterial({
-      color: '#cbd5e1',
+      color: '#f1f5f9',
     });
     emissiveBasicMaterials.push(corePureMat);
 
     const bodyGroup = new THREE.Group();
     group.add(bodyGroup);
 
-    // 1. Kaki Kokoh Berlapis (Left & Right Titan Legs)
+    // 1. Kaki Colossus Ber-Armor Lutut Segi Enam & Sepatu Berat
     const leftLegPivot = new THREE.Group();
     leftLegPivot.position.set(-1.05, 2.1, 0);
     bodyGroup.add(leftLegPivot);
@@ -579,168 +831,164 @@ export class EnemyManager {
     bodyGroup.add(rightLegPivot);
 
     [leftLegPivot, rightLegPivot].forEach((legPivot) => {
-      const upperLeg = new THREE.Mesh(
-        new THREE.BoxGeometry(0.75, 1.0, 0.85),
-        titanSubArmorMat
-      );
-      upperLeg.position.set(0, -0.45, 0);
+      const upperLeg = makeSharedMesh(geos.titanThigh, titanSubArmorMat);
+      upperLeg.position.set(0, -0.46, 0);
       legPivot.add(upperLeg);
 
-      const kneeGuard = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.45, 0.45, 0.4, 8),
-        coreAccentArmorMat
-      );
-      kneeGuard.rotation.z = Math.PI / 2;
-      kneeGuard.position.set(0, -0.95, 0.35);
-      legPivot.add(kneeGuard);
+      const kneeTrim = makeSharedMesh(geos.titanKneeTrim, coreAccentArmorMat);
+      kneeTrim.rotation.x = Math.PI / 2;
+      kneeTrim.position.set(0, -0.94, 0.39);
+      legPivot.add(kneeTrim);
 
-      const lowerLeg = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.55, 0.68, 1.15, 8),
-        titanArmorMat
-      );
+      const kneeHex = makeSharedMesh(geos.titanKneeHex, titanArmorMat);
+      kneeHex.rotation.x = Math.PI / 2;
+      kneeHex.position.set(0, -0.94, 0.45);
+      legPivot.add(kneeHex);
+
+      const lowerLeg = makeSharedMesh(geos.titanShin, titanArmorMat);
       lowerLeg.position.set(0, -1.45, 0);
       legPivot.add(lowerLeg);
 
-      const heavyBoot = new THREE.Mesh(
-        new THREE.BoxGeometry(1.05, 0.38, 1.45),
-        titanArmorMat
-      );
+      const heavyBoot = makeSharedMesh(geos.titanBoot, titanArmorMat);
       heavyBoot.position.set(0, -1.92, 0.18);
       legPivot.add(heavyBoot);
+
+      const bootToe = makeSharedMesh(geos.titanBootToe, coreAccentArmorMat);
+      bootToe.position.set(0, -1.95, 0.65);
+      legPivot.add(bootToe);
     });
 
-    // 2. Pinggul & Badan Raksasa Berlapis (Titan Torso)
-    const waistBlock = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.35, 1.1, 0.7, 8),
-      titanSubArmorMat
-    );
+    // 2. Pinggang, Torso Benteng & Sayap Punggung
+    const waistBlock = makeSharedMesh(geos.titanWaist, titanSubArmorMat);
     waistBlock.position.set(0, 2.35, 0);
     bodyGroup.add(waistBlock);
 
-    const chestHull = new THREE.Mesh(
-      new THREE.CylinderGeometry(2.1, 1.45, 2.1, 8),
-      titanArmorMat
-    );
+    const chestHull = makeSharedMesh(geos.titanChestHull, titanArmorMat);
     chestHull.position.set(0, 3.65, 0);
-    chestHull.scale.set(1.15, 1.0, 0.82);
+    chestHull.scale.set(1.12, 1.0, 0.8);
     bodyGroup.add(chestHull);
 
-    // Pelindung Bahu Benteng (Fortress Shoulder Plates)
+    const chestPlate = makeSharedMesh(geos.titanChestPlate, titanSubArmorMat);
+    chestPlate.position.set(0, 3.72, 0.66);
+    bodyGroup.add(chestPlate);
+
+    const collarRim = makeSharedMesh(geos.titanCollarRim, coreAccentArmorMat);
+    collarRim.position.set(0, 4.72, 0.15);
+    bodyGroup.add(collarRim);
+
+    const titanBack = makeSharedMesh(geos.titanBackpack, titanSubArmorMat);
+    titanBack.position.set(0, 3.85, -1.05);
+    bodyGroup.add(titanBack);
+
     for (let side = -1; side <= 1; side += 2) {
-      const upperWing = new THREE.Mesh(
-        new THREE.BoxGeometry(1.1, 0.85, 1.3),
-        titanSubArmorMat
-      );
-      upperWing.position.set(side * 2.1, 4.65, -0.15);
-      upperWing.rotation.z = -side * 0.25;
-      bodyGroup.add(upperWing);
+      const wing = makeSharedMesh(geos.titanWing, titanSubArmorMat);
+      wing.scale.x = side;
+      wing.position.set(side * 2.02, 4.78, -0.58);
+      wing.rotation.y = -side * 0.18;
+      bodyGroup.add(wing);
     }
 
-    // 3. COLOR CORE BESAR DI BAGIAN DADA (Titik Lemah Utama & Pusat Visual)
-    const coreHousing = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.15, 1.25, 0.45, 16),
-      titanSubArmorMat
-    );
+    // 3. COLOR CORE RAKSASA DI DADA (Housing + Bezel + 2 Cincin Gyro + Inti Berfaset)
+    const coreHousing = makeSharedMesh(geos.titanCoreHousing, titanSubArmorMat);
     coreHousing.rotation.x = Math.PI / 2;
-    coreHousing.position.set(0, 3.65, 1.05);
+    coreHousing.position.set(0, 3.65, 1.08);
     bodyGroup.add(coreHousing);
 
-    const coreRingOuter = new THREE.Mesh(
-      new THREE.TorusGeometry(1.02, 0.11, 10, 28),
-      coreAccentArmorMat
-    );
-    coreRingOuter.position.set(0, 3.65, 1.22);
+    const coreBezel = makeSharedMesh(geos.titanCoreBezel, coreAccentArmorMat);
+    coreBezel.position.set(0, 3.65, 1.24);
+    bodyGroup.add(coreBezel);
+
+    const coreRingOuter = makeSharedMesh(geos.titanCoreRingOuter, corePureMat);
+    coreRingOuter.position.set(0, 3.65, 1.29);
     bodyGroup.add(coreRingOuter);
 
-    const coreRingInner = new THREE.Mesh(
-      new THREE.TorusGeometry(0.76, 0.07, 8, 24),
-      corePureMat
-    );
-    coreRingInner.position.set(0, 3.65, 1.26);
+    const coreRingInner = makeSharedMesh(geos.titanCoreRingInner, corePureMat);
+    coreRingInner.position.set(0, 3.65, 1.32);
     bodyGroup.add(coreRingInner);
 
-    const chestCore = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.62, 1),
-      corePureMat
-    );
-    chestCore.position.set(0, 3.65, 1.32);
+    const chestCore = makeSharedMesh(geos.titanChestGem, corePureMat);
+    chestCore.position.set(0, 3.65, 1.35);
     chestCore.name = 'color_core';
     bodyGroup.add(chestCore);
 
-    // 4. Dua Lengan Meriam Besar (Left & Right Titan Arms)
+    // 4. Dua Lengan Meriam Forearm Cannon + Pauldron Oktagonal Berlis
     const leftArmPivot = new THREE.Group();
-    leftArmPivot.position.set(-2.35, 4.25, 0);
+    leftArmPivot.position.set(-2.38, 4.25, 0);
     bodyGroup.add(leftArmPivot);
 
     const rightArmPivot = new THREE.Group();
-    rightArmPivot.position.set(2.35, 4.25, 0);
+    rightArmPivot.position.set(2.38, 4.25, 0);
     bodyGroup.add(rightArmPivot);
 
     [leftArmPivot, rightArmPivot].forEach((armPivot, idx) => {
       const side = idx === 0 ? -1 : 1;
 
-      const pauldron = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.75, 0.85, 0.95, 8),
-        coreAccentArmorMat
-      );
-      pauldron.rotation.z = -side * 0.2;
+      const pauldron = makeSharedMesh(geos.titanPauldronBody, titanArmorMat);
+      pauldron.position.set(side * 0.08, 0.08, 0);
+      pauldron.rotation.z = -side * 0.16;
       armPivot.add(pauldron);
 
-      const upperArm = new THREE.Mesh(
-        new THREE.BoxGeometry(0.65, 1.1, 0.65),
-        titanSubArmorMat
-      );
-      upperArm.position.set(side * 0.15, -0.95, 0);
+      const pauldronTrim = makeSharedMesh(geos.titanPauldronTrim, coreAccentArmorMat);
+      pauldronTrim.position.set(side * 0.05, -0.34, 0);
+      pauldronTrim.rotation.z = -side * 0.16;
+      armPivot.add(pauldronTrim);
+
+      const upperArm = makeSharedMesh(geos.titanUpperArm, titanSubArmorMat);
+      upperArm.position.set(side * 0.16, -0.95, 0);
       armPivot.add(upperArm);
 
-      const forearmCannon = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.45, 0.55, 1.65, 10),
-        titanArmorMat
-      );
-      forearmCannon.position.set(side * 0.2, -1.85, 0.45);
+      const elbowCuff = makeSharedMesh(geos.titanElbowCuff, coreAccentArmorMat);
+      elbowCuff.position.set(side * 0.18, -1.42, 0.05);
+      armPivot.add(elbowCuff);
+
+      const forearmCannon = makeSharedMesh(geos.titanCannonBarrel, titanArmorMat);
+      forearmCannon.position.set(side * 0.2, -1.85, 0.48);
       forearmCannon.rotation.x = Math.PI / 3;
       armPivot.add(forearmCannon);
 
-      const muzzleRing = new THREE.Mesh(
-        new THREE.TorusGeometry(0.38, 0.08, 8, 16),
-        corePureMat
-      );
-      muzzleRing.position.set(side * 0.2, -2.25, 1.15);
+      const cannonSleeve = makeSharedMesh(geos.titanCannonSleeve, titanSubArmorMat);
+      cannonSleeve.position.set(side * 0.2, -1.64, 0.12);
+      cannonSleeve.rotation.x = Math.PI / 3;
+      armPivot.add(cannonSleeve);
+
+      const cannonFin = makeSharedMesh(geos.titanCannonFin, coreAccentArmorMat);
+      cannonFin.position.set(side * 0.2, -1.48, 0.56);
+      cannonFin.rotation.x = -Math.PI / 6;
+      armPivot.add(cannonFin);
+
+      const muzzleRing = makeSharedMesh(geos.titanMuzzleRing, corePureMat);
+      muzzleRing.position.set(side * 0.2, -2.27, 1.21);
+      muzzleRing.rotation.x = Math.PI / 3;
       armPivot.add(muzzleRing);
+
+      const muzzleGlow = makeSharedMesh(geos.titanMuzzleGlow, corePureMat);
+      muzzleGlow.position.set(side * 0.2, -2.28, 1.22);
+      muzzleGlow.rotation.x = Math.PI / 3;
+      armPivot.add(muzzleGlow);
     });
 
-    // 5. Kepala Khas CHROMA TITAN dengan Tanduk Mekanis & Visor Tajam
+    // 5. Kepala Helm Berfaset dengan Visor Tajam & Tanduk Mekanis Melengkung
     const headPivot = new THREE.Group();
-    headPivot.position.set(0, 4.85, 0.1);
+    headPivot.position.set(0, 4.9, 0.12);
     bodyGroup.add(headPivot);
 
-    const headHelm = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.68, 0.78, 0.92, 8),
-      titanArmorMat
-    );
+    const headHelm = makeSharedMesh(geos.titanHelm, titanArmorMat);
     headHelm.position.set(0, 0.45, 0);
     headPivot.add(headHelm);
 
-    const titanVisor = new THREE.Mesh(
-      new THREE.BoxGeometry(1.05, 0.24, 0.3),
-      corePureMat
-    );
-    titanVisor.position.set(0, 0.48, 0.58);
+    const titanVisor = makeSharedMesh(geos.titanVisor, corePureMat);
+    titanVisor.position.set(0, 0.46, 0.57);
     headPivot.add(titanVisor);
 
     for (let side = -1; side <= 1; side += 2) {
-      const horn = new THREE.Mesh(
-        new THREE.ConeGeometry(0.22, 1.15, 6),
-        coreAccentArmorMat
-      );
-      horn.position.set(side * 0.72, 0.95, -0.05);
-      horn.rotation.z = -side * 0.42;
+      const horn = makeSharedMesh(geos.titanHorn, coreAccentArmorMat);
+      horn.scale.x = side;
+      horn.position.set(side * 0.72, 0.88, -0.02);
       headPivot.add(horn);
     }
 
-    // Telegrap Serangan Boss
     const telegraph = new THREE.Mesh(
-      new THREE.SphereGeometry(def.projectileSize, 14, 14),
+      new THREE.SphereGeometry(def.projectileSize, 10, 10),
       corePureMat
     );
     telegraph.name = 'attack_telegraph';
@@ -940,7 +1188,7 @@ export class EnemyManager {
         e.rig.bodyGroup.scale.set(1, 1, 1);
 
         e.armorMaterials.forEach((mat) => {
-          mat.emissive.set(cDef.emissiveHex);
+          mat.emissive.set(isBoss ? '#475569' : cDef.emissiveHex);
           mat.emissiveIntensity = 0.34;
         });
       }
