@@ -14,6 +14,20 @@ interface MissionSetupModalProps {
 
 const CHARACTER_LIST: CharacterId[] = ['raka', 'naya'];
 
+// Preload & pre-decode potret kedua karakter sejak awal aplikasi dimuat agar tampil instan tanpa loading saat klik MULAI MISI
+const preloadedCharacterImages: HTMLImageElement[] = [];
+if (typeof window !== 'undefined') {
+  CHARACTER_LIST.forEach((charId) => {
+    const img = new Image();
+    img.decoding = 'sync';
+    img.src = CHARACTER_REGISTRY[charId].imagePath;
+    if (typeof img.decode === 'function') {
+      img.decode().catch(() => {});
+    }
+    preloadedCharacterImages.push(img);
+  });
+}
+
 export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
   selectedCharacter,
   onSelectCharacter,
@@ -69,6 +83,9 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                     <img
                       src={profile.imagePath}
                       alt={profile.name}
+                      loading="eager"
+                      decoding="sync"
+                      fetchPriority="high"
                       onError={() =>
                         setFailedImages((prev) => ({ ...prev, [charId]: true }))
                       }

@@ -147,11 +147,11 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         onTouchMove={handleJoystickMove}
         onTouchEnd={handleJoystickEnd}
         onTouchCancel={handleJoystickEnd}
-        className="absolute bottom-14 left-6 sm:left-12 w-32 h-32 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
+        className="absolute bottom-8 left-6 sm:left-10 w-28 h-28 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
       >
-        <div className="w-18 h-18 rounded-full border border-white/15" />
+        <div className="w-16 h-16 rounded-full border border-white/15" />
         <div
-          className="absolute w-13 h-13 rounded-full bg-cyan-400/55 border-2 border-white/75"
+          className="absolute w-12 h-12 rounded-full bg-cyan-400/55 border-2 border-white/75"
           style={{
             transform: `translate(${knobOffset.x}px, ${knobOffset.y}px)`,
           }}
@@ -161,10 +161,10 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
       {/* KANAN BAWAH: Tombol Aksi Transparan (Hanya Ikon) */}
       <div
         data-ui="true"
-        className="absolute bottom-14 right-6 sm:right-12 flex flex-col items-end gap-2.5 pointer-events-auto"
+        className="absolute bottom-8 right-6 sm:right-10 flex flex-col items-end gap-3 pointer-events-auto"
       >
         {unlockedWeapons.length > 1 && (
-          <div className="flex gap-1.5 bg-slate-950/35 p-1 rounded-xl border border-white/15">
+          <div className="flex gap-2 bg-slate-950/45 p-1.5 rounded-xl border border-white/15">
             {unlockedWeapons.map((wId) => {
               const Icon =
                 wId === 'laser_rifle' ? Zap : wId === 'cyber_shotgun' ? Flame : Target;

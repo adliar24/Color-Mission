@@ -2845,6 +2845,27 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       {/* Container Kanvas 3D Three.js */}
       <div ref={mountRef} className="absolute inset-0 w-full h-full cursor-crosshair" />
 
+      {/* Pre-warmed Raster Cache Gambar Karakter agar saat klik MULAI MISI langsung tampil instan 0ms */}
+      <div
+        aria-hidden="true"
+        className="fixed -left-[9999px] -top-[9999px] w-1 h-1 overflow-hidden pointer-events-none opacity-0"
+      >
+        <img
+          src={CHARACTER_REGISTRY.raka.imagePath}
+          alt=""
+          loading="eager"
+          decoding="sync"
+          fetchPriority="high"
+        />
+        <img
+          src={CHARACTER_REGISTRY.naya.imagePath}
+          alt=""
+          loading="eager"
+          decoding="sync"
+          fetchPriority="high"
+        />
+      </div>
+
       {/* ====================================================================
           PEMBERITAHUAN PILIHAN MODE LAYAR PENUH KHUSUS PERANGKAT MOBILE
          ==================================================================== */}

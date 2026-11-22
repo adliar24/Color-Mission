@@ -176,38 +176,38 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       )}
 
       {/* ====================================================================
-          BAGIAN ATAS: STAGE, SKOR & UTILITAS
+          KOLOM KIRI: STAGE & PROGRES + HP & SHIELD (FLEX COLUMN AGAR TIDAK PERNAH BERTUMPUK)
          ==================================================================== */}
       <div
-        className={`absolute flex items-start justify-between ${
-          platformMode === 'mobile'
-            ? 'top-2.5 left-3 right-3 gap-2'
-            : 'top-4 left-4 right-4 md:top-6 md:left-7 md:right-7 gap-4'
+        className={`absolute flex flex-col pointer-events-none ${
+          isMobile
+            ? 'top-3 left-3.5 gap-3'
+            : 'top-4 left-4 md:top-6 md:left-7 gap-3'
         }`}
       >
-        {/* Kiri Atas: Stage & Bar Progres */}
+        {/* Kartu Stage & Bar Progres */}
         <div
           className={`bg-[#090d18]/92 border border-white/12 shadow-xl ${
-            platformMode === 'mobile'
-              ? 'px-2.5 py-1.5 rounded-xl min-w-[116px]'
+            isMobile
+              ? 'px-3 py-2 rounded-xl w-[126px]'
               : 'px-4 py-3 rounded-2xl min-w-[170px] md:min-w-[200px]'
           }`}
         >
           <div
             className={`flex items-center justify-between ${
-              platformMode === 'mobile' ? 'gap-2 mb-1' : 'gap-3 mb-2'
+              isMobile ? 'gap-2 mb-1.5' : 'gap-3 mb-2'
             }`}
           >
             <span
               className={`font-extrabold uppercase tracking-wider text-cyan-400 ${
-                platformMode === 'mobile' ? 'text-[10px]' : 'text-xs'
+                isMobile ? 'text-[10px]' : 'text-xs'
               }`}
             >
-              {isBossActive ? 'CHROMA TITAN' : `STAGE ${player.stage}`}
+              {isBossActive ? 'TITAN' : `STAGE ${player.stage}`}
             </span>
             <span
               className={`font-bold tabular-nums text-white ${
-                platformMode === 'mobile' ? 'text-xs' : 'text-sm'
+                isMobile ? 'text-xs' : 'text-sm'
               }`}
             >
               {isBossActive
@@ -218,7 +218,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
 
           <div
             className={`w-full bg-white/10 rounded-full overflow-hidden ${
-              platformMode === 'mobile' ? 'h-1.5' : 'h-2'
+              isMobile ? 'h-1.5' : 'h-2'
             }`}
           >
             <div
@@ -232,42 +232,87 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           </div>
 
           <div
-            className={`mt-1 flex items-center justify-between gap-1.5 font-bold text-slate-300 ${
-              isMobile ? 'text-[9px]' : 'mt-1.5 text-[10px]'
+            className={`mt-1.5 flex items-center justify-between gap-1.5 font-bold text-slate-300 ${
+              isMobile ? 'text-[9px]' : 'text-[10px]'
             }`}
           >
             <span className="truncate">{charProfile.name}</span>
-            <span className="px-1.5 py-0.2 rounded bg-white/10 text-cyan-300 uppercase">
+            <span className="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300 uppercase leading-none">
               {diffCfg.label}
             </span>
           </div>
         </div>
 
-        {/* Kanan Atas: Skor, Kombo & Kontrol */}
-        <div
-          data-ui="true"
-          className={`flex items-center pointer-events-auto ${
-            platformMode === 'mobile' ? 'gap-1.5' : 'gap-2.5'
-          }`}
-        >
+        {/* Di Mobile: Kartu HP & Shield berada langsung di bawah kartu Stage dengan jarak gap-3 (12px) */}
+        {isMobile && (
+          <div className="bg-[#090d18]/92 border border-white/12 shadow-xl px-3 py-2 rounded-xl w-[126px] pointer-events-auto">
+            {/* HP */}
+            <div className="flex items-center justify-between text-[10px] mb-1">
+              <div className="flex items-center gap-1 text-slate-300 font-bold">
+                <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
+                <span>HP</span>
+              </div>
+              <span className="font-extrabold tabular-nums text-white text-xs">
+                {Math.round(player.hp)}
+              </span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full overflow-hidden h-1.5 mb-2">
+              <div
+                className="h-full bg-rose-500 transition-all duration-150"
+                style={{ width: `${hpPercent}%` }}
+              />
+            </div>
+
+            {/* SHIELD */}
+            <div className="flex items-center justify-between text-[10px] mb-1">
+              <div className="flex items-center gap-1 text-slate-300 font-bold">
+                <Shield className="w-3 h-3 text-cyan-400 fill-cyan-400/30" />
+                <span>SHIELD</span>
+              </div>
+              <span className="font-extrabold tabular-nums text-white text-xs">
+                {Math.round(player.shield)}
+              </span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full overflow-hidden h-1.5">
+              <div
+                className="h-full bg-cyan-400 transition-all duration-150"
+                style={{ width: `${shieldPercent}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ====================================================================
+          KOLOM KANAN ATAS: SKOR, UTILITAS & (DI MOBILE) VISUAL 2D SENJATA + PELURU
+         ==================================================================== */}
+      <div
+        data-ui="true"
+        className={`absolute flex flex-col items-end pointer-events-auto ${
+          isMobile
+            ? 'top-3 right-3.5 gap-3'
+            : 'top-4 right-4 md:top-6 md:right-7 gap-2.5'
+        }`}
+      >
+        <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-2.5'}`}>
           <div
             className={`bg-[#090d18]/92 border border-white/12 flex items-center shadow-xl ${
-              platformMode === 'mobile'
-                ? 'px-2.5 py-1.5 rounded-xl gap-2.5'
+              isMobile
+                ? 'px-3 py-1.5 rounded-xl gap-2.5'
                 : 'px-4 py-2.5 rounded-2xl gap-4'
             }`}
           >
             <div>
               <span
                 className={`font-bold uppercase tracking-wider text-slate-400 block ${
-                  platformMode === 'mobile' ? 'text-[9px]' : 'text-[10px]'
+                  isMobile ? 'text-[9px]' : 'text-[10px]'
                 }`}
               >
                 SKOR
               </span>
               <span
                 className={`font-extrabold tabular-nums text-white leading-none ${
-                  platformMode === 'mobile' ? 'text-sm' : 'text-lg md:text-xl'
+                  isMobile ? 'text-sm' : 'text-lg md:text-xl'
                 }`}
               >
                 {player.score.toLocaleString('id-ID')}
@@ -280,14 +325,14 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
                 <div className="text-right">
                   <span
                     className={`font-bold uppercase tracking-wider text-slate-400 block ${
-                      platformMode === 'mobile' ? 'text-[9px]' : 'text-[10px]'
+                      isMobile ? 'text-[9px]' : 'text-[10px]'
                     }`}
                   >
                     KOMBO
                   </span>
                   <span
                     className={`font-extrabold tabular-nums text-cyan-400 leading-none ${
-                      platformMode === 'mobile' ? 'text-xs' : 'text-base md:text-lg'
+                      isMobile ? 'text-xs' : 'text-base md:text-lg'
                     }`}
                   >
                     {player.combo}x{comboMult > 1 ? ` (x${comboMult})` : ''}
@@ -311,7 +356,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             type="button"
             onClick={onToggleMute}
             className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl ${
-              platformMode === 'mobile' ? 'p-2 rounded-xl' : 'p-3 rounded-2xl'
+              isMobile ? 'p-2.5 rounded-xl' : 'p-3 rounded-2xl'
             }`}
             title="Suara [M]"
             aria-label={isMuted ? 'Aktifkan Suara' : 'Bisukan Suara'}
@@ -328,7 +373,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
               type="button"
               onClick={onToggleFullscreen}
               className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl ${
-                platformMode === 'mobile' ? 'p-2 rounded-xl' : 'p-3 rounded-2xl'
+                isMobile ? 'p-2.5 rounded-xl' : 'p-3 rounded-2xl'
               }`}
               title={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
               aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
@@ -345,7 +390,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             type="button"
             onClick={onPause}
             className={`bg-[#090d18]/90 hover:bg-slate-900 border border-white/12 text-slate-200 hover:text-white transition-colors cursor-pointer shadow-xl flex items-center gap-1.5 ${
-              platformMode === 'mobile' ? 'p-2 rounded-xl' : 'p-3 rounded-2xl'
+              isMobile ? 'p-2.5 rounded-xl' : 'p-3 rounded-2xl'
             }`}
             title="Jeda [Esc]"
             aria-label="Jeda"
@@ -354,6 +399,34 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             <GamepadBadge button="START" visible={isGamepadConnected} size="sm" />
           </button>
         </div>
+
+        {/* Di Mobile: Kartu Senjata 2D & Peluru berada langsung di bawah baris Skor/Tombol dengan gap-3 (12px) */}
+        {isMobile && (
+          <div className="bg-[#090d18]/92 border border-white/12 px-3 py-2 rounded-xl shadow-xl flex flex-col items-end">
+            <div className="flex items-center gap-2.5">
+              <div className="w-15 h-8 rounded-lg bg-[#0b1122] border border-white/12 px-1.5 py-0.5 flex items-center justify-center shrink-0">
+                <Weapon2DIcon weaponId={currentWeapon} />
+              </div>
+              <div className="flex flex-col items-end leading-none">
+                <span className="text-[8px] font-extrabold uppercase tracking-wider text-slate-400 mb-0.5">
+                  PELURU
+                </span>
+                <span
+                  className={`text-lg font-black tabular-nums leading-none ${
+                    ammo <= 8 ? 'text-rose-400' : 'text-white'
+                  }`}
+                >
+                  {ammo}
+                </span>
+              </div>
+            </div>
+            {ammo === 0 && (
+              <span className="text-[9px] font-extrabold text-rose-400 tracking-wide mt-1">
+                PELURU HABIS
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ====================================================================
@@ -362,9 +435,9 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       <div
         className={`absolute left-1/2 -translate-x-1/2 flex flex-col items-center ${
           isMobilePortrait
-            ? 'top-[118px] mt-[env(safe-area-inset-top,0px)] gap-1.5'
+            ? 'top-[172px] mt-[env(safe-area-inset-top,0px)] gap-2'
             : isMobile
-              ? 'top-2.5 gap-1.5'
+              ? 'top-3 gap-2'
               : 'top-20 md:top-6 gap-2'
         }`}
       >
@@ -591,97 +664,51 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       </div>
 
       {/* ====================================================================
-          BAGIAN BAWAH KIRI (ATAU KIRI ATAS MOBILE): HP & SHIELD
+          BAGIAN BAWAH KIRI (KHUSUS DESKTOP / VR): HP & SHIELD
          ==================================================================== */}
-      <div
-        className={`absolute flex flex-col gap-2 pointer-events-auto ${
-          isMobile ? 'top-[62px] left-3' : 'bottom-6 left-7'
-        }`}
-      >
-        <div
-          className={`bg-[#090d18]/92 border border-white/12 shadow-xl ${
-            isMobile
-              ? 'px-2.5 py-1.5 rounded-xl min-w-[116px]'
-              : 'px-4 py-3.5 rounded-2xl min-w-[200px] md:min-w-[230px]'
-          }`}
-        >
-          {/* HP */}
-          <div
-            className={`flex items-center justify-between mb-0.5 ${
-              isMobile ? 'text-[10px]' : 'text-xs mb-1'
-            }`}
-          >
-            <div className="flex items-center gap-1 text-slate-300 font-bold">
-              <Heart
-                className={`text-rose-500 fill-rose-500 ${
-                  isMobile ? 'w-3 h-3' : 'w-3.5 h-3.5'
-                }`}
-              />
-              <span>HP</span>
+      {!isMobile && (
+        <div className="absolute bottom-6 left-7 flex flex-col gap-2 pointer-events-auto">
+          <div className="bg-[#090d18]/92 border border-white/12 shadow-xl px-4 py-3.5 rounded-2xl min-w-[200px] md:min-w-[230px]">
+            {/* HP */}
+            <div className="flex items-center justify-between text-xs mb-1">
+              <div className="flex items-center gap-1 text-slate-300 font-bold">
+                <Heart className="text-rose-500 fill-rose-500 w-3.5 h-3.5" />
+                <span>HP</span>
+              </div>
+              <span className="font-extrabold tabular-nums text-white text-sm">
+                {Math.round(player.hp)}
+              </span>
             </div>
-            <span
-              className={`font-extrabold tabular-nums text-white ${
-                isMobile ? 'text-xs' : 'text-sm'
-              }`}
-            >
-              {Math.round(player.hp)}
-            </span>
-          </div>
-          <div
-            className={`w-full bg-white/10 rounded-full overflow-hidden ${
-              isMobile ? 'h-1.5 mb-1.5' : 'h-2 mb-2.5'
-            }`}
-          >
-            <div
-              className="h-full bg-rose-500 transition-all duration-150"
-              style={{ width: `${hpPercent}%` }}
-            />
-          </div>
-
-          {/* SHIELD */}
-          <div
-            className={`flex items-center justify-between mb-0.5 ${
-              isMobile ? 'text-[10px]' : 'text-xs mb-1'
-            }`}
-          >
-            <div className="flex items-center gap-1 text-slate-300 font-bold">
-              <Shield
-                className={`text-cyan-400 fill-cyan-400/30 ${
-                  isMobile ? 'w-3 h-3' : 'w-3.5 h-3.5'
-                }`}
+            <div className="w-full bg-white/10 rounded-full overflow-hidden h-2 mb-2.5">
+              <div
+                className="h-full bg-rose-500 transition-all duration-150"
+                style={{ width: `${hpPercent}%` }}
               />
-              <span>SHIELD</span>
             </div>
-            <span
-              className={`font-extrabold tabular-nums text-white ${
-                isMobile ? 'text-xs' : 'text-sm'
-              }`}
-            >
-              {Math.round(player.shield)}
-            </span>
-          </div>
-          <div
-            className={`w-full bg-white/10 rounded-full overflow-hidden ${
-              isMobile ? 'h-1' : 'h-1.5'
-            }`}
-          >
-            <div
-              className="h-full bg-cyan-400 transition-all duration-150"
-              style={{ width: `${shieldPercent}%` }}
-            />
-          </div>
 
-          {/* ABILITY KHUSUS KARAKTER (Di Mobile Touchscreen sudah ada tombol bulat SKILL di kanan bawah) */}
-          {(!isMobile || isGamepadConnected) && (
+            {/* SHIELD */}
+            <div className="flex items-center justify-between text-xs mb-1">
+              <div className="flex items-center gap-1 text-slate-300 font-bold">
+                <Shield className="text-cyan-400 fill-cyan-400/30 w-3.5 h-3.5" />
+                <span>SHIELD</span>
+              </div>
+              <span className="font-extrabold tabular-nums text-white text-sm">
+                {Math.round(player.shield)}
+              </span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full overflow-hidden h-1.5">
+              <div
+                className="h-full bg-cyan-400 transition-all duration-150"
+                style={{ width: `${shieldPercent}%` }}
+              />
+            </div>
+
+            {/* ABILITY KHUSUS KARAKTER */}
             <button
               type="button"
               disabled={abilityCdLeft > 0}
               onClick={() => onTriggerAbility?.()}
-              className={`w-full text-left transition-all rounded-xl border ${
-                isMobile
-                  ? 'mt-1.5 px-2 py-1 text-[10px]'
-                  : 'mt-3 px-2.5 py-2 text-xs'
-              } ${
+              className={`w-full text-left transition-all rounded-xl border mt-3 px-2.5 py-2 text-xs ${
                 abilityActiveLeft > 0
                   ? 'bg-cyan-400 text-slate-950 border-white font-black animate-pulse cursor-default'
                   : abilityReady
@@ -702,54 +729,23 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
                   {abilityActiveLeft > 0
                     ? `AKTIF ${abilityActiveLeft.toFixed(1)}s`
                     : abilityReady
-                      ? isMobile
-                        ? 'SIAP'
-                        : 'SIAP [E]'
+                      ? 'SIAP [E]'
                       : `${Math.ceil(abilityCdLeft)}s`}
                 </span>
               </div>
             </button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ====================================================================
-          BAGIAN BAWAH KANAN (ATAU KANAN ATAS MOBILE): AMUNISI & VISUAL 2D SENJATA
+          BAGIAN BAWAH KANAN (KHUSUS DESKTOP / VR): AMUNISI & VISUAL 2D SENJATA
          ==================================================================== */}
-      <div
-        data-ui="true"
-        className={`absolute flex flex-col items-end gap-2 pointer-events-auto ${
-          isMobile ? 'top-[52px] right-3' : 'bottom-6 right-7'
-        }`}
-      >
-        {isMobile ? (
-          /* TAMPILAN MOBILE RINGKAS & PROFESIONAL (HORIZONTAL PILL: SENJATA 2D + PELURU) */
-          <div className="bg-[#090d18]/92 border border-white/12 px-2.5 py-1.5 rounded-xl shadow-xl flex flex-col items-end">
-            <div className="flex items-center gap-2">
-              <div className="w-14 h-7 rounded-lg bg-[#0b1122] border border-white/12 px-1 py-0.5 flex items-center justify-center shrink-0">
-                <Weapon2DIcon weaponId={currentWeapon} />
-              </div>
-              <div className="flex flex-col items-end leading-none">
-                <span className="text-[8px] font-extrabold uppercase tracking-wider text-slate-400">
-                  PELURU
-                </span>
-                <span
-                  className={`text-lg font-black tabular-nums leading-tight ${
-                    ammo <= 8 ? 'text-rose-400' : 'text-white'
-                  }`}
-                >
-                  {ammo}
-                </span>
-              </div>
-            </div>
-            {ammo === 0 && (
-              <span className="text-[9px] font-extrabold text-rose-400 tracking-wide mt-0.5">
-                PELURU HABIS
-              </span>
-            )}
-          </div>
-        ) : (
-          /* TAMPILAN DESKTOP / VR */
+      {!isMobile && (
+        <div
+          data-ui="true"
+          className="absolute bottom-6 right-7 flex flex-col items-end gap-2 pointer-events-auto"
+        >
           <div className="bg-[#090d18]/92 border border-white/12 px-4 py-3 rounded-2xl min-w-[175px] md:min-w-[210px] flex flex-col items-end shadow-xl">
             <div className="w-full flex flex-col items-center mb-2">
               <div className="w-full h-14 px-2.5 py-1 rounded-xl bg-[#0b1122] border border-white/12 flex items-center justify-center">
@@ -807,8 +803,8 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
