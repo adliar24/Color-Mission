@@ -49,6 +49,7 @@ interface PlayingHUDProps {
   activeCrystalColorId?: GameColorId | null;
   shotFeedback: ShotFeedback | null;
   platformMode: PlatformMode;
+  mobileOrientation?: 'landscape' | 'portrait';
   isGamepadConnected?: boolean;
   vrComfortVignetteActive?: boolean;
   onSwitchWeapon: (type: WeaponType) => void;
@@ -82,6 +83,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
   activeCrystalColorId = null,
   shotFeedback,
   platformMode,
+  mobileOrientation = 'landscape',
   isGamepadConnected = false,
   vrComfortVignetteActive = false,
   onSwitchWeapon,
@@ -102,6 +104,8 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
   const stageDef = getEffectiveStageDef(player.stage, difficulty);
   const diffCfg = DIFFICULTY_REGISTRY[difficulty] || DIFFICULTY_REGISTRY.normal;
   const charProfile = CHARACTER_REGISTRY[characterId] || CHARACTER_REGISTRY.raka;
+  const isMobile = platformMode === 'mobile';
+  const isMobilePortrait = isMobile && mobileOrientation === 'portrait';
   const abilityCdLeft = Math.max(0, player.abilityCooldownLeft ?? 0);
   const abilityActiveLeft = Math.max(0, player.abilityActiveLeft ?? 0);
   const abilityReady = abilityCdLeft <= 0 && abilityActiveLeft <= 0;
@@ -227,7 +231,11 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             />
           </div>
 
-          <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] font-bold text-slate-300">
+          <div
+            className={`mt-1 flex items-center justify-between gap-1.5 font-bold text-slate-300 ${
+              isMobile ? 'text-[9px]' : 'mt-1.5 text-[10px]'
+            }`}
+          >
             <span className="truncate">{charProfile.name}</span>
             <span className="px-1.5 py-0.2 rounded bg-white/10 text-cyan-300 uppercase">
               {diffCfg.label}
@@ -353,7 +361,11 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
          ==================================================================== */}
       <div
         className={`absolute left-1/2 -translate-x-1/2 flex flex-col items-center ${
-          platformMode === 'mobile' ? 'top-2.5 gap-1.5' : 'top-20 md:top-6 gap-2'
+          isMobilePortrait
+            ? 'top-[118px] mt-[env(safe-area-inset-top,0px)] gap-1.5'
+            : isMobile
+              ? 'top-2.5 gap-1.5'
+              : 'top-20 md:top-6 gap-2'
         }`}
       >
         <div
@@ -579,16 +591,16 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       </div>
 
       {/* ====================================================================
-          BAGIAN BAWAH KIRI: HP & SHIELD
+          BAGIAN BAWAH KIRI (ATAU KIRI ATAS MOBILE): HP & SHIELD
          ==================================================================== */}
       <div
         className={`absolute flex flex-col gap-2 pointer-events-auto ${
-          platformMode === 'mobile' ? 'top-14 left-3' : 'bottom-6 left-7'
+          isMobile ? 'top-[62px] left-3' : 'bottom-6 left-7'
         }`}
       >
         <div
           className={`bg-[#090d18]/92 border border-white/12 shadow-xl ${
-            platformMode === 'mobile'
+            isMobile
               ? 'px-2.5 py-1.5 rounded-xl min-w-[116px]'
               : 'px-4 py-3.5 rounded-2xl min-w-[200px] md:min-w-[230px]'
           }`}
@@ -596,20 +608,20 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           {/* HP */}
           <div
             className={`flex items-center justify-between mb-0.5 ${
-              platformMode === 'mobile' ? 'text-[10px]' : 'text-xs mb-1'
+              isMobile ? 'text-[10px]' : 'text-xs mb-1'
             }`}
           >
             <div className="flex items-center gap-1 text-slate-300 font-bold">
               <Heart
                 className={`text-rose-500 fill-rose-500 ${
-                  platformMode === 'mobile' ? 'w-3 h-3' : 'w-3.5 h-3.5'
+                  isMobile ? 'w-3 h-3' : 'w-3.5 h-3.5'
                 }`}
               />
               <span>HP</span>
             </div>
             <span
               className={`font-extrabold tabular-nums text-white ${
-                platformMode === 'mobile' ? 'text-xs' : 'text-sm'
+                isMobile ? 'text-xs' : 'text-sm'
               }`}
             >
               {Math.round(player.hp)}
@@ -617,7 +629,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           </div>
           <div
             className={`w-full bg-white/10 rounded-full overflow-hidden ${
-              platformMode === 'mobile' ? 'h-1.5 mb-1.5' : 'h-2 mb-2.5'
+              isMobile ? 'h-1.5 mb-1.5' : 'h-2 mb-2.5'
             }`}
           >
             <div
@@ -629,20 +641,20 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           {/* SHIELD */}
           <div
             className={`flex items-center justify-between mb-0.5 ${
-              platformMode === 'mobile' ? 'text-[10px]' : 'text-xs mb-1'
+              isMobile ? 'text-[10px]' : 'text-xs mb-1'
             }`}
           >
             <div className="flex items-center gap-1 text-slate-300 font-bold">
               <Shield
                 className={`text-cyan-400 fill-cyan-400/30 ${
-                  platformMode === 'mobile' ? 'w-3 h-3' : 'w-3.5 h-3.5'
+                  isMobile ? 'w-3 h-3' : 'w-3.5 h-3.5'
                 }`}
               />
               <span>SHIELD</span>
             </div>
             <span
               className={`font-extrabold tabular-nums text-white ${
-                platformMode === 'mobile' ? 'text-xs' : 'text-sm'
+                isMobile ? 'text-xs' : 'text-sm'
               }`}
             >
               {Math.round(player.shield)}
@@ -650,7 +662,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
           </div>
           <div
             className={`w-full bg-white/10 rounded-full overflow-hidden ${
-              platformMode === 'mobile' ? 'h-1' : 'h-1.5'
+              isMobile ? 'h-1' : 'h-1.5'
             }`}
           >
             <div
@@ -659,131 +671,143 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             />
           </div>
 
-          {/* ABILITY KHUSUS KARAKTER (PERISAI SUPER RAKA / RECOVERY NAYA) */}
-          <button
-            type="button"
-            disabled={abilityCdLeft > 0}
-            onClick={() => onTriggerAbility?.()}
-            className={`w-full text-left transition-all rounded-xl border ${
-              platformMode === 'mobile'
-                ? 'mt-2 px-2 py-1 text-[10px]'
-                : 'mt-3 px-2.5 py-2 text-xs'
-            } ${
-              abilityActiveLeft > 0
-                ? 'bg-cyan-400 text-slate-950 border-white font-black animate-pulse cursor-default'
-                : abilityReady
-                  ? 'bg-[#0e1e3e] hover:bg-blue-600/80 border-cyan-400/60 text-white cursor-pointer'
-                  : 'bg-white/4 border-white/10 text-slate-400 cursor-not-allowed'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-extrabold uppercase tracking-wide flex items-center gap-1">
-                {charProfile.id === 'raka' ? (
-                  <Shield className="w-3.5 h-3.5 shrink-0" />
-                ) : (
-                  <Heart className="w-3.5 h-3.5 shrink-0" />
-                )}
-                <span>{charProfile.abilityName}</span>
-              </span>
-              <span className="font-black tabular-nums">
-                {abilityActiveLeft > 0
-                  ? `AKTIF ${abilityActiveLeft.toFixed(1)}s`
+          {/* ABILITY KHUSUS KARAKTER (Di Mobile Touchscreen sudah ada tombol bulat SKILL di kanan bawah) */}
+          {(!isMobile || isGamepadConnected) && (
+            <button
+              type="button"
+              disabled={abilityCdLeft > 0}
+              onClick={() => onTriggerAbility?.()}
+              className={`w-full text-left transition-all rounded-xl border ${
+                isMobile
+                  ? 'mt-1.5 px-2 py-1 text-[10px]'
+                  : 'mt-3 px-2.5 py-2 text-xs'
+              } ${
+                abilityActiveLeft > 0
+                  ? 'bg-cyan-400 text-slate-950 border-white font-black animate-pulse cursor-default'
                   : abilityReady
-                    ? platformMode === 'mobile'
-                      ? 'SIAP'
-                      : 'SIAP [E]'
-                    : `${Math.ceil(abilityCdLeft)}s`}
-              </span>
-            </div>
-          </button>
+                    ? 'bg-[#0e1e3e] hover:bg-blue-600/80 border-cyan-400/60 text-white cursor-pointer'
+                    : 'bg-white/4 border-white/10 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-extrabold uppercase tracking-wide flex items-center gap-1">
+                  {charProfile.id === 'raka' ? (
+                    <Shield className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <Heart className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>{charProfile.abilityName}</span>
+                </span>
+                <span className="font-black tabular-nums">
+                  {abilityActiveLeft > 0
+                    ? `AKTIF ${abilityActiveLeft.toFixed(1)}s`
+                    : abilityReady
+                      ? isMobile
+                        ? 'SIAP'
+                        : 'SIAP [E]'
+                      : `${Math.ceil(abilityCdLeft)}s`}
+                </span>
+              </div>
+            </button>
+          )}
         </div>
       </div>
 
       {/* ====================================================================
-          BAGIAN BAWAH KANAN: AMUNISI & SENJATA (DENGAN VISUAL 2D SENJATA AKTIF)
+          BAGIAN BAWAH KANAN (ATAU KANAN ATAS MOBILE): AMUNISI & VISUAL 2D SENJATA
          ==================================================================== */}
       <div
         data-ui="true"
         className={`absolute flex flex-col items-end gap-2 pointer-events-auto ${
-          platformMode === 'mobile' ? 'top-14 right-3' : 'bottom-6 right-7'
+          isMobile ? 'top-[52px] right-3' : 'bottom-6 right-7'
         }`}
       >
-        <div
-          className={`bg-[#090d18]/92 border border-white/12 flex flex-col items-end shadow-xl ${
-            platformMode === 'mobile'
-              ? 'px-2.5 py-1.5 rounded-xl min-w-[112px]'
-              : 'px-4 py-3 rounded-2xl min-w-[175px] md:min-w-[210px]'
-          }`}
-        >
-          {/* Visual 2D Senjata yang Sedang Dipakai */}
-          <div className="w-full flex flex-col items-center mb-2">
-            <div
-              className={`w-full rounded-xl bg-[#0b1122] border border-white/12 flex items-center justify-center ${
-                platformMode === 'mobile' ? 'h-9 px-1.5 py-0.5' : 'h-14 px-2.5 py-1'
-              }`}
-            >
-              <Weapon2DIcon weaponId={currentWeapon} />
-            </div>
-            <span
-              className={`font-black uppercase tracking-wider text-cyan-300 truncate max-w-full mt-1 ${
-                platformMode === 'mobile' ? 'text-[9px]' : 'text-[11px]'
-              }`}
-            >
-              {WEAPON_REGISTRY[currentWeapon].name}
-            </span>
-          </div>
-
-          <div className="flex items-baseline justify-between w-full gap-2.5 pt-1.5 border-t border-white/10">
-            <span
-              className={`font-extrabold uppercase tracking-wider text-slate-400 ${
-                platformMode === 'mobile' ? 'text-[10px]' : 'text-xs'
-              }`}
-            >
-              PELURU
-            </span>
-            <span
-              className={`font-black tabular-nums leading-none ${
-                platformMode === 'mobile' ? 'text-xl' : 'text-3xl md:text-4xl'
-              } ${ammo <= 8 ? 'text-rose-400' : 'text-white'}`}
-            >
-              {ammo}
-            </span>
-          </div>
-          {ammo === 0 && (
-            <span className="text-[11px] font-extrabold text-rose-400 tracking-wide mt-1">
-              PELURU HABIS · AMBIL ITEM PELURU
-            </span>
-          )}
-
-          {(platformMode !== 'mobile' || isGamepadConnected) && unlockedWeapons.length > 1 && (
-            <div className="flex items-center gap-1.5 w-full mt-2.5 pt-2 border-t border-white/10">
-              {isGamepadConnected && <GamepadBadge button="Y" visible size="sm" />}
-              <div
-                className={`grid gap-1.5 flex-1 ${
-                  unlockedWeapons.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
-                }`}
-              >
-                {unlockedWeapons.map((wId, idx) => {
-                  const isSelected = currentWeapon === wId;
-                  return (
-                    <button
-                      key={wId}
-                      type="button"
-                      onClick={() => onSwitchWeapon(wId)}
-                      className={`py-1 rounded-lg text-xs font-extrabold transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-cyan-400 text-slate-950'
-                          : 'bg-white/5 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                })}
+        {isMobile ? (
+          /* TAMPILAN MOBILE RINGKAS & PROFESIONAL (HORIZONTAL PILL: SENJATA 2D + PELURU) */
+          <div className="bg-[#090d18]/92 border border-white/12 px-2.5 py-1.5 rounded-xl shadow-xl flex flex-col items-end">
+            <div className="flex items-center gap-2">
+              <div className="w-14 h-7 rounded-lg bg-[#0b1122] border border-white/12 px-1 py-0.5 flex items-center justify-center shrink-0">
+                <Weapon2DIcon weaponId={currentWeapon} />
+              </div>
+              <div className="flex flex-col items-end leading-none">
+                <span className="text-[8px] font-extrabold uppercase tracking-wider text-slate-400">
+                  PELURU
+                </span>
+                <span
+                  className={`text-lg font-black tabular-nums leading-tight ${
+                    ammo <= 8 ? 'text-rose-400' : 'text-white'
+                  }`}
+                >
+                  {ammo}
+                </span>
               </div>
             </div>
-          )}
-        </div>
+            {ammo === 0 && (
+              <span className="text-[9px] font-extrabold text-rose-400 tracking-wide mt-0.5">
+                PELURU HABIS
+              </span>
+            )}
+          </div>
+        ) : (
+          /* TAMPILAN DESKTOP / VR */
+          <div className="bg-[#090d18]/92 border border-white/12 px-4 py-3 rounded-2xl min-w-[175px] md:min-w-[210px] flex flex-col items-end shadow-xl">
+            <div className="w-full flex flex-col items-center mb-2">
+              <div className="w-full h-14 px-2.5 py-1 rounded-xl bg-[#0b1122] border border-white/12 flex items-center justify-center">
+                <Weapon2DIcon weaponId={currentWeapon} />
+              </div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-cyan-300 truncate max-w-full mt-1">
+                {WEAPON_REGISTRY[currentWeapon].name}
+              </span>
+            </div>
+
+            <div className="flex items-baseline justify-between w-full gap-2.5 pt-1.5 border-t border-white/10">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                PELURU
+              </span>
+              <span
+                className={`text-3xl md:text-4xl font-black tabular-nums leading-none ${
+                  ammo <= 8 ? 'text-rose-400' : 'text-white'
+                }`}
+              >
+                {ammo}
+              </span>
+            </div>
+            {ammo === 0 && (
+              <span className="text-[11px] font-extrabold text-rose-400 tracking-wide mt-1">
+                PELURU HABIS · AMBIL ITEM PELURU
+              </span>
+            )}
+
+            {unlockedWeapons.length > 1 && (
+              <div className="flex items-center gap-1.5 w-full mt-2.5 pt-2 border-t border-white/10">
+                {isGamepadConnected && <GamepadBadge button="Y" visible size="sm" />}
+                <div
+                  className={`grid gap-1.5 flex-1 ${
+                    unlockedWeapons.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+                  }`}
+                >
+                  {unlockedWeapons.map((wId, idx) => {
+                    const isSelected = currentWeapon === wId;
+                    return (
+                      <button
+                        key={wId}
+                        type="button"
+                        onClick={() => onSwitchWeapon(wId)}
+                        className={`py-1 rounded-lg text-xs font-extrabold transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-cyan-400 text-slate-950'
+                            : 'bg-white/5 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

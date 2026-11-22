@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MobileInput } from '../game/input/InputManager';
 import { CharacterId, WeaponType } from '../game/types';
 import { Crosshair, ArrowUp, Zap, Flame, Target, Shield, Heart } from 'lucide-react';
@@ -29,6 +29,27 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   const activeJoystickTouchId = useRef<number | null>(null);
   const activeLookTouchId = useRef<number | null>(null);
   const lastLookPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Pastikan setiap kali kontrol sentuh muncul atau ditutup (misal saat selesai stage / pause), gerakan direset ke 0
+  useEffect(() => {
+    mobileInput.reset();
+    setKnobOffset({ x: 0, y: 0 });
+    activeJoystickTouchId.current = null;
+    activeLookTouchId.current = null;
+
+    const handleWindowBlur = () => {
+      activeJoystickTouchId.current = null;
+      activeLookTouchId.current = null;
+      setKnobOffset({ x: 0, y: 0 });
+      mobileInput.reset();
+    };
+
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+      mobileInput.reset();
+    };
+  }, [mobileInput]);
 
   const maxRadius = 52;
 

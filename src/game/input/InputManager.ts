@@ -60,6 +60,7 @@ export class DesktopInput {
       window.addEventListener('mousedown', this.onMouseDown);
       window.addEventListener('mouseup', this.onMouseUp);
       window.addEventListener('mousemove', this.onMouseMove);
+      window.addEventListener('blur', this.onWindowBlur);
     }
     if (typeof document !== 'undefined') {
       document.addEventListener('pointerlockchange', this.onPointerLockChange);
@@ -75,14 +76,38 @@ export class DesktopInput {
       window.removeEventListener('mousedown', this.onMouseDown);
       window.removeEventListener('mouseup', this.onMouseUp);
       window.removeEventListener('mousemove', this.onMouseMove);
+      window.removeEventListener('blur', this.onWindowBlur);
     }
     if (typeof document !== 'undefined') {
       document.removeEventListener('pointerlockchange', this.onPointerLockChange);
       document.removeEventListener('pointerlockerror', this.onPointerLockError);
     }
+    this.reset();
+  }
+
+  public reset() {
     this.keysPressed.clear();
     this.isMouseDown = false;
+    this.lookAccumX = 0;
+    this.lookAccumY = 0;
+    this.smoothLookX = 0;
+    this.smoothLookY = 0;
+    this.pendingReload = false;
+    this.pendingDash = false;
+    this.pendingEmp = false;
+    this.pendingOverdrive = false;
+    this.pendingAbility = false;
+    this.pendingPause = false;
+    this.pendingMute = false;
+    this.pendingToggleHint = false;
+    this.pendingWeapon = null;
+    this.lastMouseClientX = null;
+    this.lastMouseClientY = null;
   }
+
+  private onWindowBlur = () => {
+    this.reset();
+  };
 
   public releasePointerLock() {
     if (typeof document !== 'undefined' && document.pointerLockElement) {
@@ -459,6 +484,10 @@ export class MobileInput {
   private smoothLookY = 0;
   private gyroAccumX = 0;
   private gyroAccumY = 0;
+  private smoothGyroX = 0;
+  private smoothGyroY = 0;
+  private lastMotionTimestamp = 0;
+  private hasDeviceMotionRate = false;
   private lastGyroAlpha: number | null = null;
   private lastGyroBeta: number | null = null;
   private lastGyroGamma: number | null = null;
@@ -477,23 +506,30 @@ export class MobileInput {
   }
 
   public static async requestGyroPermission(): Promise<boolean> {
-    if (
-      typeof window !== 'undefined' &&
-      typeof (window as unknown as { DeviceOrientationEvent?: { requestPermission?: () => Promise<string> } })
-        .DeviceOrientationEvent?.requestPermission === 'function'
-    ) {
-      try {
-        const res = await (
-          window as unknown as {
-            DeviceOrientationEvent: { requestPermission: () => Promise<string> };
-          }
-        ).DeviceOrientationEvent.requestPermission();
-        return res === 'granted';
-      } catch {
-        return false;
+    let granted = true;
+    if (typeof window !== 'undefined') {
+      const win = window as unknown as {
+        DeviceMotionEvent?: { requestPermission?: () => Promise<string> };
+        DeviceOrientationEvent?: { requestPermission?: () => Promise<string> };
+      };
+      if (typeof win.DeviceMotionEvent?.requestPermission === 'function') {
+        try {
+          const res = await win.DeviceMotionEvent.requestPermission();
+          granted = granted && res === 'granted';
+        } catch {
+          granted = false;
+        }
+      }
+      if (typeof win.DeviceOrientationEvent?.requestPermission === 'function') {
+        try {
+          const res = await win.DeviceOrientationEvent.requestPermission();
+          granted = granted && res === 'granted';
+        } catch {
+          granted = false;
+        }
       }
     }
-    return true;
+    return granted;
   }
 
   public async requestGyroPermission(): Promise<boolean> {
@@ -502,17 +538,90 @@ export class MobileInput {
 
   public attachGyroListener() {
     if (this.gyroListenerAttached || typeof window === 'undefined') return;
+    window.addEventListener('devicemotion', this.onDeviceMotion);
     window.addEventListener('deviceorientation', this.onDeviceOrientation);
     this.gyroListenerAttached = true;
   }
 
   public detachGyroListener() {
     if (!this.gyroListenerAttached || typeof window === 'undefined') return;
+    window.removeEventListener('devicemotion', this.onDeviceMotion);
     window.removeEventListener('deviceorientation', this.onDeviceOrientation);
     this.gyroListenerAttached = false;
   }
 
+  private getScreenOrientationAngle(): number {
+    if (typeof window === 'undefined') return 0;
+    const scrAngle = window.screen?.orientation?.angle;
+    if (typeof scrAngle === 'number') return scrAngle;
+    const legacyAngle = (window as unknown as { orientation?: number }).orientation;
+    if (typeof legacyAngle === 'number') return legacyAngle;
+    return window.innerWidth > window.innerHeight ? 90 : 0;
+  }
+
+  /**
+   * Gyroscope Utama berbasis kecepatan sudut hardware (DeviceMotionEvent.rotationRate).
+   * Bebas gimbal-lock, bebas drift kompas, dan otomatis menyesuaikan orientasi layar (Landscape / Portrait).
+   */
+  private onDeviceMotion = (e: DeviceMotionEvent) => {
+    const rate = e.rotationRate;
+    if (!rate || (rate.alpha === null && rate.beta === null && rate.gamma === null)) return;
+
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const dt =
+      this.lastMotionTimestamp > 0
+        ? Math.min(0.05, Math.max(0.002, (now - this.lastMotionTimestamp) / 1000))
+        : typeof e.interval === 'number' && e.interval > 0
+          ? e.interval > 1
+            ? e.interval / 1000
+            : e.interval
+          : 0.016;
+    this.lastMotionTimestamp = now;
+    this.hasDeviceMotionRate = true;
+
+    // rate.beta = sumbu X pendek HP (deg/s), rate.gamma = sumbu Y panjang HP (deg/s), rate.alpha = sumbu Z layar (deg/s)
+    const rBeta = rate.beta ?? 0;
+    const rGamma = rate.gamma ?? 0;
+    const rAlpha = rate.alpha ?? 0;
+
+    const angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
+    let yawRateDeg = 0;
+    let pitchRateDeg = 0;
+
+    if (angle === 90) {
+      // Landscape Primary (bagian atas HP di sisi kiri)
+      yawRateDeg = -rBeta + rAlpha * 0.25;
+      pitchRateDeg = -rGamma;
+    } else if (angle === 270) {
+      // Landscape Secondary (bagian atas HP di sisi kanan)
+      yawRateDeg = rBeta + rAlpha * 0.25;
+      pitchRateDeg = rGamma;
+    } else {
+      // Portrait (0 derajat)
+      yawRateDeg = rGamma + rAlpha * 0.35;
+      pitchRateDeg = rBeta;
+    }
+
+    // Deadzone micro-tremor agar crosshair diam stabil saat HP dipegang tenang
+    const deadzone = 1.15; // deg/s
+    const cleanYaw =
+      Math.abs(yawRateDeg) < deadzone
+        ? 0
+        : Math.sign(yawRateDeg) * (Math.abs(yawRateDeg) - deadzone);
+    const cleanPitch =
+      Math.abs(pitchRateDeg) < deadzone
+        ? 0
+        : Math.sign(pitchRateDeg) * (Math.abs(pitchRateDeg) - deadzone);
+
+    this.gyroAccumX += THREE.MathUtils.clamp(cleanYaw * dt, -8, 8);
+    this.gyroAccumY += THREE.MathUtils.clamp(cleanPitch * dt, -8, 8);
+  };
+
+  /**
+   * Fallback DeviceOrientationEvent jika browser tidak menyediakan DeviceMotionEvent.rotationRate.
+   */
   private onDeviceOrientation = (e: DeviceOrientationEvent) => {
+    if (this.hasDeviceMotionRate) return;
     if (e.alpha === null || e.beta === null || e.gamma === null) return;
 
     if (
@@ -526,20 +635,33 @@ export class MobileInput {
       return;
     }
 
-    // Hitung perubahan sudut orientasi HP tanpa memiringkan roll kamera
     let dAlpha = e.alpha - this.lastGyroAlpha;
     if (dAlpha > 180) dAlpha -= 360;
     if (dAlpha < -180) dAlpha += 360;
 
     const dBeta = e.beta - this.lastGyroBeta;
+    const dGamma = e.gamma - this.lastGyroGamma;
 
     this.lastGyroAlpha = e.alpha;
     this.lastGyroBeta = e.beta;
     this.lastGyroGamma = e.gamma;
 
-    if (Math.abs(dAlpha) < 25 && Math.abs(dBeta) < 25) {
-      this.gyroAccumX += dAlpha;
-      this.gyroAccumY += dBeta;
+    // Abaikan lonjakan gimbal-lock (> 12 derajat dalam 1 sampel)
+    if (Math.abs(dAlpha) > 12 || Math.abs(dBeta) > 12 || Math.abs(dGamma) > 12) {
+      return;
+    }
+
+    const angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
+    const rawYaw = dAlpha;
+    const rawPitch = angle === 90 ? -dGamma : angle === 270 ? dGamma : dBeta;
+
+    // Deadzone getaran halus sensor
+    const dz = 0.04;
+    if (Math.abs(rawYaw) > dz) {
+      this.gyroAccumX += rawYaw;
+    }
+    if (Math.abs(rawPitch) > dz) {
+      this.gyroAccumY += rawPitch;
     }
   };
 
@@ -601,11 +723,24 @@ export class MobileInput {
     this.isJumping = false;
     this.lookAccumX = 0;
     this.lookAccumY = 0;
+    this.smoothLookX = 0;
+    this.smoothLookY = 0;
     this.gyroAccumX = 0;
     this.gyroAccumY = 0;
+    this.smoothGyroX = 0;
+    this.smoothGyroY = 0;
+    this.lastMotionTimestamp = 0;
     this.lastGyroAlpha = null;
     this.lastGyroBeta = null;
     this.lastGyroGamma = null;
+    this.pendingReload = false;
+    this.pendingDash = false;
+    this.pendingEmp = false;
+    this.pendingOverdrive = false;
+    this.pendingAbility = false;
+    this.pendingPause = false;
+    this.pendingToggleHint = false;
+    this.pendingWeapon = null;
   }
 
   public poll(settings: GameSettings): GameplayInputCommand {
@@ -616,12 +751,21 @@ export class MobileInput {
     this.lookAccumX = 0;
     this.lookAccumY = 0;
 
-    // Jika Gyro HP diaktifkan di Pengaturan, tambahkan rotasi yaw/pitch dari sensor gyro (tanpa roll/miring!)
+    // Jika Gyro HP diaktifkan, gunakan low-pass filter eksponensial agar bidikan gyro mulus & presisi
     if (settings.mobileGyroEnabled) {
-      const gyroSens = 0.012 * settings.touchSensitivity * cameraMult;
-      lookDeltaX += this.gyroAccumX * gyroSens;
-      lookDeltaY += this.gyroAccumY * gyroSens;
+      const gyroSens = 0.0155 * settings.touchSensitivity * cameraMult;
+      const rawGyroX = this.gyroAccumX * gyroSens;
+      const rawGyroY = this.gyroAccumY * gyroSens;
+      this.smoothGyroX = this.smoothGyroX * 0.38 + rawGyroX * 0.62;
+      this.smoothGyroY = this.smoothGyroY * 0.38 + rawGyroY * 0.62;
+      if (Math.abs(this.smoothGyroX) < 1e-5) this.smoothGyroX = 0;
+      if (Math.abs(this.smoothGyroY) < 1e-5) this.smoothGyroY = 0;
+      lookDeltaX += this.smoothGyroX;
+      lookDeltaY += this.smoothGyroY;
     } else {
+      this.smoothGyroX = 0;
+      this.smoothGyroY = 0;
+      this.lastMotionTimestamp = 0;
       this.lastGyroAlpha = null;
       this.lastGyroBeta = null;
       this.lastGyroGamma = null;
@@ -1016,11 +1160,17 @@ export class InputManager {
     if (this.mode === 'desktop') {
       this.desktop.releasePointerLock();
     }
-    if (this.mode === 'mobile') {
-      this.mobile.reset();
-    }
+    this.resetAll();
     this.mode = newMode;
     this.onModeChangeCallback?.(newMode);
+  }
+
+  /**
+   * Mereset seluruh status gerakan/tombol di Desktop, Mobile, dan VR agar karakter berhenti total saat ganti stage / jeda.
+   */
+  public resetAll() {
+    this.desktop.reset();
+    this.mobile.reset();
   }
 
   public poll(

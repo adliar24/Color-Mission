@@ -681,3 +681,36 @@ test('Ability Agen Raka (Perisai Super CD 60s) menahan 100% damage & Agen Naya (
   const nayaWhileCd = activateCharacterAbility(nayaAct.updatedPlayer, 'naya');
   assert.equal(nayaWhileCd.activated, false);
 });
+
+test('InputManager.resetAll menghentikan seluruh sisa gerak maju saat berganti stage di Mobile maupun Desktop', () => {
+  const im = new InputManager();
+
+  // Simulasikan pemain sedang menahan joystick maju di Mobile saat stage selesai
+  im.setMode('mobile');
+  im.mobile.setJoystick(0.4, -1.0);
+  im.mobile.setShooting(true);
+  im.resetAll();
+
+  const mobileAfterReset = im.poll(TEST_SETTINGS, 0.016);
+  assert.equal(mobileAfterReset.moveX, 0);
+  assert.equal(mobileAfterReset.moveZ, 0);
+  assert.equal(mobileAfterReset.shoot, false);
+
+  // Simulasikan pemain sedang menahan tombol W di Desktop saat stage selesai
+  im.setMode('desktop');
+  const desktopAny = im.desktop as unknown as {
+    isActive: boolean;
+    onKeyDown: (e: { code: string }) => void;
+  };
+  desktopAny.isActive = true;
+  desktopAny.onKeyDown({ code: 'KeyW' });
+  im.resetAll();
+
+  const desktopAfterReset = im.poll(TEST_SETTINGS, 0.016);
+  assert.equal(desktopAfterReset.moveX, 0);
+  assert.equal(desktopAfterReset.moveZ, 0);
+  assert.equal(desktopAfterReset.shoot, false);
+
+  im.dispose();
+});
+

@@ -253,7 +253,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const activeCrystalColorIdRef = useRef<GameColorId | null>(null);
   const [mobileFullscreenConfirmed, setMobileFullscreenConfirmed] = useState<boolean>(false);
   const [desktopFullscreenConfirmed, setDesktopFullscreenConfirmed] = useState<boolean>(false);
-  const [mobileOrientation, setMobileOrientation] = useState<'landscape' | 'portrait'>('landscape');
+  const [mobileOrientation, setMobileOrientation] = useState<'landscape' | 'portrait'>(() =>
+    typeof window !== 'undefined' && window.innerHeight > window.innerWidth
+      ? 'portrait'
+      : 'landscape'
+  );
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // Umpan balik & Modal
@@ -2128,6 +2132,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           if (!stageTransitionLock.current) {
             stageTransitionLock.current = true;
             sound.playWaveFanfare();
+            inputManagerRef.current.resetAll();
+            playerVel.current.set(0, 0, 0);
 
             const clearedNum = stageNum as 1 | 2;
             const earnedInStage = Math.max(
@@ -2146,6 +2152,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             stageClearTimerRef.current = setTimeout(() => {
               stageClearTimerRef.current = null;
               enemies.clearAll();
+              inputManagerRef.current.resetAll();
+              playerVel.current.set(0, 0, 0);
               inputManagerRef.current.desktop.releasePointerLock();
               setStageModalMode('stage_clear');
               setStageModalNumber(clearedNum);
@@ -2420,6 +2428,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     }
     isPlayerDyingRef.current = false;
     setIsPlayerDying(false);
+    inputManagerRef.current.resetAll();
+    playerVel.current.set(0, 0, 0);
+    _scratchWishDir.set(0, 0, 0);
     enemiesRef.current?.clearAll();
     if (arenaRef.current && 'clearBossCrystals' in arenaRef.current) {
       arenaRef.current.clearBossCrystals();
@@ -2482,6 +2493,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
     playerPos.current.set(0, 1.7, 0);
     playerVel.current.set(0, 0, 0);
+    _scratchWishDir.set(0, 0, 0);
+    inputManagerRef.current.resetAll();
     cameraRot.current = { pitch: 0, yaw: 0 };
     spawnTimer.current = 0;
     runStartTime.current = Date.now();
@@ -2526,6 +2539,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   };
 
   const handleContinueFromStageTransition = () => {
+    inputManagerRef.current.resetAll();
+    playerVel.current.set(0, 0, 0);
+    _scratchWishDir.set(0, 0, 0);
+
     if (stageModalMode === 'stage_clear') {
       const nextStage = Math.min(3, stageModalNumber + 1) as 2 | 3;
       const nextStageDef = STAGE_DEFINITIONS[nextStage];
@@ -2542,6 +2559,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         stageKills: 0,
       }));
 
+      playerPos.current.set(0, 1.7, 0);
+      playerVel.current.set(0, 0, 0);
+      cameraRot.current = { pitch: 0, yaw: 0 };
       spawnTimer.current = 0;
       bossInstanceRef.current = null;
       bossDamageSinceSwitch.current = 0;
@@ -2559,7 +2579,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       return;
     }
 
-    // stage_intro -> mulai pertempuran pada stageModalNumber
+    // stage_intro -> mulai pertempuran pada stageModalNumber dalam posisi diam di tengah
+    inputManagerRef.current.resetAll();
+    playerPos.current.set(0, 1.7, 0);
+    playerVel.current.set(0, 0, 0);
+    _scratchWishDir.set(0, 0, 0);
     const activeStage = stageModalNumber;
     const curDiff: DifficultyLevel = stateRef.current.settings.difficulty ?? 'normal';
     const diffCfg = DIFFICULTY_REGISTRY[curDiff] || DIFFICULTY_REGISTRY.normal;
@@ -2754,9 +2778,23 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     const syncFullscreen = () => {
       setIsFullscreen(Boolean(document.fullscreenElement));
     };
+    const syncViewportOrientation = () => {
+      if (typeof window !== 'undefined') {
+        setMobileOrientation(
+          window.innerHeight > window.innerWidth ? 'portrait' : 'landscape'
+        );
+      }
+    };
     syncFullscreen();
+    syncViewportOrientation();
     document.addEventListener('fullscreenchange', syncFullscreen);
-    return () => document.removeEventListener('fullscreenchange', syncFullscreen);
+    window.addEventListener('resize', syncViewportOrientation);
+    window.addEventListener('orientationchange', syncViewportOrientation);
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+      window.removeEventListener('resize', syncViewportOrientation);
+      window.removeEventListener('orientationchange', syncViewportOrientation);
+    };
   }, []);
 
   const enterFullscreenAndLock = useCallback(async (orientation?: 'landscape' | 'portrait') => {
@@ -3202,6 +3240,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             activeCrystalColorId={activeCrystalColorId}
             shotFeedback={shotFeedback}
             platformMode={platformMode}
+            mobileOrientation={mobileOrientation}
             isGamepadConnected={isGamepadConnected}
             vrComfortVignetteActive={vrComfortVignetteActive}
             onSwitchWeapon={(type) => {
@@ -3210,6 +3249,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               setCurrentWeapon(type);
             }}
             onPause={() => {
+              inputManagerRef.current.resetAll();
+              playerVel.current.set(0, 0, 0);
               inputManagerRef.current.desktop.releasePointerLock();
               setGameState('paused');
             }}
