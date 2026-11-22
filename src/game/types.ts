@@ -148,6 +148,45 @@ export interface StageDef {
 
 export type UpgradeRarity = 'common' | 'rare' | 'legendary';
 
+export type DifficultyLevel = 'easy' | 'normal' | 'hard';
+export type CharacterId = 'raka' | 'naya';
+
+export interface DifficultyConfig {
+  id: DifficultyLevel;
+  label: string;
+  tagline: string;
+  description: string;
+  playerInitialHp: number;
+  playerInitialShield: number;
+  enemySpeedMult: number;
+  enemyHpMult: number;
+  bossHpMult: number;
+  enemyDamageMult: number;
+  wrongColorPenalty: number;
+  enemyShootCooldownMult: number;
+  enemyProjectileSpeedMult: number;
+  graceBonusSeconds: number;
+  autoHintWrongStreak: number;
+  stageTargetEliminations: [number, number, number];
+  eliteChanceMult: number;
+  scoreMult: number;
+}
+
+export interface CharacterProfile {
+  id: CharacterId;
+  name: string;
+  genderLabel: string;
+  codename: string;
+  role: string;
+  imagePath: string;
+  accentHex: string;
+  abilityName: string;
+  abilityDescription: string;
+  abilityCooldownSeconds: number;
+  abilityDurationSeconds: number;
+  abilityHealPercent: number;
+}
+
 export interface CyberUpgrade {
   id: string;
   name: string;
@@ -196,6 +235,10 @@ export interface PlayerStats {
   dashCooldownMult: number;
   overdriveDuration: number;
   headshotBonusMult: number;
+  characterId?: CharacterId;
+  difficulty?: DifficultyLevel;
+  abilityCooldownLeft?: number;
+  abilityActiveLeft?: number;
 }
 
 export interface MetaProgressionState {
@@ -293,6 +336,8 @@ export interface GameSettings {
   cameraSpeedPercent?: number;
   bgmVolumePercent?: number;
   sfxVolumePercent?: number;
+  difficulty?: DifficultyLevel;
+  characterId?: CharacterId;
 }
 
 export type HapticEventType =
@@ -319,6 +364,8 @@ export interface RunSummary {
   timeSurvivedSeconds: number;
   bossDefeated: boolean;
   won: boolean;
+  difficulty?: DifficultyLevel;
+  characterId?: CharacterId;
 }
 
 export type ShotFeedbackType = 'correct' | 'wrong' | 'streak' | 'pickup' | null;
@@ -345,6 +392,7 @@ export interface GameplayInputCommand {
   dash: boolean;
   emp: boolean;
   overdrive: boolean;
+  useAbility?: boolean;
   pause: boolean;
   toggleHint?: boolean;
   weaponSwitch: WeaponType | null;

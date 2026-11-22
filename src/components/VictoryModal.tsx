@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { RunSummary } from '../game/types';
-import { ALL_RYB_COLORS } from '../game/rules';
+import { ALL_RYB_COLORS, CHARACTER_REGISTRY, DIFFICULTY_REGISTRY } from '../game/rules';
 import {
   Trophy,
   RotateCcw,
@@ -47,9 +47,13 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           <Trophy className="w-7 h-7" />
         </div>
 
-        <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white mb-4">
+        <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white mb-1.5">
           MISI SELESAI!
         </h2>
+        <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-300 mb-3.5">
+          {CHARACTER_REGISTRY[summary.characterId ?? 'raka'].name} · MODE{' '}
+          {DIFFICULTY_REGISTRY[summary.difficulty ?? 'normal'].label}
+        </span>
 
         {/* Skor Akhir */}
         <div className="w-full bg-white/4 border border-white/10 p-3.5 rounded-2xl mb-3">

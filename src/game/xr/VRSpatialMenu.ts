@@ -6,10 +6,17 @@ import {
   resolveAudioSettings,
   resolveSpeedSettings,
 } from '../types';
-import { STAGE_DEFINITIONS, getColorsByCategory } from '../rules';
+import {
+  STAGE_DEFINITIONS,
+  CHARACTER_REGISTRY,
+  DIFFICULTY_REGISTRY,
+  getColorsByCategory,
+} from '../rules';
 
 export type VRMenuAction =
   | 'start_mission'
+  | 'cycle_character'
+  | 'cycle_difficulty'
   | 'open_tutorial'
   | 'open_settings'
   | 'open_lkpd'
@@ -261,6 +268,8 @@ export class VRSpatialMenu {
       sp: speedInfo.preset,
       msp: speedInfo.moveSpeedPercent,
       csp: speedInfo.cameraSpeedPercent,
+      char: state.settings.characterId ?? 'raka',
+      diff: state.settings.difficulty ?? 'normal',
       lkpd: Boolean(state.lkpdUnlocked),
       warn: state.vrWarningMsg || '',
     });
@@ -424,25 +433,47 @@ export class VRSpatialMenu {
 
     const bw = 540;
     const bx = (CANVAS_W - bw) / 2;
+    const halfW = (bw - 18) / 2;
+    const activeChar = CHARACTER_REGISTRY[state.settings.characterId ?? 'raka'] || CHARACTER_REGISTRY.raka;
+    const activeDiff = DIFFICULTY_REGISTRY[state.settings.difficulty ?? 'normal'] || DIFFICULTY_REGISTRY.normal;
 
     this.drawButton(ctx, {
       id: 'start_mission',
       label: 'MULAI MISI',
       x: bx,
-      y: 234,
+      y: 222,
       w: bw,
-      h: 72,
+      h: 64,
       variant: 'primary',
     });
 
-    const halfW = (bw - 18) / 2;
+    this.drawButton(ctx, {
+      id: 'cycle_character',
+      label: `AGEN: ${activeChar.name.toUpperCase()}`,
+      x: bx,
+      y: 298,
+      w: halfW,
+      h: 52,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'cycle_difficulty',
+      label: `MODE: ${activeDiff.label}`,
+      x: bx + halfW + 18,
+      y: 298,
+      w: halfW,
+      h: 52,
+      variant: 'secondary',
+    });
+
     this.drawButton(ctx, {
       id: 'open_tutorial',
       label: 'CARA MAIN',
       x: bx,
-      y: 320,
+      y: 362,
       w: halfW,
-      h: 64,
+      h: 54,
       variant: 'secondary',
     });
 
@@ -450,27 +481,19 @@ export class VRSpatialMenu {
       id: 'open_settings',
       label: 'PENGATURAN',
       x: bx + halfW + 18,
-      y: 320,
+      y: 362,
       w: halfW,
-      h: 64,
+      h: 54,
       variant: 'secondary',
     });
-
-    // Garis pemisah tipis antara menu game & tombol LKPD Evaluasi
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(bx, 396);
-    ctx.lineTo(bx + bw, 396);
-    ctx.stroke();
 
     this.drawButton(ctx, {
       id: 'open_lkpd',
       label: state.lkpdUnlocked ? 'LKPD EVALUASI · TERBUKA' : '🔒 LKPD EVALUASI · TERKUNCI',
       x: bx,
-      y: 410,
+      y: 428,
       w: bw,
-      h: 62,
+      h: 54,
       variant: 'secondary',
     });
 
@@ -478,9 +501,9 @@ export class VRSpatialMenu {
       id: 'exit_vr',
       label: 'KELUAR MODE VR',
       x: bx,
-      y: 486,
+      y: 494,
       w: bw,
-      h: 56,
+      h: 50,
       variant: 'danger',
     });
 

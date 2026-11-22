@@ -1,7 +1,9 @@
 import React from 'react';
 import {
   BossPhaseDef,
+  CharacterId,
   ColorInstructionClue,
+  DifficultyLevel,
   GameColorId,
   PlatformMode,
   PlayerStats,
@@ -9,10 +11,12 @@ import {
   WeaponType,
 } from '../game/types';
 import {
-  STAGE_DEFINITIONS,
+  CHARACTER_REGISTRY,
+  DIFFICULTY_REGISTRY,
   buildColorInstructionClue,
   getColorDef,
   getComboMultiplier,
+  getEffectiveStageDef,
 } from '../game/rules';
 import {
   Volume2,
@@ -56,6 +60,9 @@ interface PlayingHUDProps {
   hitmarkerCrit: boolean;
   hitmarkerWrong: boolean;
   playerDamageFlash?: boolean;
+  difficulty?: DifficultyLevel;
+  characterId?: CharacterId;
+  onTriggerAbility?: () => void;
 }
 
 export const PlayingHUD: React.FC<PlayingHUDProps> = ({
@@ -86,8 +93,16 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
   hitmarkerCrit,
   hitmarkerWrong,
   playerDamageFlash = false,
+  difficulty = player.difficulty ?? 'normal',
+  characterId = player.characterId ?? 'raka',
+  onTriggerAbility,
 }) => {
-  const stageDef = STAGE_DEFINITIONS[player.stage] || STAGE_DEFINITIONS[1];
+  const stageDef = getEffectiveStageDef(player.stage, difficulty);
+  const diffCfg = DIFFICULTY_REGISTRY[difficulty] || DIFFICULTY_REGISTRY.normal;
+  const charProfile = CHARACTER_REGISTRY[characterId] || CHARACTER_REGISTRY.raka;
+  const abilityCdLeft = Math.max(0, player.abilityCooldownLeft ?? 0);
+  const abilityActiveLeft = Math.max(0, player.abilityActiveLeft ?? 0);
+  const abilityReady = abilityCdLeft <= 0 && abilityActiveLeft <= 0;
   const clue =
     instructionClue || buildColorInstructionClue(targetColorId, player.stage);
 
@@ -111,7 +126,8 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
 
   const comboMult = getComboMultiplier(player.combo);
   const shouldShowAssistHint =
-    clue.displayMode === 'mixing' && (showHint || wrongStreakOnTarget >= 2);
+    clue.displayMode === 'mixing' &&
+    (showHint || wrongStreakOnTarget >= diffCfg.autoHintWrongStreak);
 
   return (
     <div className="pointer-events-none fixed inset-0 select-none overflow-hidden font-sans z-10 text-white">
@@ -129,6 +145,17 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
       {/* Vignette HP Rendah */}
       {isLowHp && (
         <div className="absolute inset-0 bg-radial from-transparent via-rose-950/15 to-rose-600/35 pointer-events-none" />
+      )}
+
+      {/* Efek Perisai Super Agen Raka Saat Aktif */}
+      {abilityActiveLeft > 0 && (
+        <div
+          className="absolute inset-0 pointer-events-none z-25 border-4 border-cyan-300/80 animate-pulse"
+          style={{
+            background:
+              'radial-gradient(circle, transparent 55%, rgba(34,211,238,0.22) 100%)',
+          }}
+        />
       )}
 
       {/* Efek Flicker Merah Saat Terkena Hit Musuh */}
@@ -196,6 +223,13 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
                 width: `${isBossActive ? bossHpPercent : stageProgressPercent}%`,
               }}
             />
+          </div>
+
+          <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] font-bold text-slate-300">
+            <span className="truncate">{charProfile.name}</span>
+            <span className="px-1.5 py-0.2 rounded bg-white/10 text-cyan-300 uppercase">
+              {diffCfg.label}
+            </span>
           </div>
         </div>
 
@@ -622,6 +656,44 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
               style={{ width: `${shieldPercent}%` }}
             />
           </div>
+
+          {/* ABILITY KHUSUS KARAKTER (PERISAI SUPER RAKA / RECOVERY NAYA) */}
+          <button
+            type="button"
+            disabled={abilityCdLeft > 0}
+            onClick={() => onTriggerAbility?.()}
+            className={`w-full text-left transition-all rounded-xl border ${
+              platformMode === 'mobile'
+                ? 'mt-2 px-2 py-1 text-[10px]'
+                : 'mt-3 px-2.5 py-2 text-xs'
+            } ${
+              abilityActiveLeft > 0
+                ? 'bg-cyan-400 text-slate-950 border-white font-black animate-pulse cursor-default'
+                : abilityReady
+                  ? 'bg-[#0e1e3e] hover:bg-blue-600/80 border-cyan-400/60 text-white cursor-pointer'
+                  : 'bg-white/4 border-white/10 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-extrabold uppercase tracking-wide flex items-center gap-1">
+                {charProfile.id === 'raka' ? (
+                  <Shield className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <Heart className="w-3.5 h-3.5 shrink-0" />
+                )}
+                <span>{charProfile.abilityName}</span>
+              </span>
+              <span className="font-black tabular-nums">
+                {abilityActiveLeft > 0
+                  ? `AKTIF ${abilityActiveLeft.toFixed(1)}s`
+                  : abilityReady
+                    ? platformMode === 'mobile'
+                      ? 'SIAP'
+                      : 'SIAP [E]'
+                    : `${Math.ceil(abilityCdLeft)}s`}
+              </span>
+            </div>
+          </button>
         </div>
       </div>
 

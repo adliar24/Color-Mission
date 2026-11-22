@@ -1,5 +1,6 @@
 import React from 'react';
 import { RunSummary } from '../game/types';
+import { CHARACTER_REGISTRY, DIFFICULTY_REGISTRY } from '../game/rules';
 import {
   RotateCcw,
   Skull,
@@ -28,9 +29,13 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           <Skull className="w-8 h-8" />
         </div>
 
-        <h2 className="text-3xl font-black uppercase tracking-tight text-white mb-5">
+        <h2 className="text-3xl font-black uppercase tracking-tight text-white mb-1.5">
           MISI GAGAL
         </h2>
+        <span className="text-xs font-extrabold uppercase tracking-wider text-slate-300 mb-4">
+          {CHARACTER_REGISTRY[summary.characterId ?? 'raka'].name} · MODE{' '}
+          {DIFFICULTY_REGISTRY[summary.difficulty ?? 'normal'].label}
+        </span>
 
         {/* Skor Akhir */}
         <div className="w-full bg-white/4 border border-white/10 p-4 rounded-2xl mb-4">

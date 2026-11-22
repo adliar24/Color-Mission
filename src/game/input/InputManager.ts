@@ -27,6 +27,7 @@ export class DesktopInput {
   private pendingDash = false;
   private pendingEmp = false;
   private pendingOverdrive = false;
+  private pendingAbility = false;
   private pendingPause = false;
   private pendingMute = false;
   private pendingToggleHint = false;
@@ -146,6 +147,8 @@ export class DesktopInput {
       this.pendingMute = true;
     } else if (e.code === 'KeyH') {
       this.pendingToggleHint = true;
+    } else if (e.code === 'KeyE' || e.code === 'KeyQ' || e.code === 'KeyF') {
+      this.pendingAbility = true;
     } else if (e.code === 'Digit1') {
       this.pendingWeapon = 'laser_rifle';
     } else if (e.code === 'Digit2') {
@@ -256,6 +259,7 @@ export class DesktopInput {
         let dash = false;
         let emp = false;
         let overdrive = false;
+        let useAbility = false;
         let pause = false;
         let toggleHint = false;
         let weaponSwitch: WeaponType | null = null;
@@ -293,6 +297,13 @@ export class DesktopInput {
           this.gamepadWeaponIdx = (this.gamepadWeaponIdx + 1) % this.weaponsOrder.length;
           weaponSwitch = this.weaponsOrder[this.gamepadWeaponIdx];
         }
+        // LB / L1 (buttons[4]) atau RB / R1 (buttons[5]) -> Ability Karakter
+        if (
+          this.wasGamepadJustPressed(`gp_${gp.index}_b4`, gp.buttons[4]?.pressed) ||
+          this.wasGamepadJustPressed(`gp_${gp.index}_b5`, gp.buttons[5]?.pressed)
+        ) {
+          useAbility = true;
+        }
         // Back / Select (buttons[8]) -> Petunjuk
         if (this.wasGamepadJustPressed(`gp_${gp.index}_b8`, gp.buttons[8]?.pressed)) {
           toggleHint = true;
@@ -313,6 +324,7 @@ export class DesktopInput {
           dash,
           emp,
           overdrive,
+          useAbility,
           pause,
           toggleHint,
           weaponSwitch,
@@ -375,6 +387,7 @@ export class DesktopInput {
     let dash = this.pendingDash;
     let emp = this.pendingEmp;
     let overdrive = this.pendingOverdrive;
+    let useAbility = this.pendingAbility;
     let pause = this.pendingPause;
     let toggleHint = this.pendingToggleHint;
     let weaponSwitch = this.pendingWeapon;
@@ -392,6 +405,7 @@ export class DesktopInput {
       if (gpCmd.dash) dash = true;
       if (gpCmd.emp) emp = true;
       if (gpCmd.overdrive) overdrive = true;
+      if (gpCmd.useAbility) useAbility = true;
       if (gpCmd.toggleHint) toggleHint = true;
       if (gpCmd.pause) pause = true;
       if (gpCmd.weaponSwitch) weaponSwitch = gpCmd.weaponSwitch;
@@ -411,6 +425,7 @@ export class DesktopInput {
       dash,
       emp,
       overdrive,
+      useAbility,
       pause,
       toggleHint,
       weaponSwitch,
@@ -421,6 +436,7 @@ export class DesktopInput {
     this.pendingDash = false;
     this.pendingEmp = false;
     this.pendingOverdrive = false;
+    this.pendingAbility = false;
     this.pendingPause = false;
     this.pendingToggleHint = false;
     this.pendingWeapon = null;
@@ -451,6 +467,7 @@ export class MobileInput {
   private pendingDash = false;
   private pendingEmp = false;
   private pendingOverdrive = false;
+  private pendingAbility = false;
   private pendingPause = false;
   private pendingToggleHint = false;
   private pendingWeapon: WeaponType | null = null;
@@ -558,6 +575,11 @@ export class MobileInput {
 
   public triggerOverdrive() {
     this.pendingOverdrive = true;
+    this.pendingAbility = true;
+  }
+
+  public triggerAbility() {
+    this.pendingAbility = true;
   }
 
   public triggerPause() {
@@ -618,6 +640,7 @@ export class MobileInput {
       dash: this.pendingDash,
       emp: this.pendingEmp,
       overdrive: this.pendingOverdrive,
+      useAbility: this.pendingAbility,
       pause: this.pendingPause,
       toggleHint: this.pendingToggleHint,
       weaponSwitch: this.pendingWeapon,
@@ -629,6 +652,7 @@ export class MobileInput {
     this.pendingDash = false;
     this.pendingEmp = false;
     this.pendingOverdrive = false;
+    this.pendingAbility = false;
     this.pendingPause = false;
     this.pendingToggleHint = false;
     this.pendingWeapon = null;
@@ -794,6 +818,7 @@ export class VRInput {
       dash,
       emp,
       overdrive,
+      useAbility: overdrive || dash,
       pause,
       weaponSwitch,
       vrAimRay,

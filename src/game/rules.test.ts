@@ -22,6 +22,10 @@ import {
   buildColorInstructionClue,
   getUnlockedWeaponsForStage,
   WEAPON_REGISTRY,
+  DIFFICULTY_REGISTRY,
+  CHARACTER_REGISTRY,
+  getEffectiveStageDef,
+  activateCharacterAbility,
 } from './rules';
 import { InputManager } from './input/InputManager';
 import { VRManager } from './xr/VRManager';
@@ -549,8 +553,11 @@ test('EnemyManager membangun model 3D stylized Chromabot & CHROMA TITAN memakai 
   const boss = manager.spawnEnemy('chroma_titan', 'blue', new THREE.Vector3(0, 0, -14));
 
   assert.ok(unitA.rig.chestCore);
+  assert.ok(unitA.rig.leftShinPivot && unitA.rig.rightShinPivot);
+  assert.ok(unitA.rig.leftForearmPivot && unitA.rig.rightForearmPivot);
   assert.ok(unitB.rig.chestCore);
   assert.ok(boss.rig.chestCore);
+  assert.ok(boss.rig.leftShinPivot && boss.rig.rightShinPivot);
   assert.ok(boss.rig.coreRingOuter);
   assert.ok(boss.rig.coreRingInner);
 
@@ -572,9 +579,105 @@ test('EnemyManager membangun model 3D stylized Chromabot & CHROMA TITAN memakai 
   });
   assert.ok(sharedMatches >= 20, 'Unit dan Elite berbagi BufferGeometry bersama tanpa duplikasi');
 
+  // Simulasikan selesai spawn & jalan berartikulasi lutut/siku
+  unitA.spawnTimer = 0;
+  unitA.state = 'active';
+  unitA.position.set(0, 0, -24);
+  manager.update(0.1, new THREE.Vector3(0, 0, 0), () => {});
+  assert.ok(unitA.velocity.length() > 0, 'Kecepatan musuh berinersia saat bergerak maju');
+  assert.ok(unitA.rig.leftShinPivot.rotation.x > 0, 'Sendi lutut menekuk alami saat berjalan');
+
   manager.setEnemyColor(unitA, 'purple');
   assert.equal(unitA.colorId, 'purple');
 
   manager.clearAll();
   assert.equal(manager.enemies.length, 0);
+});
+
+test('Tingkat kesulitan (Mudah, Normal, Sulit) menyesuaikan target eliminasi, kecepatan, HP musuh, dan skor', () => {
+  const easy1 = getEffectiveStageDef(1, 'easy');
+  const norm1 = getEffectiveStageDef(1, 'normal');
+  const hard1 = getEffectiveStageDef(1, 'hard');
+
+  assert.ok(easy1.targetEliminations < norm1.targetEliminations);
+  assert.ok(norm1.targetEliminations < hard1.targetEliminations);
+  assert.ok(easy1.enemySpeedMult < norm1.enemySpeedMult);
+  assert.ok(norm1.enemySpeedMult < hard1.enemySpeedMult);
+  assert.ok(easy1.enemyHpMult < norm1.enemyHpMult);
+  assert.ok(norm1.enemyHpMult < hard1.enemyHpMult);
+
+  const easy3 = getEffectiveStageDef(3, 'easy');
+  const hard3 = getEffectiveStageDef(3, 'hard');
+  assert.ok((easy3.bossMaxHp ?? 0) < (hard3.bossMaxHp ?? 0));
+  assert.ok(
+    DIFFICULTY_REGISTRY.easy.playerInitialHp > DIFFICULTY_REGISTRY.normal.playerInitialHp &&
+      DIFFICULTY_REGISTRY.normal.playerInitialHp > DIFFICULTY_REGISTRY.hard.playerInitialHp
+  );
+});
+
+test('Ability Agen Raka (Perisai Super CD 60s) menahan 100% damage & Agen Naya (Recovery +20% HP CD 120s) memulihkan darah', () => {
+  assert.equal(CHARACTER_REGISTRY.raka.name, 'Agen Raka');
+  assert.equal(CHARACTER_REGISTRY.raka.abilityCooldownSeconds, 60);
+  assert.equal(CHARACTER_REGISTRY.naya.name, 'Agen Naya');
+  assert.equal(CHARACTER_REGISTRY.naya.abilityCooldownSeconds, 120);
+
+  const basePlayer: PlayerStats = {
+    hp: 60,
+    maxHp: 100,
+    shield: 40,
+    maxShield: 50,
+    dataCores: 0,
+    totalDataCoresCollected: 0,
+    score: 0,
+    combo: 0,
+    bestCombo: 0,
+    kills: 0,
+    stageKills: 0,
+    headshots: 0,
+    shotsFired: 0,
+    correctHits: 0,
+    wrongHits: 0,
+    stage: 1,
+    lifestealPercent: 0,
+    damageMult: 1,
+    fireRateMult: 1,
+    reloadTimeMult: 1,
+    magSizeBonus: 0,
+    moveSpeedMult: 1,
+    dashCooldownMult: 1,
+    overdriveDuration: 6,
+    headshotBonusMult: 0,
+  };
+
+  // 1. Agen Raka: Perisai Super
+  const rakaAct = activateCharacterAbility(basePlayer, 'raka');
+  assert.equal(rakaAct.activated, true);
+  assert.equal(rakaAct.updatedPlayer.abilityActiveLeft, 6);
+  assert.equal(rakaAct.updatedPlayer.abilityCooldownLeft, 60);
+
+  // Saat Perisai Super aktif, terkena tembakan tidak mengurangi Perisai maupun HP sama sekali
+  const dmgWhileSuper = calculatePlayerDamage(
+    rakaAct.updatedPlayer.hp,
+    rakaAct.updatedPlayer.shield,
+    35,
+    (rakaAct.updatedPlayer.abilityActiveLeft ?? 0) > 0
+  );
+  assert.equal(dmgWhileSuper.damageToShield, 0);
+  assert.equal(dmgWhileSuper.damageToHp, 0);
+  assert.equal(dmgWhileSuper.newHp, 60);
+  assert.equal(dmgWhileSuper.newShield, 40);
+
+  // Tidak bisa spam sebelum cooldown habis
+  const rakaWhileCd = activateCharacterAbility(rakaAct.updatedPlayer, 'raka');
+  assert.equal(rakaWhileCd.activated, false);
+
+  // 2. Agen Naya: Recovery +20% HP (cooldown 120s)
+  const nayaAct = activateCharacterAbility(basePlayer, 'naya');
+  assert.equal(nayaAct.activated, true);
+  assert.equal(nayaAct.healedAmount, 20);
+  assert.equal(nayaAct.updatedPlayer.hp, 80);
+  assert.equal(nayaAct.updatedPlayer.abilityCooldownLeft, 120);
+
+  const nayaWhileCd = activateCharacterAbility(nayaAct.updatedPlayer, 'naya');
+  assert.equal(nayaWhileCd.activated, false);
 });

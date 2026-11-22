@@ -9,6 +9,11 @@ import {
   RYBColorId,
   GameColorId,
   ColorCategory,
+  DifficultyLevel,
+  DifficultyConfig,
+  CharacterId,
+  CharacterProfile,
+  StageDef,
 } from './types';
 import { STAGE_DEFINITIONS, BOSS_DEFEAT_BONUS, BOSS_PHASES, getBossPhaseForHp } from './stages';
 import {
@@ -47,6 +52,175 @@ export const BASE_ELIMINATION_SCORE = 100;
 
 export const ACCURACY_DEFINITION_ID =
   'Akurasi dihitung dari jumlah tembakan pada musuh dengan warna target yang benar dibagi total tembakan × 100%.';
+
+export const DIFFICULTY_REGISTRY: Record<DifficultyLevel, DifficultyConfig> = {
+  easy: {
+    id: 'easy',
+    label: 'MUDAH',
+    tagline: 'Fokus Belajar Warna',
+    description: 'Musuh bergerak lebih santai, HP & Perisai awal lebih tebal, serta petunjuk warna muncul lebih cepat.',
+    playerInitialHp: 120,
+    playerInitialShield: 75,
+    enemySpeedMult: 0.78,
+    enemyHpMult: 0.8,
+    bossHpMult: 0.8,
+    enemyDamageMult: 0.7,
+    wrongColorPenalty: 3,
+    enemyShootCooldownMult: 1.25,
+    enemyProjectileSpeedMult: 0.85,
+    graceBonusSeconds: 1.0,
+    autoHintWrongStreak: 1,
+    stageTargetEliminations: [8, 12, 16],
+    eliteChanceMult: 0.6,
+    scoreMult: 0.85,
+  },
+  normal: {
+    id: 'normal',
+    label: 'NORMAL',
+    tagline: 'Tantangan Seimbang',
+    description: 'Keseimbangan standar antara aksi tembak-menembak dan penalaran teori pencampuran warna RYB.',
+    playerInitialHp: 100,
+    playerInitialShield: 50,
+    enemySpeedMult: 1.0,
+    enemyHpMult: 1.0,
+    bossHpMult: 1.0,
+    enemyDamageMult: 1.0,
+    wrongColorPenalty: 6,
+    enemyShootCooldownMult: 1.0,
+    enemyProjectileSpeedMult: 1.0,
+    graceBonusSeconds: 0.0,
+    autoHintWrongStreak: 2,
+    stageTargetEliminations: [10, 15, 20],
+    eliteChanceMult: 1.0,
+    scoreMult: 1.0,
+  },
+  hard: {
+    id: 'hard',
+    label: 'SULIT',
+    tagline: 'Ujian Refleks & Spektrum',
+    description: 'Musuh lebih agresif dan tahan banting, waktu reaksi lebih singkat, dengan bonus skor akhir +25%.',
+    playerInitialHp: 85,
+    playerInitialShield: 35,
+    enemySpeedMult: 1.22,
+    enemyHpMult: 1.25,
+    bossHpMult: 1.25,
+    enemyDamageMult: 1.3,
+    wrongColorPenalty: 10,
+    enemyShootCooldownMult: 0.8,
+    enemyProjectileSpeedMult: 1.18,
+    graceBonusSeconds: -0.6,
+    autoHintWrongStreak: 3,
+    stageTargetEliminations: [12, 18, 24],
+    eliteChanceMult: 1.4,
+    scoreMult: 1.25,
+  },
+};
+
+export const CHARACTER_REGISTRY: Record<CharacterId, CharacterProfile> = {
+  raka: {
+    id: 'raka',
+    name: 'Agen Raka',
+    genderLabel: 'Laki-laki',
+    codename: 'PRISMA-01',
+    role: 'Spesialis Pertahanan Taktis Spektrum',
+    imagePath: '/characters/agen-raka.png',
+    accentHex: '#22d3ee',
+    abilityName: 'PERISAI SUPER',
+    abilityDescription: 'Kebal penuh selama 6 detik: tembakan musuh tidak mengurangi Perisai maupun HP sama sekali.',
+    abilityCooldownSeconds: 60,
+    abilityDurationSeconds: 6,
+    abilityHealPercent: 0,
+  },
+  naya: {
+    id: 'naya',
+    name: 'Agen Naya',
+    genderLabel: 'Perempuan',
+    codename: 'CHROMA-02',
+    role: 'Spesialis Sintesis & Pemulihan Nano',
+    imagePath: '/characters/agen-naya.png',
+    accentHex: '#34d399',
+    abilityName: 'RECOVERY',
+    abilityDescription: 'Memulihkan +20% Kesehatan (HP) maksimum secara instan di tengah pertempuran.',
+    abilityCooldownSeconds: 120,
+    abilityDurationSeconds: 0,
+    abilityHealPercent: 0.2,
+  },
+};
+
+export function getEffectiveStageDef(
+  stageNumber: 1 | 2 | 3,
+  difficulty: DifficultyLevel = 'normal'
+): StageDef {
+  const base = STAGE_DEFINITIONS[stageNumber];
+  const diff = DIFFICULTY_REGISTRY[difficulty] || DIFFICULTY_REGISTRY.normal;
+  const targetEliminations = diff.stageTargetEliminations[stageNumber - 1] ?? base.targetEliminations;
+
+  return {
+    ...base,
+    targetEliminations,
+    enemySpeedMult: Number((base.enemySpeedMult * diff.enemySpeedMult).toFixed(3)),
+    enemyHpMult: Number((base.enemyHpMult * diff.enemyHpMult).toFixed(3)),
+    eliteChance: Math.min(0.65, Number((base.eliteChance * diff.eliteChanceMult).toFixed(3))),
+    targetGracePeriodSeconds: Math.max(
+      1.2,
+      Number((base.targetGracePeriodSeconds + diff.graceBonusSeconds).toFixed(2))
+    ),
+    bossMaxHp: base.bossMaxHp ? Math.round(base.bossMaxHp * diff.bossHpMult) : undefined,
+  };
+}
+
+export function activateCharacterAbility(
+  player: PlayerStats,
+  characterId: CharacterId = player.characterId ?? 'raka'
+): {
+  activated: boolean;
+  updatedPlayer: PlayerStats;
+  abilityProfile: CharacterProfile;
+  healedAmount: number;
+} {
+  const profile = CHARACTER_REGISTRY[characterId] || CHARACTER_REGISTRY.raka;
+  const cdLeft = player.abilityCooldownLeft ?? 0;
+  if (cdLeft > 0) {
+    return {
+      activated: false,
+      updatedPlayer: player,
+      abilityProfile: profile,
+      healedAmount: 0,
+    };
+  }
+
+  if (profile.id === 'raka') {
+    return {
+      activated: true,
+      updatedPlayer: {
+        ...player,
+        characterId: 'raka',
+        abilityActiveLeft: profile.abilityDurationSeconds,
+        abilityCooldownLeft: profile.abilityCooldownSeconds,
+      },
+      abilityProfile: profile,
+      healedAmount: 0,
+    };
+  }
+
+  // Agen Naya: Recovery +20% Max HP
+  const healRaw = Math.max(1, Math.round(player.maxHp * profile.abilityHealPercent));
+  const nextHp = Math.min(player.maxHp, player.hp + healRaw);
+  const healedAmount = Math.max(0, nextHp - player.hp);
+
+  return {
+    activated: true,
+    updatedPlayer: {
+      ...player,
+      characterId: 'naya',
+      hp: nextHp,
+      abilityActiveLeft: 0,
+      abilityCooldownLeft: profile.abilityCooldownSeconds,
+    },
+    abilityProfile: profile,
+    healedAmount: healedAmount || healRaw,
+  };
+}
 
 export function getUnlockedWeaponsForStage(stage: 1 | 2 | 3): WeaponType[] {
   if (stage === 1) return ['laser_rifle'];
@@ -370,7 +544,8 @@ export function calculateEliminationScore(newComboCount: number): {
 export function calculatePlayerDamage(
   currentHp: number,
   currentShield: number,
-  rawIncomingDamage: number
+  rawIncomingDamage: number,
+  superShieldActive: boolean = false
 ): {
   newHp: number;
   newShield: number;
@@ -378,6 +553,16 @@ export function calculatePlayerDamage(
   damageToHp: number;
   isDead: boolean;
 } {
+  if (superShieldActive || rawIncomingDamage <= 0) {
+    return {
+      newHp: currentHp,
+      newShield: currentShield,
+      damageToShield: 0,
+      damageToHp: 0,
+      isDead: currentHp <= 0,
+    };
+  }
+
   let damageLeft = rawIncomingDamage;
   let newShield = currentShield;
   let damageToShield = 0;
@@ -444,7 +629,9 @@ export function calculateAccuracyPercent(correctHits: number, shotsFired: number
 export function calculateRunSummary(
   stats: PlayerStats,
   elapsedTimeSeconds: number,
-  won: boolean
+  won: boolean,
+  difficulty: DifficultyLevel = stats.difficulty ?? 'normal',
+  characterId: CharacterId = stats.characterId ?? 'raka'
 ): RunSummary {
   const accuracy = calculateAccuracyPercent(stats.correctHits, stats.shotsFired);
   const stagesCleared = won ? 3 : Math.max(0, stats.stage - 1);
@@ -456,7 +643,8 @@ export function calculateRunSummary(
 
   const bossBonus = won ? BOSS_DEFEAT_BONUS : 0;
   const accuracyBonus = accuracy * 15;
-  const totalScore = Math.round(stats.score + bossBonus + accuracyBonus);
+  const diffCfg = DIFFICULTY_REGISTRY[difficulty] || DIFFICULTY_REGISTRY.normal;
+  const totalScore = Math.round((stats.score + bossBonus + accuracyBonus) * diffCfg.scoreMult);
 
   return {
     score: totalScore,
@@ -473,6 +661,8 @@ export function calculateRunSummary(
     timeSurvivedSeconds: Math.round(elapsedTimeSeconds),
     bossDefeated: won,
     won,
+    difficulty,
+    characterId,
   };
 }
 

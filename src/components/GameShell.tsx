@@ -20,6 +20,7 @@ import { GameOverModal } from './GameOverModal';
 import { VictoryModal } from './VictoryModal';
 import { PauseModal } from './PauseModal';
 import { LKPDModal } from './LKPDModal';
+import { MissionSetupModal } from './MissionSetupModal';
 import { AnimatedPresence } from './AnimatedPresence';
 import { GamepadBadge } from './GamepadBadge';
 import {
@@ -39,6 +40,8 @@ import {
   GameSettings,
   GraphicsQuality,
   PlatformMode,
+  CharacterId,
+  DifficultyLevel,
   SPEED_PRESET_CONFIG,
   clampAudioPercent,
   clampSteppedSpeedPercent,
@@ -48,6 +51,10 @@ import {
 import {
   STAGE_DEFINITIONS,
   BOSS_PHASES,
+  CHARACTER_REGISTRY,
+  DIFFICULTY_REGISTRY,
+  activateCharacterAbility,
+  getEffectiveStageDef,
   getBossPhaseForHp,
   validateColorShot,
   validateBossCrystalShot,
@@ -225,6 +232,8 @@ const DEFAULT_SETTINGS: GameSettings = {
   cameraSpeedPercent: 70,
   bgmVolumePercent: 85,
   sfxVolumePercent: 65,
+  difficulty: 'normal',
+  characterId: 'raka',
 };
 
 export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
@@ -257,6 +266,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   const [finalScore, setFinalScore] = useState<number>(0);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
+  const [showMissionSetup, setShowMissionSetup] = useState<boolean>(false);
   const [lkpdProgress, setLkpdProgress] = useState<GameCompletionProgress>(() =>
     loadGameCompletionProgress()
   );
@@ -448,6 +458,47 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     setShotFeedback(fb);
   }, []);
 
+  const handleTriggerAbility = useCallback(() => {
+    const curState = stateRef.current;
+    if (curState.gameState !== 'playing' || isPlayerDyingRef.current) return;
+    const charId: CharacterId = curState.settings.characterId ?? curState.player.characterId ?? 'raka';
+    const res = activateCharacterAbility(curState.player, charId);
+    if (!res.activated) return;
+
+    stateRef.current.player = res.updatedPlayer;
+    setPlayer(res.updatedPlayer);
+    sound.playOverdrive();
+    inputManagerRef.current.triggerHaptic(
+      'emp',
+      curState.settings,
+      vrManagerRef.current?.currentSession || null
+    );
+    particlesRef.current?.emit(
+      playerPos.current.clone().setY(1.2),
+      28,
+      res.abilityProfile.accentHex,
+      2.0
+    );
+
+    if (charId === 'raka') {
+      triggerShotBanner({
+        type: 'streak',
+        title: 'PERISAI SUPER AKTIF!',
+        subtitle: 'Kebal penuh selama 6 detik (0 damage ke HP & Shield)',
+        colorHex: '#22d3ee',
+        timestamp: performance.now(),
+      });
+    } else {
+      triggerShotBanner({
+        type: 'pickup',
+        title: `RECOVERY +${res.healedAmount} HP!`,
+        subtitle: 'Agen Naya memulihkan +20% Kesehatan Maksimum',
+        colorHex: '#34d399',
+        timestamp: performance.now(),
+      });
+    }
+  }, [triggerShotBanner]);
+
   // Pastikan di arena selalu ada minimal 1 Chromabot dengan warna target aktif
   const ensureTargetColorPresentInArena = useCallback(
     (desiredTarget: GameColorId, stageNum: 1 | 2 | 3) => {
@@ -470,7 +521,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         if (activeBots.length > 0) {
           enemies.setEnemyColor(activeBots[0], desiredTarget);
         } else {
-          const stageDef = STAGE_DEFINITIONS[stageNum];
+          const stageDef = getEffectiveStageDef(
+            stageNum,
+            stateRef.current.settings.difficulty ?? 'normal'
+          );
           const angle = Math.random() * Math.PI * 2;
           const radius = 20 + Math.random() * 4;
           const pos = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
@@ -781,7 +835,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
         particles.emit(enemy.position.clone().setY(1.2), 26, hitColorDef.hex, 2.0);
 
         const coreDrop = enemy.type === 'chromabot_elite' ? 5 : 2;
-        const currentStageDef = STAGE_DEFINITIONS[pStats.stage];
+        const currentStageDef = getEffectiveStageDef(
+          pStats.stage,
+          stateRef.current.settings.difficulty ?? 'normal'
+        );
         const newStageKills = pStats.stageKills + 1;
 
         // Setelah target berhasil dieliminasi, tampilkan penjelasan pencampuran warna!
@@ -1342,6 +1399,21 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               setShowTutorial(false);
               setShowSettings(false);
               menuCallbacksRef.current.startRun();
+            } else if (act === 'cycle_character') {
+              setSettings((prev) => ({
+                ...prev,
+                characterId: (prev.characterId ?? 'raka') === 'raka' ? 'naya' : 'raka',
+              }));
+            } else if (act === 'cycle_difficulty') {
+              setSettings((prev) => {
+                const cur = prev.difficulty ?? 'normal';
+                const next: DifficultyLevel =
+                  cur === 'easy' ? 'normal' : cur === 'normal' ? 'hard' : 'easy';
+                return {
+                  ...prev,
+                  difficulty: next,
+                };
+              });
             } else if (act === 'open_tutorial') {
               setShowTutorial(true);
             } else if (act === 'open_settings') {
@@ -1511,6 +1583,35 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           pStats.reloadTimeMult,
           pStats.magSizeBonus
         );
+
+        // Update Cooldown & Durasi Ability Karakter (Agen Raka: Perisai Super / Agen Naya: Recovery)
+        const prevCd = pStats.abilityCooldownLeft ?? 0;
+        const prevAct = pStats.abilityActiveLeft ?? 0;
+        if (prevCd > 0 || prevAct > 0) {
+          const nextCd = Math.max(0, prevCd - dt);
+          const nextAct = Math.max(0, prevAct - dt);
+          stateRef.current.player = {
+            ...pStats,
+            abilityCooldownLeft: nextCd,
+            abilityActiveLeft: nextAct,
+          };
+          if (
+            Math.ceil(prevCd * 5) !== Math.ceil(nextCd * 5) ||
+            Math.ceil(prevAct * 10) !== Math.ceil(nextAct * 10) ||
+            (prevAct > 0 && nextAct === 0) ||
+            (prevCd > 0 && nextCd === 0)
+          ) {
+            setPlayer((prev) => ({
+              ...prev,
+              abilityCooldownLeft: nextCd,
+              abilityActiveLeft: nextAct,
+            }));
+          }
+        }
+
+        if (cmd.useAbility) {
+          handleTriggerAbility();
+        }
 
         // --- 1. Pergerakan & Fisika Pemain ---
         cameraRot.current.yaw += cmd.lookDeltaX;
@@ -1973,8 +2074,15 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
         // --- 4. Manajemen 3 Tahap Berurutan, Chromabots, & Boss CHROMA TITAN ---
         const stageNum = stateRef.current.player.stage;
-        const stageDef = STAGE_DEFINITIONS[stageNum];
+        const curDiff = stateRef.current.settings.difficulty ?? 'normal';
+        const diffCfg = DIFFICULTY_REGISTRY[curDiff] || DIFFICULTY_REGISTRY.normal;
+        const stageDef = getEffectiveStageDef(stageNum, curDiff);
         const stageKills = stateRef.current.player.stageKills;
+        enemies.setDifficultyModifiers(
+          diffCfg.enemyDamageMult,
+          diffCfg.enemyShootCooldownMult,
+          diffCfg.enemyProjectileSpeedMult
+        );
 
         if (stageKills < stageDef.targetEliminations) {
           spawnTimer.current += dt;
@@ -2055,8 +2163,14 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             setShowHint(false);
 
             const bossPos = new THREE.Vector3(0, 0, -21);
-            const boss = enemies.spawnEnemy('chroma_titan', initialBossColor, bossPos, 1.0, 1.0);
-            enemies.triggerTargetGracePeriod(3.0);
+            const boss = enemies.spawnEnemy(
+              'chroma_titan',
+              initialBossColor,
+              bossPos,
+              diffCfg.bossHpMult,
+              diffCfg.enemySpeedMult
+            );
+            enemies.triggerTargetGracePeriod(Math.max(1.8, 3.0 + diffCfg.graceBonusSeconds));
             bossInstanceRef.current = boss;
             bossDamageSinceSwitch.current = 0;
 
@@ -2105,6 +2219,12 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           enemyTargetPos,
           (dmg: number) => {
             if (isPlayerDyingRef.current) return;
+            const superShieldActive = (stateRef.current.player.abilityActiveLeft ?? 0) > 0;
+            if (superShieldActive) {
+              // Agen Raka: Perisai Super menahan 100% serangan tanpa mengurangi Perisai maupun HP
+              sound.playHitmarker(false);
+              return;
+            }
             // Efek flicker merah saat pemain terkena tembakan musuh + Haptic feedback
             vrDamageFlash = 1.0;
             setPlayerDamageFlash(true);
@@ -2121,7 +2241,12 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             );
 
             setPlayer((prev: PlayerStats) => {
-              const res = calculatePlayerDamage(prev.hp, prev.shield, dmg);
+              const res = calculatePlayerDamage(
+                prev.hp,
+                prev.shield,
+                dmg,
+                (prev.abilityActiveLeft ?? 0) > 0
+              );
               if (res.isDead && !isPlayerDyingRef.current) {
                 isPlayerDyingRef.current = true;
                 setIsPlayerDying(true);
@@ -2274,6 +2399,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     };
   }, [
     ensureTargetColorPresentInArena,
+    handleTriggerAbility,
     processEnemyHit,
     triggerShotBanner,
   ]);
@@ -2328,15 +2454,29 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     }
     isPlayerDyingRef.current = false;
     setIsPlayerDying(false);
+    const curDiff: DifficultyLevel = stateRef.current.settings.difficulty ?? 'normal';
+    const curChar: CharacterId = stateRef.current.settings.characterId ?? 'raka';
+    const diffCfg = DIFFICULTY_REGISTRY[curDiff] || DIFFICULTY_REGISTRY.normal;
     const initialColor = STAGE_DEFINITIONS[1].colorPool[0];
     setTargetColorId(initialColor);
     setWrongStreakOnTarget(0);
     setShowHint(false);
+    setShowMissionSetup(false);
 
-    setPlayer({
+    const freshPlayer: PlayerStats = {
       ...INITIAL_PLAYER_STATS,
+      hp: diffCfg.playerInitialHp,
+      maxHp: diffCfg.playerInitialHp,
+      shield: diffCfg.playerInitialShield,
+      maxShield: diffCfg.playerInitialShield,
       stage: 1,
-    });
+      characterId: curChar,
+      difficulty: curDiff,
+      abilityCooldownLeft: 0,
+      abilityActiveLeft: 0,
+    };
+    stateRef.current.player = freshPlayer;
+    setPlayer(freshPlayer);
     stageStartScoreRef.current = 0;
     setStageClearScore(0);
 
@@ -2421,7 +2561,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
 
     // stage_intro -> mulai pertempuran pada stageModalNumber
     const activeStage = stageModalNumber;
-    const activeStageDef = STAGE_DEFINITIONS[activeStage];
+    const curDiff: DifficultyLevel = stateRef.current.settings.difficulty ?? 'normal';
+    const diffCfg = DIFFICULTY_REGISTRY[curDiff] || DIFFICULTY_REGISTRY.normal;
+    const activeStageDef = getEffectiveStageDef(activeStage, curDiff);
     const firstTarget = activeStageDef.colorPool[0];
     setTargetColorId(firstTarget);
     setWrongStreakOnTarget(0);
@@ -2432,6 +2574,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     }
 
     if (enemiesRef.current) {
+      enemiesRef.current.setDifficultyModifiers(
+        diffCfg.enemyDamageMult,
+        diffCfg.enemyShootCooldownMult,
+        diffCfg.enemyProjectileSpeedMult
+      );
       enemiesRef.current.clearAll();
       const initialWaveColors = [
         firstTarget,
@@ -2517,6 +2664,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       gameState !== 'playing' ||
       showSettings ||
       showTutorial ||
+      showMissionSetup ||
       showLKPD ||
       showLKPDLockedAlert;
     if (!isMenuActive) return;
@@ -2538,6 +2686,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           setShowLKPD(false);
         } else if (showLKPDLockedAlert) {
           setShowLKPDLockedAlert(false);
+        } else if (showMissionSetup) {
+          setShowMissionSetup(false);
         } else if (showSettings) {
           setShowSettings(false);
         } else if (showTutorial) {
@@ -2592,6 +2742,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     gameState,
     showSettings,
     showTutorial,
+    showMissionSetup,
     showLKPD,
     showLKPDLockedAlert,
     mobileFullscreenConfirmed,
@@ -2924,7 +3075,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               <div className="flex flex-col gap-3 w-full">
                 <button
                   type="button"
-                  onClick={handleStartRun}
+                  onClick={() => setShowMissionSetup(true)}
                   data-start="true"
                   className="w-full h-13 bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-base font-black tracking-wide uppercase rounded-2xl flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-lg"
                 >
@@ -3052,6 +3203,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             hitmarkerCrit={hitmarkerCrit}
             hitmarkerWrong={hitmarkerWrong}
             playerDamageFlash={playerDamageFlash}
+            difficulty={settings.difficulty ?? 'normal'}
+            characterId={settings.characterId ?? 'raka'}
+            onTriggerAbility={handleTriggerAbility}
           />
 
           {platformMode === 'mobile' && !isGamepadConnected && (
@@ -3064,6 +3218,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                 weaponsRef.current?.switchWeapon(type);
                 setCurrentWeapon(type);
               }}
+              characterId={settings.characterId ?? 'raka'}
+              abilityCooldownLeft={player.abilityCooldownLeft ?? 0}
+              abilityActiveLeft={player.abilityActiveLeft ?? 0}
+              onTriggerAbility={handleTriggerAbility}
             />
           )}
         </>
@@ -3139,6 +3297,26 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             setIsMuted(m);
           }}
           isMuted={isMuted}
+          isGamepadConnected={isGamepadConnected}
+        />
+      </AnimatedPresence>
+
+      {/* === MODAL PEMILIHAN KARAKTER & TINGKAT KESULITAN SEBELUM MULAI MISI === */}
+      <AnimatedPresence show={showMissionSetup}>
+        <MissionSetupModal
+          selectedCharacter={settings.characterId ?? 'raka'}
+          selectedDifficulty={settings.difficulty ?? 'normal'}
+          onSelectCharacter={(characterId) =>
+            setSettings((prev) => ({ ...prev, characterId }))
+          }
+          onSelectDifficulty={(difficulty) =>
+            setSettings((prev) => ({ ...prev, difficulty }))
+          }
+          onConfirmStart={() => {
+            setShowMissionSetup(false);
+            handleStartRun();
+          }}
+          onClose={() => setShowMissionSetup(false)}
           isGamepadConnected={isGamepadConnected}
         />
       </AnimatedPresence>

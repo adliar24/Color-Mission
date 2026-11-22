@@ -332,8 +332,12 @@ export interface ArticulatedRig {
   headPivot: THREE.Group;
   leftArmPivot: THREE.Group;
   rightArmPivot: THREE.Group;
+  leftForearmPivot: THREE.Group;
+  rightForearmPivot: THREE.Group;
   leftLegPivot: THREE.Group;
   rightLegPivot: THREE.Group;
+  leftShinPivot: THREE.Group;
+  rightShinPivot: THREE.Group;
   chestCore: THREE.Mesh;
   coreRingOuter?: THREE.Mesh;
   coreRingInner?: THREE.Mesh;
@@ -391,12 +395,25 @@ export class EnemyManager {
 
   // Jeda adaptasi setelah target warna baru muncul agar pemain punya waktu membaca petunjuk
   public targetGraceTimer: number = 0;
+  public difficultyDamageMult: number = 1.0;
+  public difficultyCooldownMult: number = 1.0;
+  public difficultyProjectileSpeedMult: number = 1.0;
 
   private sharedProjGeo = new THREE.SphereGeometry(1, 14, 14);
   private sharedFragGeo = new THREE.OctahedronGeometry(0.18, 0);
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
+  }
+
+  public setDifficultyModifiers(
+    damageMult: number = 1.0,
+    shootCooldownMult: number = 1.0,
+    projectileSpeedMult: number = 1.0
+  ) {
+    this.difficultyDamageMult = damageMult;
+    this.difficultyCooldownMult = shootCooldownMult;
+    this.difficultyProjectileSpeedMult = projectileSpeedMult;
   }
 
   public triggerTargetGracePeriod(seconds: number = 2.5) {
@@ -432,7 +449,8 @@ export class EnemyManager {
     else if (type === 'chroma_titan') preferredDist = 12.0;
 
     const shootCooldown =
-      def.shootCooldownMin + Math.random() * (def.shootCooldownMax - def.shootCooldownMin);
+      (def.shootCooldownMin + Math.random() * (def.shootCooldownMax - def.shootCooldownMin)) *
+      this.difficultyCooldownMult;
 
     const enemy: EnemyInstance = {
       id: Math.random().toString(36).substring(2, 9),
@@ -443,7 +461,7 @@ export class EnemyManager {
       hp: Math.round(def.maxHp * hpMult),
       maxHp: Math.round(def.maxHp * hpMult),
       speed: def.speed * speedMult,
-      damage: def.damage,
+      damage: Math.max(1, Math.round(def.damage * this.difficultyDamageMult)),
       position: group.position,
       velocity: new THREE.Vector3(),
       state: 'spawning',
@@ -561,7 +579,7 @@ export class EnemyManager {
     bodyGroup.scale.setScalar(scale);
     group.add(bodyGroup);
 
-    // === 1. DUA KAKI MEKANIS BER-ARMOR LUTUT & SEPATU STABILIZER ===
+    // === 1. DUA KAKI MEKANIS 2-SENDI (PINGGUL + LUTUT BERARTIKULASI) ===
     const leftLegPivot = new THREE.Group();
     leftLegPivot.position.set(-0.23, 0.72, 0);
     bodyGroup.add(leftLegPivot);
@@ -570,7 +588,13 @@ export class EnemyManager {
     rightLegPivot.position.set(0.23, 0.72, 0);
     bodyGroup.add(rightLegPivot);
 
-    [leftLegPivot, rightLegPivot].forEach((legPivot) => {
+    const leftShinPivot = new THREE.Group();
+    const rightShinPivot = new THREE.Group();
+
+    [
+      { legPivot: leftLegPivot, shinPivot: leftShinPivot },
+      { legPivot: rightLegPivot, shinPivot: rightShinPivot },
+    ].forEach(({ legPivot, shinPivot }) => {
       legPivot.add(makeSharedMesh(geos.botHipJoint, darkJointMat));
 
       const thigh = makeSharedMesh(geos.botThigh, darkJointMat);
@@ -581,22 +605,25 @@ export class EnemyManager {
       kneeBall.position.set(0, -0.33, 0.01);
       legPivot.add(kneeBall);
 
+      shinPivot.position.set(0, -0.33, 0.01);
+      legPivot.add(shinPivot);
+
       const kneePlate = makeSharedMesh(geos.botKneePlate, primaryColorMat);
-      kneePlate.position.set(0, -0.32, 0.09);
+      kneePlate.position.set(0, 0.01, 0.08);
       kneePlate.rotation.x = -0.18;
-      legPivot.add(kneePlate);
+      shinPivot.add(kneePlate);
 
       const shin = makeSharedMesh(geos.botShin, primaryColorMat);
-      shin.position.set(0, -0.49, 0.02);
-      legPivot.add(shin);
+      shin.position.set(0, -0.16, 0.01);
+      shinPivot.add(shin);
 
       const footUpper = makeSharedMesh(geos.botFootUpper, primaryColorMat);
-      footUpper.position.set(0, -0.64, 0.055);
-      legPivot.add(footUpper);
+      footUpper.position.set(0, -0.31, 0.045);
+      shinPivot.add(footUpper);
 
       const sole = makeSharedMesh(geos.botFootSole, darkJointMat);
-      sole.position.set(0, -0.7, 0.055);
-      legPivot.add(sole);
+      sole.position.set(0, -0.37, 0.045);
+      shinPivot.add(sole);
     });
 
     // === 2. PINGGUL, PINGGANG MEKANIS & DADA BEVELED STYLIZED ===
@@ -641,7 +668,7 @@ export class EnemyManager {
     chestCore.position.set(0, 1.18, 0.35);
     bodyGroup.add(chestCore);
 
-    // === 4. DUA LENGAN MEKANIS + TANGAN JARI STYLIZED ===
+    // === 4. DUA LENGAN MEKANIS 2-SENDI (BAHU + SIKU) + TANGAN JARI STYLIZED ===
     const leftArmPivot = new THREE.Group();
     leftArmPivot.position.set(-0.52, 1.32, 0);
     bodyGroup.add(leftArmPivot);
@@ -650,9 +677,13 @@ export class EnemyManager {
     rightArmPivot.position.set(0.52, 1.32, 0);
     bodyGroup.add(rightArmPivot);
 
-    [leftArmPivot, rightArmPivot].forEach((armPivot, idx) => {
-      const side = idx === 0 ? -1 : 1;
+    const leftForearmPivot = new THREE.Group();
+    const rightForearmPivot = new THREE.Group();
 
+    [
+      { armPivot: leftArmPivot, forearmPivot: leftForearmPivot, side: -1 },
+      { armPivot: rightArmPivot, forearmPivot: rightForearmPivot, side: 1 },
+    ].forEach(({ armPivot, forearmPivot, side }) => {
       const shoulderSocket = makeSharedMesh(geos.botShoulderBall, darkJointMat);
       armPivot.add(shoulderSocket);
 
@@ -681,28 +712,31 @@ export class EnemyManager {
       elbow.position.set(side * 0.08, -0.31, 0.01);
       armPivot.add(elbow);
 
+      forearmPivot.position.set(side * 0.08, -0.31, 0.01);
+      armPivot.add(forearmPivot);
+
       const forearm = makeSharedMesh(geos.botForearm, primaryColorMat);
-      forearm.position.set(side * 0.085, -0.45, 0.07);
+      forearm.position.set(side * 0.005, -0.14, 0.06);
       forearm.rotation.x = 0.28;
-      armPivot.add(forearm);
+      forearmPivot.add(forearm);
 
       const wristCuff = makeSharedMesh(geos.botWristCuff, darkJointMat);
-      wristCuff.position.set(side * 0.085, -0.58, 0.12);
+      wristCuff.position.set(side * 0.005, -0.27, 0.11);
       wristCuff.rotation.x = 0.28;
-      armPivot.add(wristCuff);
+      forearmPivot.add(wristCuff);
 
       const palm = makeSharedMesh(geos.botPalm, darkJointMat);
-      palm.position.set(side * 0.085, -0.65, 0.14);
-      armPivot.add(palm);
+      palm.position.set(side * 0.005, -0.34, 0.13);
+      forearmPivot.add(palm);
 
       const handGuard = makeSharedMesh(geos.botHandGuard, primaryColorMat);
-      handGuard.position.set(side * 0.115, -0.64, 0.15);
-      armPivot.add(handGuard);
+      handGuard.position.set(side * 0.035, -0.33, 0.14);
+      forearmPivot.add(handGuard);
 
       const fingers = makeSharedMesh(geos.botFingers, darkJointMat);
-      fingers.position.set(side * 0.065, -0.71, 0.16);
+      fingers.position.set(-side * 0.015, -0.4, 0.15);
       fingers.rotation.z = side * 0.18;
-      armPivot.add(fingers);
+      forearmPivot.add(fingers);
     });
 
     // === 5. KEPALA HELM STYLIZED DENGAN VISOR MELENGKUNG & MATA EKSPRESIF ===
@@ -774,8 +808,12 @@ export class EnemyManager {
         headPivot,
         leftArmPivot,
         rightArmPivot,
+        leftForearmPivot,
+        rightForearmPivot,
         leftLegPivot,
         rightLegPivot,
+        leftShinPivot,
+        rightShinPivot,
         chestCore,
       },
       telegraphMesh: telegraph,
@@ -821,7 +859,7 @@ export class EnemyManager {
     const bodyGroup = new THREE.Group();
     group.add(bodyGroup);
 
-    // 1. Kaki Colossus Ber-Armor Lutut Segi Enam & Sepatu Berat
+    // 1. Kaki Colossus 2-Sendi (Pinggul + Lutut Segi Enam & Sepatu Berat)
     const leftLegPivot = new THREE.Group();
     leftLegPivot.position.set(-1.05, 2.1, 0);
     bodyGroup.add(leftLegPivot);
@@ -830,32 +868,41 @@ export class EnemyManager {
     rightLegPivot.position.set(1.05, 2.1, 0);
     bodyGroup.add(rightLegPivot);
 
-    [leftLegPivot, rightLegPivot].forEach((legPivot) => {
+    const leftShinPivot = new THREE.Group();
+    const rightShinPivot = new THREE.Group();
+
+    [
+      { legPivot: leftLegPivot, shinPivot: leftShinPivot },
+      { legPivot: rightLegPivot, shinPivot: rightShinPivot },
+    ].forEach(({ legPivot, shinPivot }) => {
       const upperLeg = makeSharedMesh(geos.titanThigh, titanSubArmorMat);
       upperLeg.position.set(0, -0.46, 0);
       legPivot.add(upperLeg);
 
+      shinPivot.position.set(0, -0.94, 0);
+      legPivot.add(shinPivot);
+
       const kneeTrim = makeSharedMesh(geos.titanKneeTrim, coreAccentArmorMat);
       kneeTrim.rotation.x = Math.PI / 2;
-      kneeTrim.position.set(0, -0.94, 0.39);
-      legPivot.add(kneeTrim);
+      kneeTrim.position.set(0, 0, 0.39);
+      shinPivot.add(kneeTrim);
 
       const kneeHex = makeSharedMesh(geos.titanKneeHex, titanArmorMat);
       kneeHex.rotation.x = Math.PI / 2;
-      kneeHex.position.set(0, -0.94, 0.45);
-      legPivot.add(kneeHex);
+      kneeHex.position.set(0, 0, 0.45);
+      shinPivot.add(kneeHex);
 
       const lowerLeg = makeSharedMesh(geos.titanShin, titanArmorMat);
-      lowerLeg.position.set(0, -1.45, 0);
-      legPivot.add(lowerLeg);
+      lowerLeg.position.set(0, -0.51, 0);
+      shinPivot.add(lowerLeg);
 
       const heavyBoot = makeSharedMesh(geos.titanBoot, titanArmorMat);
-      heavyBoot.position.set(0, -1.92, 0.18);
-      legPivot.add(heavyBoot);
+      heavyBoot.position.set(0, -0.98, 0.18);
+      shinPivot.add(heavyBoot);
 
       const bootToe = makeSharedMesh(geos.titanBootToe, coreAccentArmorMat);
-      bootToe.position.set(0, -1.95, 0.65);
-      legPivot.add(bootToe);
+      bootToe.position.set(0, -1.01, 0.65);
+      shinPivot.add(bootToe);
     });
 
     // 2. Pinggang, Torso Benteng & Sayap Punggung
@@ -911,7 +958,7 @@ export class EnemyManager {
     chestCore.name = 'color_core';
     bodyGroup.add(chestCore);
 
-    // 4. Dua Lengan Meriam Forearm Cannon + Pauldron Oktagonal Berlis
+    // 4. Dua Lengan Meriam Forearm Cannon 2-Sendi + Pauldron Oktagonal Berlis
     const leftArmPivot = new THREE.Group();
     leftArmPivot.position.set(-2.38, 4.25, 0);
     bodyGroup.add(leftArmPivot);
@@ -920,9 +967,13 @@ export class EnemyManager {
     rightArmPivot.position.set(2.38, 4.25, 0);
     bodyGroup.add(rightArmPivot);
 
-    [leftArmPivot, rightArmPivot].forEach((armPivot, idx) => {
-      const side = idx === 0 ? -1 : 1;
+    const leftForearmPivot = new THREE.Group();
+    const rightForearmPivot = new THREE.Group();
 
+    [
+      { armPivot: leftArmPivot, forearmPivot: leftForearmPivot, side: -1 },
+      { armPivot: rightArmPivot, forearmPivot: rightForearmPivot, side: 1 },
+    ].forEach(({ armPivot, forearmPivot, side }) => {
       const pauldron = makeSharedMesh(geos.titanPauldronBody, titanArmorMat);
       pauldron.position.set(side * 0.08, 0.08, 0);
       pauldron.rotation.z = -side * 0.16;
@@ -941,30 +992,33 @@ export class EnemyManager {
       elbowCuff.position.set(side * 0.18, -1.42, 0.05);
       armPivot.add(elbowCuff);
 
+      forearmPivot.position.set(side * 0.2, -1.42, 0.05);
+      armPivot.add(forearmPivot);
+
       const forearmCannon = makeSharedMesh(geos.titanCannonBarrel, titanArmorMat);
-      forearmCannon.position.set(side * 0.2, -1.85, 0.48);
+      forearmCannon.position.set(0, -0.43, 0.43);
       forearmCannon.rotation.x = Math.PI / 3;
-      armPivot.add(forearmCannon);
+      forearmPivot.add(forearmCannon);
 
       const cannonSleeve = makeSharedMesh(geos.titanCannonSleeve, titanSubArmorMat);
-      cannonSleeve.position.set(side * 0.2, -1.64, 0.12);
+      cannonSleeve.position.set(0, -0.22, 0.07);
       cannonSleeve.rotation.x = Math.PI / 3;
-      armPivot.add(cannonSleeve);
+      forearmPivot.add(cannonSleeve);
 
       const cannonFin = makeSharedMesh(geos.titanCannonFin, coreAccentArmorMat);
-      cannonFin.position.set(side * 0.2, -1.48, 0.56);
+      cannonFin.position.set(0, -0.06, 0.51);
       cannonFin.rotation.x = -Math.PI / 6;
-      armPivot.add(cannonFin);
+      forearmPivot.add(cannonFin);
 
       const muzzleRing = makeSharedMesh(geos.titanMuzzleRing, corePureMat);
-      muzzleRing.position.set(side * 0.2, -2.27, 1.21);
+      muzzleRing.position.set(0, -0.85, 1.16);
       muzzleRing.rotation.x = Math.PI / 3;
-      armPivot.add(muzzleRing);
+      forearmPivot.add(muzzleRing);
 
       const muzzleGlow = makeSharedMesh(geos.titanMuzzleGlow, corePureMat);
-      muzzleGlow.position.set(side * 0.2, -2.28, 1.22);
+      muzzleGlow.position.set(0, -0.86, 1.17);
       muzzleGlow.rotation.x = Math.PI / 3;
-      armPivot.add(muzzleGlow);
+      forearmPivot.add(muzzleGlow);
     });
 
     // 5. Kepala Helm Berfaset dengan Visor Tajam & Tanduk Mekanis Melengkung
@@ -1003,8 +1057,12 @@ export class EnemyManager {
         headPivot,
         leftArmPivot,
         rightArmPivot,
+        leftForearmPivot,
+        rightForearmPivot,
         leftLegPivot,
         rightLegPivot,
+        leftShinPivot,
+        rightShinPivot,
         chestCore,
         coreRingOuter,
         coreRingInner,
@@ -1226,66 +1284,68 @@ export class EnemyManager {
 
       const minThreshold = e.preferredDist - 2.5;
       const maxThreshold = e.preferredDist + 4.0;
-      let moveVelocity = 0;
-      let lateralAmount = 0;
-      let forwardAmount = 0;
+      let desiredForwardSpeed = 0;
+      let desiredLateralSpeed = 0;
+
+      // Saat sedang membidik/mengisi bola serangan (0.85s terakhir), Chromabot menapakkan kaki (Planted Stance)
+      const isChargingShot = e.shootCooldown <= 0.85 && e.shootCooldown > 0;
+      const stanceDamp = isChargingShot ? (isBoss ? 0.35 : 0.12) : 1.0;
 
       if (isBoss) {
-        // Pergerakan Dinamis CHROMA TITAN: mengejar, menjaga tekanan, dan strafing menyamping secara agresif
+        // Pergerakan Dinamis CHROMA TITAN: langkah berat berinersia & tekanan bertahap
         const bossPhaseInfo = getBossPhaseForHp(e.hp, e.maxHp);
         const phaseSpeedBoost =
-          bossPhaseInfo.phase === 3 ? 1.45 : bossPhaseInfo.phase === 2 ? 1.22 : 1.0;
+          bossPhaseInfo.phase === 3 ? 1.38 : bossPhaseInfo.phase === 2 ? 1.18 : 1.0;
         const bossSpeed = e.speed * phaseSpeedBoost;
 
-        _scratchSideDir.set(-dir.z, 0, dir.x);
-        const sideDir = _scratchSideDir;
-        const weaveWave = Math.sin(e.idlePhase * 0.85);
-        const surgeFactor = Math.abs(Math.sin(e.idlePhase * 0.42)) > 0.82 ? 1.55 : 1.0;
-        const lateralSpeed =
-          (weaveWave >= 0 ? Math.max(0.45, weaveWave) : Math.min(-0.45, weaveWave)) *
-          bossSpeed *
-          0.95 *
-          surgeFactor;
+        const weaveWave = Math.sin(e.idlePhase * 0.65);
+        desiredLateralSpeed = weaveWave * bossSpeed * 0.78 * stanceDamp;
 
-        let forwardSpeed = 0;
         if (dist > e.preferredDist + 2.0) {
-          forwardSpeed = bossSpeed * 0.9;
+          desiredForwardSpeed = bossSpeed * 0.88 * stanceDamp;
         } else if (dist < e.preferredDist - 3.0) {
-          forwardSpeed = -bossSpeed * 0.75;
+          desiredForwardSpeed = -bossSpeed * 0.68 * stanceDamp;
         } else {
-          forwardSpeed = Math.cos(e.idlePhase * 0.65) * bossSpeed * 0.45;
+          desiredForwardSpeed = Math.cos(e.idlePhase * 0.5) * bossSpeed * 0.35 * stanceDamp;
         }
-
-        e.position.addScaledVector(dir, forwardSpeed * dt);
-        e.position.addScaledVector(sideDir, lateralSpeed * dt);
-        moveVelocity = Math.hypot(forwardSpeed, lateralSpeed);
-        lateralAmount = lateralSpeed / Math.max(1, bossSpeed);
-        forwardAmount = forwardSpeed / Math.max(1, bossSpeed);
       } else {
-        _scratchSideDir.set(-dir.z, 0, dir.x);
-        const sideDir = _scratchSideDir;
-        const strafeDir = Math.sin(e.idlePhase * 0.85 + i * 1.9);
+        // Siklus Taktis Chromabot: Advance -> Planted Aim -> Reposition tanpa zig-zag liar yang bikin meluncur
+        const strafeCycle = Math.sin(e.idlePhase * 0.58 + i * 1.7);
+        const tacticalStrafe =
+          Math.abs(strafeCycle) > 0.28 ? Math.sign(strafeCycle) * (Math.abs(strafeCycle) - 0.15) : 0;
 
         if (dist < minThreshold) {
-          e.position.addScaledVector(dir, -e.speed * dt);
-          e.position.addScaledVector(sideDir, strafeDir * e.speed * 0.35 * dt);
-          moveVelocity = e.speed;
-          forwardAmount = -0.8;
-          lateralAmount = strafeDir * 0.35;
+          desiredForwardSpeed = -e.speed * 0.88 * stanceDamp;
+          desiredLateralSpeed = tacticalStrafe * e.speed * 0.35 * stanceDamp;
         } else if (dist > maxThreshold) {
-          // Maju sambil zigzag halus agar gerakan terlihat lincah & dinamis
-          e.position.addScaledVector(dir, e.speed * dt);
-          e.position.addScaledVector(sideDir, strafeDir * e.speed * 0.4 * dt);
-          moveVelocity = e.speed * 1.05;
-          forwardAmount = 1.0;
-          lateralAmount = strafeDir * 0.4;
+          desiredForwardSpeed = e.speed * 1.0 * stanceDamp;
+          desiredLateralSpeed = tacticalStrafe * e.speed * 0.28 * stanceDamp;
         } else {
-          const strafeSpeed = e.speed * 0.72;
-          e.position.addScaledVector(sideDir, strafeDir * strafeSpeed * dt);
-          moveVelocity = Math.abs(strafeDir) * strafeSpeed;
-          lateralAmount = strafeDir * 0.72;
+          desiredForwardSpeed = Math.cos(e.idlePhase * 0.45 + i) * e.speed * 0.18 * stanceDamp;
+          desiredLateralSpeed = tacticalStrafe * e.speed * 0.68 * stanceDamp;
         }
       }
+
+      _scratchSideDir.set(-dir.z, 0, dir.x);
+      const sideDir = _scratchSideDir;
+
+      const targetVelX = dir.x * desiredForwardSpeed + sideDir.x * desiredLateralSpeed;
+      const targetVelZ = dir.z * desiredForwardSpeed + sideDir.z * desiredLateralSpeed;
+
+      // Akselerasi & pengereman halus berinersia untuk menghilangkan efek patah-patah / meluncur di es
+      const inertiaRate = Math.min(1, dt * (isBoss ? 5.2 : 6.8));
+      e.velocity.x = THREE.MathUtils.lerp(e.velocity.x, targetVelX, inertiaRate);
+      e.velocity.z = THREE.MathUtils.lerp(e.velocity.z, targetVelZ, inertiaRate);
+
+      e.position.x += e.velocity.x * dt;
+      e.position.z += e.velocity.z * dt;
+
+      const moveVelocity = Math.hypot(e.velocity.x, e.velocity.z);
+      const actualForwardSpeed = e.velocity.x * dir.x + e.velocity.z * dir.z;
+      const actualLateralSpeed = e.velocity.x * sideDir.x + e.velocity.z * sideDir.z;
+      const refSpeed = Math.max(0.8, e.speed);
+      const forwardAmount = THREE.MathUtils.clamp(actualForwardSpeed / refSpeed, -1.2, 1.2);
+      const lateralAmount = THREE.MathUtils.clamp(actualLateralSpeed / refSpeed, -1.2, 1.2);
 
       // Kolisi tiang & rintangan arena agar musuh tidak menembus tiang
       if (colliders && colliders.length > 0) {
@@ -1296,13 +1356,13 @@ export class EnemyManager {
       e.position.z = Math.max(-26, Math.min(26, e.position.z));
       e.position.y = 0;
 
-      // === 5. ANIMASI WALKING, BANKING & IDLE BERARTIKULASI ===
+      // === 5. BIOMEKANIKA JALAN 2-SENDI (LUTUT & SIKU), COUNTER-ROTATION & KUDA-KUDA ===
       e.idlePhase += dt * 2.4;
-      const isWalking = moveVelocity > 0.15;
+      const isWalking = moveVelocity > 0.14;
 
-      // Kemiringan tubuh (body banking saat strafing & condong saat maju)
-      const targetLeanX = forwardAmount * (isBoss ? 0.08 : 0.14);
-      const targetBankZ = -lateralAmount * (isBoss ? 0.09 : 0.16);
+      // Kemiringan tubuh proporsional terhadap percepatan & arah langkah
+      const targetLeanX = forwardAmount * (isBoss ? 0.08 : 0.12) + (isChargingShot ? 0.06 : 0);
+      const targetBankZ = -lateralAmount * (isBoss ? 0.07 : 0.11);
       if (e.hitReactionTimer <= 0) {
         e.rig.bodyGroup.rotation.x = THREE.MathUtils.lerp(
           e.rig.bodyGroup.rotation.x,
@@ -1317,54 +1377,195 @@ export class EnemyManager {
       );
 
       if (isWalking) {
-        const strideFreq = isBoss ? 4.4 : 7.2;
-        e.walkPhase += dt * strideFreq * (moveVelocity / Math.max(0.8, e.speed));
-        const legSwing = Math.sin(e.walkPhase) * (isBoss ? 0.38 : 0.56);
+        // Frekuensi langkah terkunci langsung dengan kecepatan aktual di lantai (bebas foot-sliding)
+        const strideScale = isBoss ? 1.25 : 3.9;
+        const walkDirSign = actualForwardSpeed < -0.25 ? -1 : 1;
+        e.walkPhase += dt * moveVelocity * strideScale * walkDirSign;
 
-        e.rig.leftLegPivot.rotation.x = legSwing;
-        e.rig.rightLegPivot.rotation.x = -legSwing;
+        const phaseL = e.walkPhase;
+        const phaseR = e.walkPhase + Math.PI;
 
-        // Bobbing langkah kaki & sedikit gelengan kepala/bahu yang dinamis
-        const stepBob = Math.abs(Math.cos(e.walkPhase)) * (isBoss ? 0.14 : 0.085);
-        e.rig.bodyGroup.position.y = stepBob * baseScale;
-        e.rig.headPivot.rotation.z = Math.sin(e.walkPhase) * 0.06;
-      } else {
-        // Kembali ke posisi berdiri seimbang + nafas halus (Idle)
+        const hipAmp = isBoss ? 0.42 : 0.54;
+        const kneeAmp = isBoss ? 0.54 : 0.76;
+
+        // Paha mengayun ke depan (rotasi X negatif = maju ke +Z lokal)
+        const hipL = -Math.sin(phaseL) * hipAmp;
+        const hipR = -Math.sin(phaseR) * hipAmp;
+
+        // Lutut menekuk ke belakang secara natural saat kaki diayun terangkat, lalu lurus saat menapak
+        const liftL = Math.max(0, Math.sin(phaseL - 0.65));
+        const liftR = Math.max(0, Math.sin(phaseR - 0.65));
+        const kneeL = liftL * kneeAmp + 0.06;
+        const kneeR = liftR * kneeAmp + 0.06;
+
         e.rig.leftLegPivot.rotation.x = THREE.MathUtils.lerp(
           e.rig.leftLegPivot.rotation.x,
-          0,
-          dt * 8
+          hipL,
+          dt * 16
         );
         e.rig.rightLegPivot.rotation.x = THREE.MathUtils.lerp(
           e.rig.rightLegPivot.rotation.x,
-          0,
-          dt * 8
+          hipR,
+          dt * 16
         );
-        e.rig.bodyGroup.position.y = Math.sin(e.idlePhase) * 0.04 * baseScale;
-        e.rig.headPivot.rotation.z = Math.sin(e.idlePhase * 0.7) * 0.04;
+        e.rig.leftShinPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.leftShinPivot.rotation.x,
+          kneeL,
+          dt * 18
+        );
+        e.rig.rightShinPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.rightShinPivot.rotation.x,
+          kneeR,
+          dt * 18
+        );
+
+        // Buka sedikit arah paha saat strafing menyamping agar langkah samping terlihat natural
+        const strafeYaw = THREE.MathUtils.clamp(-lateralAmount * 0.24, -0.28, 0.28);
+        e.rig.leftLegPivot.rotation.y = THREE.MathUtils.lerp(
+          e.rig.leftLegPivot.rotation.y,
+          strafeYaw,
+          dt * 10
+        );
+        e.rig.rightLegPivot.rotation.y = THREE.MathUtils.lerp(
+          e.rig.rightLegPivot.rotation.y,
+          strafeYaw,
+          dt * 10
+        );
+        e.rig.leftLegPivot.rotation.z = THREE.MathUtils.lerp(
+          e.rig.leftLegPivot.rotation.z,
+          -0.04 - lateralAmount * 0.06,
+          dt * 10
+        );
+        e.rig.rightLegPivot.rotation.z = THREE.MathUtils.lerp(
+          e.rig.rightLegPivot.rotation.z,
+          0.04 - lateralAmount * 0.06,
+          dt * 10
+        );
+
+        // Bobbing vertikal, perpindahan titik berat kiri-kanan (weight shift), & counter-rotation torso
+        if (isBoss) {
+          // Gaya jalan Heavy Mech Stomp khusus CHROMA TITAN (kompresi suspensi saat kaki mendarat)
+          const stompWave = Math.pow(Math.abs(Math.sin(e.walkPhase)), 1.5);
+          const stompDip = (stompWave - 0.35) * 0.18;
+          e.rig.bodyGroup.position.y = THREE.MathUtils.lerp(
+            e.rig.bodyGroup.position.y,
+            stompDip,
+            dt * 14
+          );
+          e.rig.bodyGroup.position.x = THREE.MathUtils.lerp(
+            e.rig.bodyGroup.position.x,
+            -Math.cos(e.walkPhase) * 0.08,
+            dt * 10
+          );
+          e.rig.bodyGroup.rotation.y = THREE.MathUtils.lerp(
+            e.rig.bodyGroup.rotation.y,
+            Math.sin(e.walkPhase) * 0.07,
+            dt * 10
+          );
+        } else {
+          const stepBob = (Math.abs(Math.sin(e.walkPhase)) - 0.3) * 0.095 * baseScale;
+          e.rig.bodyGroup.position.y = THREE.MathUtils.lerp(
+            e.rig.bodyGroup.position.y,
+            stepBob,
+            dt * 16
+          );
+          e.rig.bodyGroup.position.x = THREE.MathUtils.lerp(
+            e.rig.bodyGroup.position.x,
+            -Math.cos(e.walkPhase) * 0.038 * baseScale,
+            dt * 12
+          );
+          e.rig.bodyGroup.rotation.y = THREE.MathUtils.lerp(
+            e.rig.bodyGroup.rotation.y,
+            Math.sin(e.walkPhase) * 0.11,
+            dt * 12
+          );
+        }
+
+        e.rig.headPivot.rotation.z = Math.sin(e.walkPhase) * 0.045;
+      } else {
+        // Posisi Berdiri / Kuda-Kuda Tembak (Planted Combat Stance) dengan tekukan lutut siap tempur
+        const readyKnee = isChargingShot ? (isBoss ? 0.22 : 0.28) : 0.1;
+        const readyHip = -readyKnee * 0.5;
+        const stanceSpread = isChargingShot ? 0.075 : 0.04;
+
+        e.rig.leftLegPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.leftLegPivot.rotation.x,
+          readyHip,
+          dt * 10
+        );
+        e.rig.rightLegPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.rightLegPivot.rotation.x,
+          readyHip * 0.7,
+          dt * 10
+        );
+        e.rig.leftShinPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.leftShinPivot.rotation.x,
+          readyKnee,
+          dt * 10
+        );
+        e.rig.rightShinPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.rightShinPivot.rotation.x,
+          readyKnee,
+          dt * 10
+        );
+        e.rig.leftLegPivot.rotation.y = THREE.MathUtils.lerp(e.rig.leftLegPivot.rotation.y, 0, dt * 10);
+        e.rig.rightLegPivot.rotation.y = THREE.MathUtils.lerp(e.rig.rightLegPivot.rotation.y, 0, dt * 10);
+        e.rig.leftLegPivot.rotation.z = THREE.MathUtils.lerp(
+          e.rig.leftLegPivot.rotation.z,
+          -stanceSpread,
+          dt * 10
+        );
+        e.rig.rightLegPivot.rotation.z = THREE.MathUtils.lerp(
+          e.rig.rightLegPivot.rotation.z,
+          stanceSpread,
+          dt * 10
+        );
+
+        const breatheY =
+          (Math.sin(e.idlePhase) * 0.032 - (isChargingShot ? 0.045 : 0)) * baseScale;
+        e.rig.bodyGroup.position.y = THREE.MathUtils.lerp(
+          e.rig.bodyGroup.position.y,
+          breatheY,
+          dt * 10
+        );
+        e.rig.bodyGroup.position.x = THREE.MathUtils.lerp(e.rig.bodyGroup.position.x, 0, dt * 10);
+        e.rig.bodyGroup.rotation.y = THREE.MathUtils.lerp(e.rig.bodyGroup.rotation.y, 0, dt * 10);
+        e.rig.headPivot.rotation.z = Math.sin(e.idlePhase * 0.7) * 0.03;
       }
 
-      // === 6. ANIMASI ATTACK & COOLDOWN SERANGAN ===
+      // === 6. ANIMASI LENGAN & SIKU (AYUNAN NATURAL + BIDIKAN TEMBAK) ===
       const phaseDef = isBoss ? getBossPhaseForHp(e.hp, e.maxHp) : undefined;
-      const cdRate = phaseDef ? 1 / phaseDef.shootCooldownMult : 1.0;
+      const cdRate =
+        (phaseDef ? 1 / phaseDef.shootCooldownMult : 1.0) / Math.max(0.5, this.difficultyCooldownMult);
 
       // Selama masa jeda adaptasi target baru (targetGraceTimer > 0), perlambat pengisian serangan musuh
       const graceFactor = this.targetGraceTimer > 0 ? 0.25 : 1.0;
       e.shootCooldown -= dt * cdRate * graceFactor;
 
-      if (e.shootCooldown <= 0.85 && e.shootCooldown > 0) {
-        // Mengangkat kedua lengan mekanis ke depan untuk mengisi bola energi
+      if (isChargingShot) {
+        // Mengangkat lengan & menekuk siku secara presisi untuk mengarahkan tembakan ke pemain
         const chargeRatio = 1 - e.shootCooldown / 0.85;
-        const aimAngle = -1.15 * chargeRatio;
+        const shoulderAim = -0.82 * chargeRatio;
+        const elbowAim = -0.45 * chargeRatio;
         e.rig.leftArmPivot.rotation.x = THREE.MathUtils.lerp(
           e.rig.leftArmPivot.rotation.x,
-          aimAngle,
-          dt * 10
+          shoulderAim,
+          dt * 12
         );
         e.rig.rightArmPivot.rotation.x = THREE.MathUtils.lerp(
           e.rig.rightArmPivot.rotation.x,
-          aimAngle,
-          dt * 10
+          shoulderAim,
+          dt * 12
+        );
+        e.rig.leftForearmPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.leftForearmPivot.rotation.x,
+          elbowAim,
+          dt * 14
+        );
+        e.rig.rightForearmPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.rightForearmPivot.rotation.x,
+          elbowAim,
+          dt * 14
         );
 
         if (e.telegraphMesh) {
@@ -1373,31 +1574,62 @@ export class EnemyManager {
           e.telegraphMesh.scale.setScalar(pulse);
         }
       } else if (e.attackAnimTimer > 0) {
-        // Recoil lengan sesaat setelah menembak
+        // Recoil lengan & siku sesaat setelah menembak
         e.attackAnimTimer = Math.max(0, e.attackAnimTimer - dt);
-        e.rig.leftArmPivot.rotation.x = -0.35;
-        e.rig.rightArmPivot.rotation.x = -0.35;
+        e.rig.leftArmPivot.rotation.x = -0.28;
+        e.rig.rightArmPivot.rotation.x = -0.28;
+        e.rig.leftForearmPivot.rotation.x = -0.62;
+        e.rig.rightForearmPivot.rotation.x = -0.62;
       } else {
-        // Ayunan lengan normal mengikuti langkah kaki atau idle
-        const armSwing = isWalking
-          ? -Math.sin(e.walkPhase) * (isBoss ? 0.25 : 0.38)
-          : Math.sin(e.idlePhase) * 0.06;
+        // Ayunan lengan & tekukan siku dinamis berlawanan fase dengan kaki
+        const armAmp = isBoss ? 0.24 : 0.38;
+        const armSwingL = isWalking
+          ? Math.sin(e.walkPhase) * armAmp
+          : Math.sin(e.idlePhase) * 0.05;
+        const armSwingR = isWalking
+          ? -Math.sin(e.walkPhase) * armAmp
+          : -Math.sin(e.idlePhase) * 0.05;
+
+        // Siku menekuk lebih dalam saat lengan mengayun ke depan
+        const elbowFlexL = isWalking
+          ? -0.22 - Math.max(0, -armSwingL) * 0.65
+          : -0.18;
+        const elbowFlexR = isWalking
+          ? -0.22 - Math.max(0, -armSwingR) * 0.65
+          : -0.18;
+
         e.rig.leftArmPivot.rotation.x = THREE.MathUtils.lerp(
           e.rig.leftArmPivot.rotation.x,
-          armSwing,
-          dt * 8
+          armSwingL,
+          dt * 10
         );
         e.rig.rightArmPivot.rotation.x = THREE.MathUtils.lerp(
           e.rig.rightArmPivot.rotation.x,
-          -armSwing,
-          dt * 8
+          armSwingR,
+          dt * 10
+        );
+        e.rig.leftForearmPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.leftForearmPivot.rotation.x,
+          elbowFlexL,
+          dt * 12
+        );
+        e.rig.rightForearmPivot.rotation.x = THREE.MathUtils.lerp(
+          e.rig.rightForearmPivot.rotation.x,
+          elbowFlexR,
+          dt * 12
         );
       }
 
       if (e.shootCooldown <= 0) {
-        this.performAttack(e, def, playerPos, phaseDef?.projectileSpeedMult || 1.0);
+        this.performAttack(
+          e,
+          def,
+          playerPos,
+          (phaseDef?.projectileSpeedMult || 1.0) * this.difficultyProjectileSpeedMult
+        );
         e.shootCooldown =
-          def.shootCooldownMin + Math.random() * (def.shootCooldownMax - def.shootCooldownMin);
+          (def.shootCooldownMin + Math.random() * (def.shootCooldownMax - def.shootCooldownMin)) *
+          this.difficultyCooldownMult;
         e.attackAnimTimer = 0.25;
         if (e.telegraphMesh) {
           e.telegraphMesh.visible = false;

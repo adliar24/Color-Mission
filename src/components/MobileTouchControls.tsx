@@ -1,13 +1,17 @@
 import React, { useRef, useState } from 'react';
 import { MobileInput } from '../game/input/InputManager';
-import { WeaponType } from '../game/types';
-import { Crosshair, ArrowUp, Zap, Flame, Target } from 'lucide-react';
+import { CharacterId, WeaponType } from '../game/types';
+import { Crosshair, ArrowUp, Zap, Flame, Target, Shield, Heart } from 'lucide-react';
 
 interface MobileTouchControlsProps {
   mobileInput: MobileInput;
   currentWeapon: WeaponType;
   unlockedWeapons: WeaponType[];
   onSwitchWeapon: (w: WeaponType) => void;
+  characterId?: CharacterId;
+  abilityCooldownLeft?: number;
+  abilityActiveLeft?: number;
+  onTriggerAbility?: () => void;
 }
 
 export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
@@ -15,6 +19,10 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   currentWeapon,
   unlockedWeapons,
   onSwitchWeapon,
+  characterId = 'raka',
+  abilityCooldownLeft = 0,
+  abilityActiveLeft = 0,
+  onTriggerAbility,
 }) => {
   const joystickBaseRef = useRef<HTMLDivElement>(null);
   const [knobOffset, setKnobOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -163,6 +171,48 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         )}
 
         <div className="flex items-end gap-3.5">
+          {/* Ability Karakter (Perisai Super Raka / Recovery Naya) */}
+          <button
+            type="button"
+            aria-label="Ability Karakter"
+            disabled={abilityCooldownLeft > 0}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              if (abilityCooldownLeft <= 0) {
+                mobileInput.triggerAbility();
+                onTriggerAbility?.();
+              }
+            }}
+            onClick={() => {
+              if (abilityCooldownLeft <= 0) {
+                mobileInput.triggerAbility();
+                onTriggerAbility?.();
+              }
+            }}
+            className={`relative w-13 h-13 rounded-full border-2 flex flex-col items-center justify-center active:scale-95 ${
+              abilityActiveLeft > 0
+                ? 'bg-cyan-400/75 border-white text-slate-950 animate-pulse'
+                : abilityCooldownLeft > 0
+                  ? 'bg-slate-950/60 border-white/20 text-slate-400'
+                  : characterId === 'raka'
+                    ? 'bg-cyan-500/35 border-cyan-300/75 text-cyan-200'
+                    : 'bg-emerald-500/35 border-emerald-300/75 text-emerald-200'
+            }`}
+          >
+            {characterId === 'raka' ? (
+              <Shield className="w-5 h-5" />
+            ) : (
+              <Heart className="w-5 h-5" />
+            )}
+            <span className="text-[9px] font-black tabular-nums leading-none mt-0.5">
+              {abilityActiveLeft > 0
+                ? `${Math.ceil(abilityActiveLeft)}s`
+                : abilityCooldownLeft > 0
+                  ? `${Math.ceil(abilityCooldownLeft)}s`
+                  : 'SKILL'}
+            </span>
+          </button>
+
           {/* Lompat (Ikon saja, transparan) */}
           <button
             type="button"
