@@ -3335,6 +3335,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               abilityCooldownLeft={player.abilityCooldownLeft ?? 0}
               abilityActiveLeft={player.abilityActiveLeft ?? 0}
               onTriggerAbility={handleTriggerAbility}
+              settings={settings}
+              mobileOrientation={mobileOrientation}
             />
           )}
         </>
@@ -3455,6 +3457,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
           }}
           onClose={() => setShowSettings(false)}
           isGamepadConnected={isGamepadConnected}
+          platformMode={platformMode}
+          mobileOrientation={mobileOrientation}
         />
       </AnimatedPresence>
 

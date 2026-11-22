@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   GameSettings,
   GraphicsQuality,
+  PlatformMode,
   SPEED_PRESET_CONFIG,
   SpeedPreset,
   VRMovementMode,
@@ -22,6 +23,7 @@ import {
   Monitor,
   Smartphone,
   Glasses,
+  Move,
 } from 'lucide-react';
 import {
   ControlDeviceTab,
@@ -30,6 +32,7 @@ import {
   MobileTouchVisual,
   VRVisual,
 } from './ControlVisuals';
+import { MobileHudEditorModal } from './MobileHudEditorModal';
 
 interface SettingsModalProps {
   settings: GameSettings;
@@ -38,6 +41,8 @@ interface SettingsModalProps {
   onToggleMute: () => void;
   onClose: () => void;
   isGamepadConnected?: boolean;
+  platformMode?: PlatformMode;
+  mobileOrientation?: 'landscape' | 'portrait';
 }
 
 type MainSettingsTab = 'general' | 'controls';
@@ -59,9 +64,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isMuted,
   onToggleMute,
   onClose,
+  platformMode = 'desktop',
+  mobileOrientation = 'landscape',
 }) => {
   const [activeTab, setActiveTab] = useState<MainSettingsTab>('general');
-  const [controlTab, setControlTab] = useState<ControlDeviceTab>('kbm');
+  const [controlTab, setControlTab] = useState<ControlDeviceTab>(() =>
+    platformMode === 'mobile' ? 'mobile' : platformMode === 'vr' ? 'vr' : 'kbm'
+  );
+  const [showMobileHudEditor, setShowMobileHudEditor] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (platformMode === 'mobile') {
+      setControlTab('mobile');
+    } else if (platformMode === 'vr') {
+      setControlTab('vr');
+    }
+  }, [platformMode]);
 
   const handleToggleGyro = async () => {
     const nextState = !settings.mobileGyroEnabled;
@@ -659,6 +677,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           {settings.hapticsEnabled ? 'AKTIF' : 'MATI'}
                         </button>
                       </div>
+
+                      {/* Kustomisasi Tata Letak Tombol GUI (Khusus Muncul di Perangkat Mobile) */}
+                      {platformMode === 'mobile' && (
+                        <div className="pt-3 border-t border-white/10 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-300 block">
+                                MAPPING TOMBOL GUI
+                              </span>
+                              <span className="text-[11px] text-slate-400">
+                                Atur posisi, ukuran, &amp; opacity 5 tombol
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowMobileHudEditor(true)}
+                            className="w-full py-2.5 px-3.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                          >
+                            <Move className="w-4 h-4" />
+                            <span>ATUR TATA LETAK TOMBOL</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -773,6 +815,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <span>SIMPAN</span>
         </button>
       </div>
+
+      {showMobileHudEditor && platformMode === 'mobile' && (
+        <MobileHudEditorModal
+          settings={settings}
+          initialOrientation={mobileOrientation}
+          onSaveLayout={(mobileHudLayout) =>
+            onUpdateSettings({
+              ...settings,
+              mobileHudLayout,
+            })
+          }
+          onClose={() => setShowMobileHudEditor(false)}
+        />
+      )}
     </div>
   );
 };

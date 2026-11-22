@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MobileInput } from '../game/input/InputManager';
-import { CharacterId, WeaponType } from '../game/types';
+import {
+  CharacterId,
+  GameSettings,
+  WeaponType,
+  resolveMobileHudLayout,
+} from '../game/types';
 import { Crosshair, ArrowUp, Zap, Flame, Target, Shield, Heart } from 'lucide-react';
 
 interface MobileTouchControlsProps {
@@ -12,6 +17,8 @@ interface MobileTouchControlsProps {
   abilityCooldownLeft?: number;
   abilityActiveLeft?: number;
   onTriggerAbility?: () => void;
+  settings?: GameSettings;
+  mobileOrientation?: 'landscape' | 'portrait';
 }
 
 export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
@@ -23,12 +30,18 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   abilityCooldownLeft = 0,
   abilityActiveLeft = 0,
   onTriggerAbility,
+  settings,
+  mobileOrientation = 'landscape',
 }) => {
   const joystickBaseRef = useRef<HTMLDivElement>(null);
   const [knobOffset, setKnobOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const activeJoystickTouchId = useRef<number | null>(null);
   const activeLookTouchId = useRef<number | null>(null);
   const lastLookPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const layout = resolveMobileHudLayout(settings, mobileOrientation);
+  const joystickScale = layout.joystick.scalePercent / 100;
+  const maxRadius = 52 * joystickScale;
 
   // Pastikan setiap kali kontrol sentuh muncul atau ditutup (misal saat selesai stage / pause), gerakan direset ke 0
   useEffect(() => {
@@ -50,8 +63,6 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
       mobileInput.reset();
     };
   }, [mobileInput]);
-
-  const maxRadius = 52;
 
   const handleJoystickStart = (e: React.TouchEvent) => {
     e.stopPropagation();
@@ -96,7 +107,8 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
       dx = (dx / dist) * maxRadius;
       dy = (dy / dist) * maxRadius;
     }
-    setKnobOffset({ x: dx, y: dy });
+    const localScale = Math.max(0.5, joystickScale);
+    setKnobOffset({ x: dx / localScale, y: dy / localScale });
     mobileInput.setJoystick(dx / maxRadius, dy / maxRadius);
   };
 
@@ -130,16 +142,16 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
 
   return (
     <div className="fixed inset-0 pointer-events-none z-20 select-none touch-none">
-      {/* Area Sentuh Kanan untuk Mengarahkan Kamera (tidak mengganggu tombol) */}
+      {/* Area Sentuh Layar untuk Mengarahkan Kamera (tidak mengganggu tombol yang punya stopPropagation) */}
       <div
-        className="absolute top-16 right-0 bottom-0 w-3/5 pointer-events-auto"
+        className="absolute top-16 left-0 right-0 bottom-0 pointer-events-auto"
         onTouchStart={handleLookStart}
         onTouchMove={handleLookMove}
         onTouchEnd={handleLookEnd}
         onTouchCancel={handleLookEnd}
       />
 
-      {/* KIRI BAWAH: Virtual Joystick Transparan Tanpa Teks (Dinaikkan sedikit agar lebih ergonomis di Landscape & Portrait) */}
+      {/* 1. GERAK (VIRTUAL JOYSTICK) */}
       <div
         ref={joystickBaseRef}
         data-ui="true"
@@ -147,132 +159,160 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         onTouchMove={handleJoystickMove}
         onTouchEnd={handleJoystickEnd}
         onTouchCancel={handleJoystickEnd}
-        className="absolute bottom-14 left-6 sm:left-10 w-28 h-28 rounded-full bg-slate-900/30 border-2 border-cyan-400/35 flex items-center justify-center pointer-events-auto"
+        style={{
+          left: `${layout.joystick.xPercent}%`,
+          top: `${layout.joystick.yPercent}%`,
+          transform: `translate(-50%, -50%) scale(${layout.joystick.scalePercent / 100})`,
+          opacity: layout.joystick.opacityPercent / 100,
+        }}
+        className="absolute w-28 h-28 rounded-full bg-slate-900/35 border-2 border-cyan-400/40 flex items-center justify-center pointer-events-auto"
       >
         <div className="w-16 h-16 rounded-full border border-white/15" />
         <div
-          className="absolute w-12 h-12 rounded-full bg-cyan-400/55 border-2 border-white/75"
+          className="absolute w-12 h-12 rounded-full bg-cyan-400/60 border-2 border-white/80"
           style={{
             transform: `translate(${knobOffset.x}px, ${knobOffset.y}px)`,
           }}
         />
       </div>
 
-      {/* KANAN BAWAH: Tombol Aksi Transparan (Dinaikkan sedikit sejajar dengan Virtual Joystick) */}
-      <div
-        data-ui="true"
-        className="absolute bottom-14 right-6 sm:right-10 flex flex-col items-end gap-3 pointer-events-auto"
-      >
-        {unlockedWeapons.length > 1 && (
-          <div className="flex gap-2 bg-slate-950/45 p-1.5 rounded-xl border border-white/15">
-            {unlockedWeapons.map((wId) => {
-              const Icon =
-                wId === 'laser_rifle' ? Zap : wId === 'cyber_shotgun' ? Flame : Target;
-              return (
-                <button
-                  key={wId}
-                  type="button"
-                  aria-label={wId}
-                  onTouchStart={(e) => {
-                    e.stopPropagation();
-                    onSwitchWeapon(wId);
-                  }}
-                  onClick={() => onSwitchWeapon(wId)}
-                  className={`w-9 h-7 rounded-lg flex items-center justify-center ${
-                    currentWeapon === wId
-                      ? 'bg-cyan-400/75 text-slate-950'
-                      : 'bg-white/10 text-white/70'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="flex items-end gap-3.5">
-          {/* Ability Karakter (Perisai Super Raka / Recovery Naya) */}
-          <button
-            type="button"
-            aria-label="Ability Karakter"
-            disabled={abilityCooldownLeft > 0}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              if (abilityCooldownLeft <= 0) {
-                mobileInput.triggerAbility();
-                onTriggerAbility?.();
-              }
-            }}
-            onClick={() => {
-              if (abilityCooldownLeft <= 0) {
-                mobileInput.triggerAbility();
-                onTriggerAbility?.();
-              }
-            }}
-            className={`relative w-13 h-13 rounded-full border-2 flex flex-col items-center justify-center active:scale-95 ${
-              abilityActiveLeft > 0
-                ? 'bg-cyan-400/75 border-white text-slate-950 animate-pulse'
-                : abilityCooldownLeft > 0
-                  ? 'bg-slate-950/60 border-white/20 text-slate-400'
-                  : characterId === 'raka'
-                    ? 'bg-cyan-500/35 border-cyan-300/75 text-cyan-200'
-                    : 'bg-emerald-500/35 border-emerald-300/75 text-emerald-200'
-            }`}
-          >
-            {characterId === 'raka' ? (
-              <Shield className="w-5 h-5" />
-            ) : (
-              <Heart className="w-5 h-5" />
-            )}
-            <span className="text-[9px] font-black tabular-nums leading-none mt-0.5">
-              {abilityActiveLeft > 0
-                ? `${Math.ceil(abilityActiveLeft)}s`
-                : abilityCooldownLeft > 0
-                  ? `${Math.ceil(abilityCooldownLeft)}s`
-                  : 'SKILL'}
-            </span>
-          </button>
-
-          {/* Lompat (Ikon saja, transparan) */}
-          <button
-            type="button"
-            aria-label="Lompat"
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              mobileInput.triggerJump();
-            }}
-            onClick={() => mobileInput.triggerJump()}
-            className="w-13 h-13 rounded-full bg-slate-900/35 border-2 border-cyan-400/40 text-cyan-300 flex items-center justify-center active:scale-95"
-          >
-            <ArrowUp className="w-6 h-6" />
-          </button>
-
-          {/* Tembak (Ikon saja, transparan) */}
-          <button
-            type="button"
-            aria-label="Tembak"
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              mobileInput.setShooting(true);
-            }}
-            onTouchEnd={(e) => {
-              e.stopPropagation();
-              mobileInput.setShooting(false);
-            }}
-            onTouchCancel={(e) => {
-              e.stopPropagation();
-              mobileInput.setShooting(false);
-            }}
-            onMouseDown={() => mobileInput.setShooting(true)}
-            onMouseUp={() => mobileInput.setShooting(false)}
-            className="w-18 h-18 rounded-full bg-rose-500/35 active:bg-rose-500/60 border-2 border-rose-300/65 text-white flex items-center justify-center active:scale-95"
-          >
-            <Crosshair className="w-7 h-7" />
-          </button>
+      {/* 2. GANTI SENJATA */}
+      {unlockedWeapons.length > 1 && (
+        <div
+          data-ui="true"
+          style={{
+            left: `${layout.weaponSwitch.xPercent}%`,
+            top: `${layout.weaponSwitch.yPercent}%`,
+            transform: `translate(-50%, -50%) scale(${layout.weaponSwitch.scalePercent / 100})`,
+            opacity: layout.weaponSwitch.opacityPercent / 100,
+          }}
+          className="absolute flex gap-2 bg-slate-950/50 p-1.5 rounded-xl border border-white/15 pointer-events-auto"
+        >
+          {unlockedWeapons.map((wId) => {
+            const Icon =
+              wId === 'laser_rifle' ? Zap : wId === 'cyber_shotgun' ? Flame : Target;
+            return (
+              <button
+                key={wId}
+                type="button"
+                aria-label={wId}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  onSwitchWeapon(wId);
+                }}
+                onClick={() => onSwitchWeapon(wId)}
+                className={`w-9 h-7 rounded-lg flex items-center justify-center ${
+                  currentWeapon === wId
+                    ? 'bg-cyan-400/85 text-slate-950'
+                    : 'bg-white/10 text-white/75'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+              </button>
+            );
+          })}
         </div>
-      </div>
+      )}
+
+      {/* 3. JURUS / ABILITY KARAKTER (PERISAI SUPER RAKA / RECOVERY NAYA) */}
+      <button
+        type="button"
+        data-ui="true"
+        aria-label="Ability Karakter"
+        disabled={abilityCooldownLeft > 0}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          if (abilityCooldownLeft <= 0) {
+            mobileInput.triggerAbility();
+            onTriggerAbility?.();
+          }
+        }}
+        onClick={() => {
+          if (abilityCooldownLeft <= 0) {
+            mobileInput.triggerAbility();
+            onTriggerAbility?.();
+          }
+        }}
+        style={{
+          left: `${layout.ability.xPercent}%`,
+          top: `${layout.ability.yPercent}%`,
+          transform: `translate(-50%, -50%) scale(${layout.ability.scalePercent / 100})`,
+          opacity: layout.ability.opacityPercent / 100,
+        }}
+        className={`absolute w-13 h-13 rounded-full border-2 flex flex-col items-center justify-center pointer-events-auto active:brightness-125 ${
+          abilityActiveLeft > 0
+            ? 'bg-cyan-400/80 border-white text-slate-950 animate-pulse'
+            : abilityCooldownLeft > 0
+              ? 'bg-slate-950/65 border-white/20 text-slate-400'
+              : characterId === 'raka'
+                ? 'bg-cyan-500/40 border-cyan-300/80 text-cyan-200'
+                : 'bg-emerald-500/40 border-emerald-300/80 text-emerald-200'
+        }`}
+      >
+        {characterId === 'raka' ? (
+          <Shield className="w-5 h-5" />
+        ) : (
+          <Heart className="w-5 h-5" />
+        )}
+        <span className="text-[9px] font-black tabular-nums leading-none mt-0.5">
+          {abilityActiveLeft > 0
+            ? `${Math.ceil(abilityActiveLeft)}s`
+            : abilityCooldownLeft > 0
+              ? `${Math.ceil(abilityCooldownLeft)}s`
+              : 'SKILL'}
+        </span>
+      </button>
+
+      {/* 4. LOMPAT */}
+      <button
+        type="button"
+        data-ui="true"
+        aria-label="Lompat"
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          mobileInput.triggerJump();
+        }}
+        onClick={() => mobileInput.triggerJump()}
+        style={{
+          left: `${layout.jump.xPercent}%`,
+          top: `${layout.jump.yPercent}%`,
+          transform: `translate(-50%, -50%) scale(${layout.jump.scalePercent / 100})`,
+          opacity: layout.jump.opacityPercent / 100,
+        }}
+        className="absolute w-13 h-13 rounded-full bg-slate-900/45 border-2 border-cyan-400/50 text-cyan-300 flex items-center justify-center pointer-events-auto active:brightness-125"
+      >
+        <ArrowUp className="w-6 h-6" />
+      </button>
+
+      {/* 5. TEMBAK */}
+      <button
+        type="button"
+        data-ui="true"
+        aria-label="Tembak"
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          mobileInput.setShooting(true);
+        }}
+        onTouchEnd={(e) => {
+          e.stopPropagation();
+          mobileInput.setShooting(false);
+        }}
+        onTouchCancel={(e) => {
+          e.stopPropagation();
+          mobileInput.setShooting(false);
+        }}
+        onMouseDown={() => mobileInput.setShooting(true)}
+        onMouseUp={() => mobileInput.setShooting(false)}
+        style={{
+          left: `${layout.shoot.xPercent}%`,
+          top: `${layout.shoot.yPercent}%`,
+          transform: `translate(-50%, -50%) scale(${layout.shoot.scalePercent / 100})`,
+          opacity: layout.shoot.opacityPercent / 100,
+        }}
+        className="absolute w-18 h-18 rounded-full bg-rose-500/45 active:bg-rose-500/70 border-2 border-rose-300/75 text-white flex items-center justify-center pointer-events-auto"
+      >
+        <Crosshair className="w-7 h-7" />
+      </button>
     </div>
   );
 };
-

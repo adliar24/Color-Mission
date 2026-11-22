@@ -30,11 +30,14 @@ import {
 import { InputManager } from './input/InputManager';
 import { VRManager } from './xr/VRManager';
 import {
+  DEFAULT_MOBILE_HUD_LAYOUT,
   GameSettings,
   PlayerStats,
   clampAudioPercent,
+  clampMobileButtonConfig,
   clampSteppedSpeedPercent,
   resolveAudioSettings,
+  resolveMobileHudLayout,
   resolveSpeedSettings,
 } from './types';
 import {
@@ -713,4 +716,49 @@ test('InputManager.resetAll menghentikan seluruh sisa gerak maju saat berganti s
 
   im.dispose();
 });
+
+test('resolveMobileHudLayout & clampMobileButtonConfig mengatur posisi, ukuran (50-160%), dan opacity (15-100%) 5 tombol GUI Mobile', () => {
+  const defaultLandscape = resolveMobileHudLayout(undefined, 'landscape');
+  const defaultPortrait = resolveMobileHudLayout(undefined, 'portrait');
+
+  assert.deepEqual(defaultLandscape, DEFAULT_MOBILE_HUD_LAYOUT.landscape);
+  assert.deepEqual(defaultPortrait, DEFAULT_MOBILE_HUD_LAYOUT.portrait);
+
+  // Uji clamping batas ekstrem pada satu tombol
+  const clamped = clampMobileButtonConfig(
+    {
+      xPercent: 99.8,
+      yPercent: 2.0,
+      scalePercent: 183,
+      opacityPercent: 4,
+    },
+    DEFAULT_MOBILE_HUD_LAYOUT.landscape.shoot
+  );
+  assert.equal(clamped.xPercent, 94);
+  assert.equal(clamped.yPercent, 12);
+  assert.equal(clamped.scalePercent, 160);
+  assert.equal(clamped.opacityPercent, 15);
+
+  // Uji penyimpanan kustom pada Landscape tanpa memengaruhi Portrait
+  const customSettings: Pick<GameSettings, 'mobileHudLayout'> = {
+    mobileHudLayout: {
+      landscape: {
+        ...DEFAULT_MOBILE_HUD_LAYOUT.landscape,
+        shoot: { xPercent: 82.5, yPercent: 68.4, scalePercent: 135, opacityPercent: 60 },
+        joystick: { xPercent: 18.0, yPercent: 74.0, scalePercent: 115, opacityPercent: 70 },
+      },
+      portrait: DEFAULT_MOBILE_HUD_LAYOUT.portrait,
+    },
+  };
+
+  const resolvedLand = resolveMobileHudLayout(customSettings, 'landscape');
+  const resolvedPort = resolveMobileHudLayout(customSettings, 'portrait');
+
+  assert.equal(resolvedLand.shoot.xPercent, 82.5);
+  assert.equal(resolvedLand.shoot.scalePercent, 135);
+  assert.equal(resolvedLand.shoot.opacityPercent, 60);
+  assert.equal(resolvedLand.joystick.scalePercent, 115);
+  assert.equal(resolvedPort.shoot.scalePercent, 100);
+});
+
 

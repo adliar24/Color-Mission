@@ -319,6 +319,91 @@ export function resolveAudioSettings(
   };
 }
 
+export type MobileControlElementId =
+  | 'joystick'
+  | 'shoot'
+  | 'jump'
+  | 'ability'
+  | 'weaponSwitch';
+
+export interface MobileControlButtonConfig {
+  xPercent: number;
+  yPercent: number;
+  scalePercent: number;
+  opacityPercent: number;
+}
+
+export type MobileOrientationLayoutMap = Record<
+  MobileControlElementId,
+  MobileControlButtonConfig
+>;
+
+export interface MobileHudLayoutSettings {
+  landscape: MobileOrientationLayoutMap;
+  portrait: MobileOrientationLayoutMap;
+}
+
+export const MOBILE_CONTROL_LABELS: Record<MobileControlElementId, string> = {
+  joystick: 'GERAK (ANALOG)',
+  shoot: 'TEMBAK',
+  jump: 'LOMPAT',
+  ability: 'JURUS (SKILL)',
+  weaponSwitch: 'GANTI SENJATA',
+};
+
+export const DEFAULT_MOBILE_HUD_LAYOUT: MobileHudLayoutSettings = {
+  landscape: {
+    joystick: { xPercent: 14, yPercent: 72, scalePercent: 100, opacityPercent: 85 },
+    ability: { xPercent: 66, yPercent: 78, scalePercent: 100, opacityPercent: 85 },
+    jump: { xPercent: 77, yPercent: 78, scalePercent: 100, opacityPercent: 85 },
+    shoot: { xPercent: 89, yPercent: 75, scalePercent: 100, opacityPercent: 85 },
+    weaponSwitch: { xPercent: 86, yPercent: 56, scalePercent: 100, opacityPercent: 85 },
+  },
+  portrait: {
+    joystick: { xPercent: 21, yPercent: 84, scalePercent: 100, opacityPercent: 85 },
+    ability: { xPercent: 49, yPercent: 87, scalePercent: 100, opacityPercent: 85 },
+    jump: { xPercent: 66, yPercent: 87, scalePercent: 100, opacityPercent: 85 },
+    shoot: { xPercent: 84, yPercent: 85, scalePercent: 100, opacityPercent: 85 },
+    weaponSwitch: { xPercent: 80, yPercent: 74, scalePercent: 100, opacityPercent: 85 },
+  },
+};
+
+export function clampMobileButtonConfig(
+  cfg: Partial<MobileControlButtonConfig> | undefined,
+  fallback: MobileControlButtonConfig
+): MobileControlButtonConfig {
+  const rawX = Number.isFinite(cfg?.xPercent) ? Number(cfg!.xPercent) : fallback.xPercent;
+  const rawY = Number.isFinite(cfg?.yPercent) ? Number(cfg!.yPercent) : fallback.yPercent;
+  const rawScale = Number.isFinite(cfg?.scalePercent)
+    ? Number(cfg!.scalePercent)
+    : fallback.scalePercent;
+  const rawOpacity = Number.isFinite(cfg?.opacityPercent)
+    ? Number(cfg!.opacityPercent)
+    : fallback.opacityPercent;
+
+  return {
+    xPercent: Math.max(6, Math.min(94, Number(rawX.toFixed(1)))),
+    yPercent: Math.max(12, Math.min(92, Number(rawY.toFixed(1)))),
+    scalePercent: Math.max(50, Math.min(160, Math.round(rawScale / 5) * 5)),
+    opacityPercent: Math.max(15, Math.min(100, Math.round(rawOpacity / 5) * 5)),
+  };
+}
+
+export function resolveMobileHudLayout(
+  settings: Pick<GameSettings, 'mobileHudLayout'> | undefined,
+  orientation: 'landscape' | 'portrait' = 'landscape'
+): MobileOrientationLayoutMap {
+  const defaults = DEFAULT_MOBILE_HUD_LAYOUT[orientation];
+  const saved = settings?.mobileHudLayout?.[orientation];
+  return {
+    joystick: clampMobileButtonConfig(saved?.joystick, defaults.joystick),
+    shoot: clampMobileButtonConfig(saved?.shoot, defaults.shoot),
+    jump: clampMobileButtonConfig(saved?.jump, defaults.jump),
+    ability: clampMobileButtonConfig(saved?.ability, defaults.ability),
+    weaponSwitch: clampMobileButtonConfig(saved?.weaponSwitch, defaults.weaponSwitch),
+  };
+}
+
 export interface GameSettings {
   mouseSensitivity: number;
   touchSensitivity: number;
@@ -338,6 +423,7 @@ export interface GameSettings {
   sfxVolumePercent?: number;
   difficulty?: DifficultyLevel;
   characterId?: CharacterId;
+  mobileHudLayout?: MobileHudLayoutSettings;
 }
 
 export type HapticEventType =
