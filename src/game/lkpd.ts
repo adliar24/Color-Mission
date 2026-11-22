@@ -113,43 +113,43 @@ export const LKPD_LAB_CHALLENGES: LKPDLabChallenge[] = [
   {
     id: 'lab_orange',
     targetColorId: 'orange',
-    prompt: 'Buat warna Sekunder: JINGGA.',
-    hint: 'Gabungkan 2 warna primer hangat.',
+    prompt: 'Buat warna Sekunder sesuai kotak target.',
+    hint: 'Gabungkan 2 Warna Primer hangat.',
   },
   {
     id: 'lab_green',
     targetColorId: 'green',
-    prompt: 'Buat warna Sekunder: HIJAU.',
-    hint: 'Padukan Kuning dengan Biru.',
+    prompt: 'Buat warna Sekunder sesuai kotak target.',
+    hint: 'Padukan 2 Warna Primer cerah dan dingin.',
   },
   {
     id: 'lab_purple',
     targetColorId: 'purple',
-    prompt: 'Buat warna Sekunder: UNGU.',
-    hint: 'Campurkan Merah dengan Biru.',
+    prompt: 'Buat warna Sekunder sesuai kotak target.',
+    hint: 'Campurkan 2 Warna Primer berlawanan suhu.',
   },
   {
     id: 'lab_red_orange',
     targetColorId: 'red_orange',
-    prompt: 'Buat warna Tersier: MERAH-JINGGA.',
-    hint: '1 Primer + 1 Sekunder terdekat.',
+    prompt: 'Buat warna Tersier sesuai kotak target.',
+    hint: '1 Warna Primer hangat + 1 Warna Sekunder terdekat.',
   },
   {
     id: 'lab_blue_green',
     targetColorId: 'blue_green',
-    prompt: 'Buat warna Tersier: BIRU-HIJAU.',
-    hint: 'Primer dingin + Sekunder dedaunan.',
+    prompt: 'Buat warna Tersier sesuai kotak target.',
+    hint: '1 Warna Primer dingin + 1 Warna Sekunder terdekat.',
   },
 ];
 
 /**
- * 6 Soal Uji Pemahaman Teori Warna RYB (4 Pilihan Ganda + 2 Pencocokan Resep Tersier).
+ * 6 Soal Uji Pemahaman Teori Warna Primer (4 Pilihan Ganda + 2 Pencocokan Resep Tersier).
  */
 export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
   {
     id: 'q1_primer',
     type: 'multiple_choice',
-    question: 'Manakah kelompok 3 Warna Primer dalam sistem RYB?',
+    question: 'Manakah kelompok 3 Warna Primer?',
     options: [
       {
         id: 'a',
@@ -174,12 +174,12 @@ export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
     ],
     correctOptionId: 'a',
     explanation:
-      'Warna primer RYB adalah Merah, Kuning, dan Biru (tidak berasal dari campuran lain).',
+      'Warna Primer adalah Merah, Kuning, dan Biru (tidak berasal dari campuran lain).',
   },
   {
     id: 'q2_sekunder',
     type: 'multiple_choice',
-    question: 'Petunjuk Stage 2: Kuning + Biru. Target warnanya adalah?',
+    question: 'Hasil campuran dua kotak warna di bawah ini adalah?',
     previewColorIds: ['yellow', 'blue'],
     options: [
       { id: 'a', label: 'Jingga', swatchHexes: ['#FF7A00'] },
@@ -189,41 +189,41 @@ export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
     ],
     correctOptionId: 'b',
     explanation:
-      'Kuning + Biru menghasilkan warna sekunder Hijau.',
+      'Campuran Kuning + Biru menghasilkan warna sekunder Hijau.',
   },
   {
     id: 'q3_tersier_konsep',
     type: 'multiple_choice',
     question: 'Bagaimana prinsip terbentuknya warna Tersier pada Stage 3?',
     options: [
-      { id: 'a', label: '1 Primer + 1 Sekunder berdekatan' },
-      { id: 'b', label: 'Putih + Hitam secara merata' },
-      { id: 'c', label: '1 warna Primer tanpa campuran' },
+      { id: 'a', label: '1 Warna Primer + 1 Warna Sekunder berdekatan' },
+      { id: 'b', label: 'Warna netral terang + gelap secara merata' },
+      { id: 'c', label: '1 Warna Primer tanpa campuran' },
       { id: 'd', label: 'Ketiga warna Sekunder sekaligus' },
     ],
     correctOptionId: 'a',
     explanation:
-      'Warna tersier terbentuk dari campuran 1 warna Primer + 1 Sekunder yang berdekatan.',
+      'Warna tersier terbentuk dari campuran 1 Warna Primer + 1 Warna Sekunder yang berdekatan.',
   },
   {
     id: 'q4_boss_netral',
     type: 'multiple_choice',
-    question: 'Mengapa kristal Putih & Hitam pada Boss tidak masuk 12 warna RYB?',
+    question: 'Mengapa 2 kristal warna di bawah ini pada Boss tidak masuk 12 roda Warna Primer?',
     previewColorIds: ['white', 'black'],
     options: [
       { id: 'a', label: 'Tergolong warna netral akromatik' },
       { id: 'b', label: 'Termasuk warna tersier khusus' },
-      { id: 'c', label: 'Putih campuran Kuning + Jingga' },
-      { id: 'd', label: 'Hitam termasuk primer dingin' },
+      { id: 'c', label: 'Hasil campuran warna sekunder hangat' },
+      { id: 'd', label: 'Termasuk Warna Primer dingin' },
     ],
     correctOptionId: 'a',
     explanation:
-      'Putih dan Hitam adalah warna netral (akromatik), bukan bagian dari 12 hue roda warna RYB.',
+      'Putih dan Hitam adalah warna netral (akromatik), bukan bagian dari 12 hue roda Warna Primer.',
   },
   {
     id: 'q5_match_yellow_orange',
     type: 'match_ingredients',
-    question: 'Campuran bahan untuk warna Tersier KUNING-JINGGA:',
+    question: 'Pilih 2 bahan campuran untuk menghasilkan warna Tersier berikut:',
     previewColorIds: ['yellow_orange'],
     options: [
       { id: 'a', label: 'Kuning + Jingga', swatchHexes: ['#FFD60A', '#FF7A00'] },
@@ -233,12 +233,12 @@ export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
     ],
     correctOptionId: 'a',
     explanation:
-      'Kuning-Jingga dibentuk dari Kuning (Primer) + Jingga (Sekunder).',
+      'Kuning-Jingga dibentuk dari Kuning (Warna Primer) + Jingga (Sekunder).',
   },
   {
     id: 'q6_match_red_purple',
     type: 'match_ingredients',
-    question: 'Campuran bahan untuk warna Tersier MERAH-UNGU:',
+    question: 'Pilih 2 bahan campuran untuk menghasilkan warna Tersier berikut:',
     previewColorIds: ['red_purple'],
     options: [
       { id: 'a', label: 'Biru + Hijau', swatchHexes: ['#1D6FFF', '#16A34A'] },
@@ -248,7 +248,7 @@ export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
     ],
     correctOptionId: 'c',
     explanation:
-      'Merah-Ungu dibentuk dari Merah (Primer) + Ungu (Sekunder).',
+      'Merah-Ungu dibentuk dari Merah (Warna Primer) + Ungu (Sekunder).',
   },
 ];
 
@@ -259,7 +259,7 @@ export const LKPD_REFLECTION_PROMPTS: LKPDReflectionPrompt[] = [
   {
     id: 'ref_1_kategori',
     question:
-      '1. Apa perbedaan warna Primer, Sekunder, dan Tersier di Stage 1–3?',
+      '1. Apa perbedaan Warna Primer, Sekunder, dan Tersier di Stage 1–3?',
     placeholder: 'Jelaskan singkat beserta contohnya...',
   },
   {
@@ -271,7 +271,7 @@ export const LKPD_REFLECTION_PROMPTS: LKPDReflectionPrompt[] = [
   {
     id: 'ref_3_refleksi',
     question:
-      '3. Bagian mana yang paling membantumu memahami teori warna RYB?',
+      '3. Bagian mana yang paling membantumu memahami teori Warna Primer?',
     placeholder: 'Tuliskan refleksi belajarmu...',
   },
 ];
@@ -529,7 +529,7 @@ export function exportLKPDCardAsPNG(
 
   ctx.fillStyle = '#ffffff';
   ctx.font = '900 42px system-ui, sans-serif';
-  ctx.fillText('COLOR MISSION — TEORI WARNA RYB', 92, 166);
+  ctx.fillText('COLOR MISSION — TEORI WARNA PRIMER', 92, 166);
 
   ctx.fillStyle = '#94a3b8';
   ctx.font = '600 18px system-ui, sans-serif';
@@ -592,7 +592,7 @@ export function exportLKPDCardAsPNG(
     ctx.fillText(st.sub, cx + 20, cy + 120);
   });
 
-  // 12 Swatch Roda Warna RYB
+  // 12 Swatch Roda Warna Primer
   ctx.fillStyle = 'rgba(255,255,255,0.03)';
   ctx.beginPath();
   ctx.roundRect(56, 558, canvas.width - 112, 128, 18);
@@ -600,7 +600,7 @@ export function exportLKPDCardAsPNG(
 
   ctx.fillStyle = '#e2e8f0';
   ctx.font = '800 17px system-ui, sans-serif';
-  ctx.fillText('12 WARNA RODA PIGMEN RYB YANG TELAH DIKUASAI DALAM GAME', 84, 594);
+  ctx.fillText('12 RODA WARNA PRIMER YANG TELAH DIKUASAI DALAM GAME', 84, 594);
 
   const swSize = 54;
   const swGap = 32;

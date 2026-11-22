@@ -78,7 +78,7 @@ export const DIFFICULTY_REGISTRY: Record<DifficultyLevel, DifficultyConfig> = {
     id: 'normal',
     label: 'NORMAL',
     tagline: 'Tantangan Seimbang',
-    description: 'Keseimbangan standar antara aksi tembak-menembak dan penalaran teori pencampuran warna RYB.',
+    description: 'Keseimbangan standar antara aksi tembak-menembak dan penalaran teori pencampuran Warna Primer.',
     playerInitialHp: 100,
     playerInitialShield: 50,
     enemySpeedMult: 1.0,

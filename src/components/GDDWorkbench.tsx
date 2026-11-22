@@ -90,7 +90,7 @@ export const GDDWorkbench: React.FC<GDDWorkbenchProps> = ({ onLaunchGame }) => {
 
 ## 1. VISI & MEKANIK INTI (TEMBAK TARGET WARNA)
 ### 1.1 Konsep Utama
-Pemain bergerak di arena 3D futuristik dengan kamera orang pertama (FPS), membidik, menembak, melakukan isi ulang amunisi, serta menghindari serangan proyektil sambil mengeliminasi keluarga robot **CHROMABOTS** yang warnanya sesuai dengan instruksi **Target Warna RYB** aktif di layar.
+Pemain bergerak di arena 3D futuristik dengan kamera orang pertama (FPS), membidik, menembak, melakukan isi ulang amunisi, serta menghindari serangan proyektil sambil mengeliminasi keluarga robot **CHROMABOTS** yang warnanya sesuai dengan instruksi **Target Warna Primer** aktif di layar.
 
 ### 1.2 Aturan Validasi Tembakan
 - **Tembakan Mengenai Warna Target yang Benar**: Memberikan damage senjata normal (termasuk bonus headshot kritis 1.75x).
@@ -100,7 +100,7 @@ Pemain bergerak di arena 3D futuristik dengan kamera orang pertama (FPS), membid
 
 ---
 
-## 2. SISTEM WARNA PIGMEN RYB TERPUSAT (12 WARNA)
+## 2. SISTEM WARNA PRIMER TERPUSAT (12 WARNA)
 | Kategori | Nama Warna | ID Logis | Kode Hex | Resep Pencampuran |
 |---|---|---|---|---|
 ${ALL_RYB_COLORS.map(
@@ -157,14 +157,14 @@ ${Object.values(WEAPON_REGISTRY)
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'GDD_COLOR_MISSION_RYB.md';
+    a.download = 'GDD_COLOR_MISSION_WARNA_PRIMER.md';
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const tabs = [
     { id: 'vision', label: '1. Visi & Aturan Inti', icon: <Target className="w-4 h-4" /> },
-    { id: 'colors', label: '2. Sistem 12 Warna RYB', icon: <Palette className="w-4 h-4" /> },
+    { id: 'colors', label: '2. Sistem 12 Warna Primer', icon: <Palette className="w-4 h-4" /> },
     { id: 'stages', label: '3. Tahap, Chromabots & Boss', icon: <Layers className="w-4 h-4" /> },
     { id: 'arsenal', label: '4. Senjata & Augmentasi', icon: <Zap className="w-4 h-4" /> },
     { id: 'sandbox', label: '5. Kalkulator & Simulasi', icon: <Calculator className="w-4 h-4" /> },
@@ -264,7 +264,7 @@ ${Object.values(WEAPON_REGISTRY)
                   COLOR MISSION — Educational 3D FPS Action
                 </h2>
                 <p className="text-sm text-slate-300 leading-relaxed mb-4">
-                  <strong>COLOR MISSION</strong> menggabungkan aksi First-Person Shooter (FPS) 3D sesungguhnya dengan pembelajaran teori warna pigmen tradisional <strong>RYB (Merah, Kuning, Biru)</strong>. Pemain tidak menjawab kuis statis, melainkan bermanuver di dalam arena 3D, membidik, mengisi ulang peluru, menghindari serangan, dan mengeliminasi <strong>CHROMABOTS</strong> yang sesuai dengan instruksi <strong>Target Warna</strong> aktif.
+                  <strong>COLOR MISSION</strong> menggabungkan aksi First-Person Shooter (FPS) 3D sesungguhnya dengan pembelajaran teori <strong>Warna Primer (Merah, Kuning, Biru)</strong>. Pemain tidak menjawab kuis statis, melainkan bermanuver di dalam arena 3D, membidik, mengisi ulang peluru, menghindari serangan, dan mengeliminasi <strong>CHROMABOTS</strong> yang sesuai dengan instruksi <strong>Target Warna</strong> aktif.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -364,7 +364,7 @@ ${Object.values(WEAPON_REGISTRY)
             <div className="max-w-4xl space-y-6">
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
                 <h2 className="text-xl font-bold text-white mb-2">
-                  Konfigurasi Terpusat 12 Warna Pigmen RYB (<code>src/game/colors.ts</code>)
+                  Konfigurasi Terpusat 12 Roda Warna Primer (<code>src/game/colors.ts</code>)
                 </h2>
                 <p className="text-xs text-slate-400 mb-5">
                   Terdiri dari tepat 3 warna Primer, 3 warna Sekunder, dan 6 warna Tersier dengan kode hex kontras tinggi yang mudah dibedakan di dalam arena 3D.

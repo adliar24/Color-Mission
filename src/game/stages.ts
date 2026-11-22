@@ -20,14 +20,14 @@ export const STAGE_DEFINITIONS: Record<1 | 2 | 3, StageDef> = {
     eliteChance: 0.0, // Tidak ada elite di Tahap 1 agar pemain fokus adaptasi
     stageClearBonus: 1500,
     description:
-      'Kenali tiga warna dasar RYB (Merah, Kuning, Biru). Tembak Chromabot yang sesuai dengan kotak warna pada panel instruksi.',
-    learningTitle: 'Menguasai Warna Primer (RYB)',
+      'Kenali tiga Warna Primer dasar (Merah, Kuning, Biru). Tembak Chromabot yang sesuai dengan kotak warna pada panel instruksi.',
+    learningTitle: 'Menguasai Warna Primer',
     learningSummary:
-      'Dalam teori warna pigmen tradisional (RYB), warna primer adalah tiga warna dasar murni yang menjadi sumber seluruh warna lainnya.',
+      'Dalam teori Warna Primer, tiga warna dasar murni menjadi sumber utama terbentuknya seluruh warna lainnya.',
     learningPoints: [
-      'Merah, Kuning, dan Biru adalah fondasi seluruh roda warna RYB.',
-      'Mencampur dua warna primer secara seimbang akan menghasilkan warna sekunder pada Tahap 2.',
-      'Ketiga warna primer memiliki kontras visual paling kuat di dalam spektrum.',
+      'Merah, Kuning, dan Biru adalah fondasi seluruh roda Warna Primer.',
+      'Mencampur dua Warna Primer secara seimbang akan menghasilkan warna sekunder pada Tahap 2.',
+      'Ketiga Warna Primer memiliki kontras visual paling kuat di dalam spektrum.',
     ],
   },
   2: {
@@ -49,9 +49,9 @@ export const STAGE_DEFINITIONS: Record<1 | 2 | 3, StageDef> = {
     stageClearBonus: 2500,
     description:
       'Tebak hasil pencampuran dua warna primer yang tampil di layar (Jingga, Hijau, atau Ungu), lalu tembak Chromabot dengan warna hasil campuran tersebut!',
-    learningTitle: 'Sintesis Warna Sekunder (RYB)',
+    learningTitle: 'Sintesis Warna Sekunder',
     learningSummary:
-      'Warna sekunder terbentuk dari pencampuran dua warna primer secara merata pada roda warna RYB.',
+      'Warna sekunder terbentuk dari pencampuran dua Warna Primer secara merata pada roda warna.',
     learningPoints: [
       'Merah + Kuning = Jingga.',
       'Kuning + Biru = Hijau.',
@@ -80,12 +80,12 @@ export const STAGE_DEFINITIONS: Record<1 | 2 | 3, StageDef> = {
       'Selesaikan tantangan pencampuran Warna Primer + Sekunder (6 Warna Tersier), lalu kalahkan boss terakhir CHROMA TITAN!',
     learningTitle: 'Harmoni Enam Warna Tersier & Spektrum Penuh',
     learningSummary:
-      'Warna tersier terbentuk dengan mencampurkan satu warna primer dengan satu warna sekunder yang berdekatan pada roda warna RYB.',
+      'Warna tersier terbentuk dengan mencampurkan satu Warna Primer dengan satu warna sekunder yang berdekatan pada roda warna.',
     learningPoints: [
       'Merah + Jingga = Merah-Jingga | Kuning + Jingga = Kuning-Jingga.',
       'Kuning + Hijau = Kuning-Hijau | Biru + Hijau = Biru-Hijau.',
       'Biru + Ungu = Biru-Ungu | Merah + Ungu = Merah-Ungu.',
-      'Total roda warna RYB lengkap terdiri dari 12 warna: 3 Primer, 3 Sekunder, dan 6 Tersier.',
+      'Total roda Warna Primer lengkap terdiri dari 12 warna: 3 Primer, 3 Sekunder, dan 6 Tersier.',
     ],
   },
 };
