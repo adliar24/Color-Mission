@@ -18,19 +18,26 @@ export interface FlyingPlasma {
 
 const _UP_AXIS = new THREE.Vector3(0, 1, 0);
 const _X_AXIS = new THREE.Vector3(1, 0, 0);
+const _scratchBeamDir = new THREE.Vector3();
+const _scratchBeamMid = new THREE.Vector3();
+const _scratchBeamAxis = new THREE.Vector3();
+const _scratchBeamQuat = new THREE.Quaternion();
 
 export class VisualShotSystem {
   public scene: THREE.Scene;
   private activeBeams: LaserBeam[] = [];
   public activePlasma: FlyingPlasma[] = [];
   private sharedBeamGeo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, false);
+  private sharedImpactSphereGeo = new THREE.SphereGeometry(1, 8, 8);
+  private sharedImpactRingGeo = new THREE.TorusGeometry(1, 0.14, 6, 16);
+  private sharedPlasmaGeo = new THREE.SphereGeometry(0.18, 8, 8);
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
   }
 
   /**
-   * Spawns a visible 2-layer glowing hitscan beam from muzzle to target
+   * Spawns a visible 2-layer glowing hitscan beam from muzzle to target (zero geometry allocation)
    */
   public addLaserBeam(
     from: THREE.Vector3,
@@ -39,21 +46,21 @@ export class VisualShotSystem {
     thickness: number = 0.04,
     duration: number = 0.09
   ) {
-    const dir = new THREE.Vector3().subVectors(to, from);
-    const length = dir.length();
+    _scratchBeamDir.subVectors(to, from);
+    const length = _scratchBeamDir.length();
     if (length < 0.1) return;
 
-    const mid = new THREE.Vector3().addVectors(from, to).multiplyScalar(0.5);
-    const normalizedDir = dir.divideScalar(length);
-    const quat = new THREE.Quaternion();
-    const axis = new THREE.Vector3().crossVectors(_UP_AXIS, normalizedDir);
+    _scratchBeamMid.addVectors(from, to).multiplyScalar(0.5);
+    _scratchBeamDir.divideScalar(length);
+    _scratchBeamQuat.identity();
+    _scratchBeamAxis.crossVectors(_UP_AXIS, _scratchBeamDir);
 
-    if (axis.lengthSq() > 0.0001) {
-      axis.normalize();
-      const angle = Math.acos(Math.max(-1, Math.min(1, _UP_AXIS.dot(normalizedDir))));
-      quat.setFromAxisAngle(axis, angle);
-    } else if (_UP_AXIS.dot(normalizedDir) < -0.99) {
-      quat.setFromAxisAngle(_X_AXIS, Math.PI);
+    if (_scratchBeamAxis.lengthSq() > 0.0001) {
+      _scratchBeamAxis.normalize();
+      const angle = Math.acos(Math.max(-1, Math.min(1, _UP_AXIS.dot(_scratchBeamDir))));
+      _scratchBeamQuat.setFromAxisAngle(_scratchBeamAxis, angle);
+    } else if (_UP_AXIS.dot(_scratchBeamDir) < -0.99) {
+      _scratchBeamQuat.setFromAxisAngle(_X_AXIS, Math.PI);
     }
 
     // 1. Inti Laser Putih Terang (Core)
@@ -65,8 +72,8 @@ export class VisualShotSystem {
       depthWrite: false,
     });
     const coreMesh = new THREE.Mesh(this.sharedBeamGeo, coreMat);
-    coreMesh.position.copy(mid);
-    coreMesh.quaternion.copy(quat);
+    coreMesh.position.copy(_scratchBeamMid);
+    coreMesh.quaternion.copy(_scratchBeamQuat);
     coreMesh.scale.set(thickness * 0.45, length, thickness * 0.45);
     this.scene.add(coreMesh);
 
@@ -87,8 +94,8 @@ export class VisualShotSystem {
       depthWrite: false,
     });
     const glowMesh = new THREE.Mesh(this.sharedBeamGeo, glowMat);
-    glowMesh.position.copy(mid);
-    glowMesh.quaternion.copy(quat);
+    glowMesh.position.copy(_scratchBeamMid);
+    glowMesh.quaternion.copy(_scratchBeamQuat);
     glowMesh.scale.set(thickness * 2.1, length, thickness * 2.1);
     this.scene.add(glowMesh);
 
@@ -102,7 +109,7 @@ export class VisualShotSystem {
   }
 
   /**
-   * Efek visual impact 3D (Kilatan Bola Energi + Cincin Shockwave) saat peluru mengenai musuh
+   * Efek visual impact 3D (Kilatan Bola Energi + Cincin Shockwave) memakai geometri bersama yang ringan
    */
   public addHitImpactEffect(
     hitPoint: THREE.Vector3,
@@ -114,15 +121,15 @@ export class VisualShotSystem {
     const ringColor = isWrong ? '#fb7185' : isCrit ? '#22d3ee' : colorHex;
 
     // 1. Inti kilatan impact (Expanding Flash Sphere)
-    const coreGeo = new THREE.SphereGeometry(isCrit ? 0.34 : 0.25, 12, 12);
     const coreMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(flashColor),
+      color: flashColor,
       transparent: true,
       opacity: 0.95,
       depthWrite: false,
     });
-    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    const coreMesh = new THREE.Mesh(this.sharedImpactSphereGeo, coreMat);
     coreMesh.position.copy(hitPoint);
+    coreMesh.scale.setScalar(isCrit ? 0.34 : 0.25);
     this.scene.add(coreMesh);
 
     this.activeBeams.push({
@@ -130,19 +137,20 @@ export class VisualShotSystem {
       life: 0.16,
       maxLife: 0.16,
       initialOpacity: 0.95,
-      expandRate: isCrit ? 9.5 : 7.0,
+      expandRate: isCrit ? 3.2 : 2.2,
+      sharedGeo: true,
     });
 
     // 2. Cincin gelombang kejut (Expanding Shockwave Torus)
-    const ringGeo = new THREE.TorusGeometry(isCrit ? 0.42 : 0.3, 0.045, 8, 24);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(ringColor),
+      color: ringColor,
       transparent: true,
       opacity: 0.9,
       depthWrite: false,
     });
-    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    const ringMesh = new THREE.Mesh(this.sharedImpactRingGeo, ringMat);
     ringMesh.position.copy(hitPoint);
+    ringMesh.scale.setScalar(isCrit ? 0.42 : 0.3);
     ringMesh.rotation.set(
       (Math.random() - 0.5) * 0.8,
       Math.random() * Math.PI,
@@ -155,7 +163,8 @@ export class VisualShotSystem {
       life: 0.22,
       maxLife: 0.22,
       initialOpacity: 0.9,
-      expandRate: isCrit ? 12.0 : 9.0,
+      expandRate: isCrit ? 4.0 : 3.0,
+      sharedGeo: true,
     });
   }
 
@@ -169,12 +178,11 @@ export class VisualShotSystem {
     speed: number = 55,
     colorHex: string = '#22c55e'
   ) {
-    const geo = new THREE.SphereGeometry(0.18, 8, 8);
     const mat = new THREE.MeshBasicMaterial({
       color: colorHex,
       wireframe: false,
     });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(this.sharedPlasmaGeo, mat);
     mesh.position.copy(from);
     this.scene.add(mesh);
 
@@ -216,7 +224,6 @@ export class VisualShotSystem {
 
       if (p.life <= 0 || p.mesh.position.y < 0) {
         this.scene.remove(p.mesh);
-        p.mesh.geometry.dispose();
         (p.mesh.material as THREE.Material).dispose();
         this.activePlasma.splice(i, 1);
       }
@@ -233,7 +240,6 @@ export class VisualShotSystem {
     });
     this.activePlasma.forEach((p) => {
       this.scene.remove(p.mesh);
-      p.mesh.geometry.dispose();
       (p.mesh.material as THREE.Material).dispose();
     });
     this.activeBeams = [];

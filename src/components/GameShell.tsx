@@ -199,6 +199,23 @@ const _scratchEnemyCenter = new THREE.Vector3();
 const _scratchEnemySize = new THREE.Vector3();
 const _scratchAimOrigin = new THREE.Vector3();
 const _scratchAimDir = new THREE.Vector3();
+const _scratchMuzzlePos = new THREE.Vector3();
+const _scratchTargetPoint = new THREE.Vector3();
+const _scratchHitPoint = new THREE.Vector3();
+const _scratchShootDir = new THREE.Vector3();
+const _scratchSpreadDir = new THREE.Vector3();
+const _scratchPelletEnd = new THREE.Vector3();
+const _scratchNodeBox = new THREE.Box3();
+const _scratchCandidateDir = new THREE.Vector3();
+const _scratchEnemyWorldPos = new THREE.Vector3();
+
+function getPixelRatioForQuality(quality: GraphicsQuality): number {
+  if (typeof window === 'undefined') return 1.0;
+  const dpr = window.devicePixelRatio || 1;
+  if (quality === 'low') return Math.min(dpr, 0.85);
+  if (quality === 'medium') return Math.min(dpr, 1.0);
+  return Math.min(dpr, 1.25);
+}
 
 function detectOptimalQuality(): GraphicsQuality {
   if (typeof window === 'undefined') return 'high';
@@ -209,6 +226,9 @@ function detectOptimalQuality(): GraphicsQuality {
   const cores = navigator.hardwareConcurrency || 4;
   const memory = (navigator as unknown as { deviceMemory?: number }).deviceMemory || 4;
 
+  if (cores <= 2 || memory <= 2) {
+    return 'low';
+  }
   if (isMobile || cores <= 4 || memory <= 4) {
     return 'medium';
   }
@@ -443,14 +463,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     } catch { }
     const audioInfo = resolveAudioSettings(settings);
     sound.setVolumes(audioInfo.bgmVolumePercent, audioInfo.sfxVolumePercent);
-    if (rendererRef.current) {
-      const pixelRatio =
-        settings.graphicsQuality === 'low'
-          ? 1.0
-          : settings.graphicsQuality === 'medium'
-            ? Math.min(window.devicePixelRatio, 1.15)
-            : Math.min(window.devicePixelRatio, 1.5);
-      rendererRef.current.setPixelRatio(pixelRatio);
+    if (rendererRef.current && !rendererRef.current.xr.isPresenting) {
+      rendererRef.current.setPixelRatio(getPixelRatioForQuality(settings.graphicsQuality));
       rendererRef.current.shadowMap.enabled = settings.graphicsQuality === 'high';
       if (arenaRef.current && 'setGraphicsQuality' in arenaRef.current) {
         (arenaRef.current as CyberArena).setGraphicsQuality(settings.graphicsQuality);
@@ -987,14 +1001,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     scene.add(vrDamageMesh);
     let vrDamageFlash = 0;
 
-    const initialPixelRatio =
-      stateRef.current.settings.graphicsQuality === 'high'
-        ? Math.min(window.devicePixelRatio, 1.25)
-        : 1.0;
+    const initialPixelRatio = getPixelRatioForQuality(stateRef.current.settings.graphicsQuality);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: stateRef.current.settings.graphicsQuality === 'high',
       powerPreference: 'high-performance',
+      stencil: false,
+      depth: true,
     });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(initialPixelRatio);
@@ -1170,6 +1183,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
     window.addEventListener('resize', handleResize);
 
     let lastTime = performance.now();
+    let rollingAvgDt = 0.0166;
+    let adaptiveResolutionScaledDown = false;
 
     renderer.setAnimationLoop((now: number) => {
       const rawDt = (now - lastTime) / 1000;
@@ -1179,6 +1194,17 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
       const currentState = stateRef.current.gameState;
       const curSettings = stateRef.current.settings;
       const isPresentingVR = renderer.xr.isPresenting;
+
+      // Auto-FPS Governor untuk perangkat spek kentang: turunkan skala piksel 3D secara halus jika FPS turun di bawah ~38 FPS
+      if (currentState === 'playing' && !isPresentingVR && rawDt < 0.25) {
+        rollingAvgDt = rollingAvgDt * 0.92 + rawDt * 0.08;
+        if (!adaptiveResolutionScaledDown && rollingAvgDt > 0.026) {
+          adaptiveResolutionScaledDown = true;
+          renderer.setPixelRatio(0.75);
+          renderer.shadowMap.enabled = false;
+          arena.setGraphicsQuality('low');
+        }
+      }
 
       if (inputManagerRef.current.desktop.consumeMuteRequest()) {
         const muted = sound.toggleMute();
@@ -1886,20 +1912,18 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
             // Aim Assist magnetik ringan khusus mode tangan kosong agar tembakan cubit lebih akurat
             let bestDot = 0.9965; // ~4.8 derajat
             let bestDir: THREE.Vector3 | null = null;
-            const candidateDir = new THREE.Vector3();
-            const enemyPos = new THREE.Vector3();
             for (const e of enemies.enemies) {
               if (e.state === 'dead') continue;
-              e.mesh.getWorldPosition(enemyPos);
-              enemyPos.y += 0.95;
-              candidateDir.subVectors(enemyPos, _scratchAimOrigin);
-              const dist = candidateDir.length();
+              e.mesh.getWorldPosition(_scratchEnemyWorldPos);
+              _scratchEnemyWorldPos.y += 0.95;
+              _scratchCandidateDir.subVectors(_scratchEnemyWorldPos, _scratchAimOrigin);
+              const dist = _scratchCandidateDir.length();
               if (dist < 0.8 || dist > 32) continue;
-              candidateDir.divideScalar(dist);
-              const d = candidateDir.dot(_scratchAimDir);
+              _scratchCandidateDir.divideScalar(dist);
+              const d = _scratchCandidateDir.dot(_scratchAimDir);
               if (d > bestDot) {
                 bestDot = d;
-                bestDir = candidateDir.clone();
+                bestDir = _scratchCandidateDir.clone();
               }
             }
             if (bestDir) {
@@ -1941,16 +1965,15 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
               curSettings,
               vrManager.currentSession
             );
-            const muzzlePos = new THREE.Vector3();
 
             if (isPresentingVR && cmd.vrAimRay) {
-              const origin = new THREE.Vector3(...cmd.vrAimRay.origin);
-              const dir = new THREE.Vector3(...cmd.vrAimRay.direction).normalize();
-              _scratchRaycaster.set(origin, dir);
-              muzzlePos.copy(origin);
+              _scratchAimOrigin.set(...cmd.vrAimRay.origin);
+              _scratchAimDir.set(...cmd.vrAimRay.direction).normalize();
+              _scratchRaycaster.set(_scratchAimOrigin, _scratchAimDir);
+              _scratchMuzzlePos.copy(_scratchAimOrigin);
             } else {
               _scratchRaycaster.setFromCamera(_scratchScreenCenter, camera);
-              weapons.getMuzzleWorldPosition(muzzlePos);
+              weapons.getMuzzleWorldPosition(_scratchMuzzlePos);
             }
 
             const wDef = WEAPON_REGISTRY[weapons.currentWeapon];
@@ -1962,25 +1985,28 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                 : '#94a3b8'
               : wDef.color;
 
-            particles.emit(muzzlePos, 5, activeShotColor, 0.8);
+            particles.emit(_scratchMuzzlePos, 5, activeShotColor, 0.8);
 
-            enemies.checkProjectileInterception(muzzlePos, _scratchRaycaster.ray.direction);
+            enemies.checkProjectileInterception(_scratchMuzzlePos, _scratchRaycaster.ray.direction);
 
-            let targetPoint = muzzlePos
-              .clone()
-              .add(_scratchRaycaster.ray.direction.clone().multiplyScalar(50));
+            _scratchTargetPoint
+              .copy(_scratchMuzzlePos)
+              .addScaledVector(_scratchRaycaster.ray.direction, 50);
 
             if (weapons.currentWeapon === 'plasma_smg') {
               tracers.addPlasmaProjectile(
-                muzzlePos,
+                _scratchMuzzlePos,
                 _scratchRaycaster.ray.direction,
                 wDef.damage,
                 wDef.projectileSpeed || 58,
                 activeShotColor
               );
+              _scratchPelletEnd
+                .copy(_scratchMuzzlePos)
+                .addScaledVector(_scratchRaycaster.ray.direction, 8);
               tracers.addLaserBeam(
-                muzzlePos,
-                muzzlePos.clone().add(_scratchRaycaster.ray.direction.clone().multiplyScalar(8)),
+                _scratchMuzzlePos,
+                _scratchPelletEnd,
                 activeShotColor,
                 0.05,
                 0.07
@@ -2007,15 +2033,14 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                 _scratchEnemySize.set(boxW, boxH, boxW);
                 _scratchEnemyBox.setFromCenterAndSize(_scratchEnemyCenter, _scratchEnemySize);
                 if (_scratchRaycaster.ray.intersectsBox(_scratchEnemyBox)) {
-                  const hitPoint = new THREE.Vector3();
-                  _scratchRaycaster.ray.intersectBox(_scratchEnemyBox, hitPoint);
-                  targetPoint.copy(hitPoint);
+                  _scratchRaycaster.ray.intersectBox(_scratchEnemyBox, _scratchHitPoint);
+                  _scratchTargetPoint.copy(_scratchHitPoint);
 
                   const isHeadshot =
-                    hitPoint.y >
+                    _scratchHitPoint.y >
                     enemy.position.y + (_scratchEnemyBox.max.y - _scratchEnemyBox.min.y) * 0.68;
 
-                  const shootDir = new THREE.Vector3()
+                  _scratchShootDir
                     .subVectors(enemy.position, playerPos.current)
                     .normalize();
 
@@ -2024,43 +2049,45 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                       ? wDef.damage * 4
                       : wDef.damage;
 
-                  processEnemyHit(enemy, hitPoint, baseHitDmg, isHeadshot, shootDir);
+                  processEnemyHit(enemy, _scratchHitPoint, baseHitDmg, isHeadshot, _scratchShootDir);
 
                   if (weapons.currentWeapon !== 'railgun') break;
                 }
               }
 
               if (weapons.currentWeapon === 'laser_rifle') {
-                tracers.addLaserBeam(muzzlePos, targetPoint, activeShotColor, 0.055, 0.13);
+                tracers.addLaserBeam(_scratchMuzzlePos, _scratchTargetPoint, activeShotColor, 0.055, 0.13);
               } else if (weapons.currentWeapon === 'cyber_shotgun') {
                 for (let p = 0; p < 8; p++) {
-                  const spreadDir = _scratchRaycaster.ray.direction
-                    .clone()
+                  _scratchSpreadDir
+                    .copy(_scratchRaycaster.ray.direction)
                     .add(
-                      new THREE.Vector3(
+                      _scratchHitPoint.set(
                         (Math.random() - 0.5) * 0.13,
                         (Math.random() - 0.5) * 0.13,
                         (Math.random() - 0.5) * 0.13
                       )
                     )
                     .normalize();
-                  const pelletEnd = muzzlePos.clone().add(spreadDir.multiplyScalar(32));
-                  tracers.addLaserBeam(muzzlePos, pelletEnd, activeShotColor, 0.034, 0.09);
+                  _scratchPelletEnd
+                    .copy(_scratchMuzzlePos)
+                    .addScaledVector(_scratchSpreadDir, 32);
+                  tracers.addLaserBeam(_scratchMuzzlePos, _scratchPelletEnd, activeShotColor, 0.034, 0.09);
                 }
               } else if (weapons.currentWeapon === 'railgun') {
-                tracers.addLaserBeam(muzzlePos, targetPoint, activeShotColor, 0.12, 0.22);
-                tracers.addLaserBeam(muzzlePos, targetPoint, '#ffffff', 0.04, 0.18);
+                tracers.addLaserBeam(_scratchMuzzlePos, _scratchTargetPoint, activeShotColor, 0.12, 0.22);
+                tracers.addLaserBeam(_scratchMuzzlePos, _scratchTargetPoint, '#ffffff', 0.04, 0.18);
               }
             }
 
             arena.hazardNodes.forEach((node: HazardNode) => {
               if (!node.isExploded) {
-                const nodeBox = new THREE.Box3().setFromObject(node.mesh);
-                if (_scratchRaycaster.ray.intersectsBox(nodeBox)) {
+                _scratchNodeBox.setFromObject(node.mesh);
+                if (_scratchRaycaster.ray.intersectsBox(_scratchNodeBox)) {
                   node.isExploded = true;
                   node.mesh.visible = false;
                   sound.playEmp();
-                  particles.emit(node.position, 65, '#38bdf8', 2.8);
+                  particles.emit(node.position, 45, '#38bdf8', 2.8);
                   enemies.stunAllInRadius(node.position, node.radius, 3.5);
                 }
               }

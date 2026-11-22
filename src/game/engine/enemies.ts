@@ -8,6 +8,14 @@ const _scratchToPlayer = new THREE.Vector3();
 const _scratchDir = new THREE.Vector3();
 const _scratchSideDir = new THREE.Vector3();
 const _scratchPlayerCenter = new THREE.Vector3();
+const _scratchToPlayerXZ = new THREE.Vector3();
+const _scratchRightXZ = new THREE.Vector3();
+const _scratchAttackOrigin = new THREE.Vector3();
+const _scratchAttackTarget = new THREE.Vector3();
+const _scratchAttackDir = new THREE.Vector3();
+const _scratchInterceptRay = new THREE.Ray();
+const _scratchInterceptSphere = new THREE.Sphere();
+const _Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 export function disposeHierarchy(obj: THREE.Object3D) {
   obj.traverse((child) => {
@@ -18,8 +26,10 @@ export function disposeHierarchy(obj: THREE.Object3D) {
       }
       if (mesh.material) {
         if (Array.isArray(mesh.material)) {
-          mesh.material.forEach((m) => m.dispose());
-        } else {
+          mesh.material.forEach((m) => {
+            if (!m.userData?.sharedMaterial) m.dispose();
+          });
+        } else if (!mesh.material.userData?.sharedMaterial) {
           mesh.material.dispose();
         }
       }
@@ -191,6 +201,11 @@ interface SharedEnemyGeometryBank {
   titanHelm: THREE.BufferGeometry;
   titanVisor: THREE.BufferGeometry;
   titanHorn: THREE.BufferGeometry;
+  unitSphereGeo: THREE.BufferGeometry;
+  // Shared static materials across all enemies (never mutated per enemy)
+  botDarkJointMat: THREE.MeshStandardMaterial;
+  botVisorGlassMat: THREE.MeshStandardMaterial;
+  botEyeLightMat: THREE.MeshBasicMaterial;
 }
 
 let cachedEnemyGeos: SharedEnemyGeometryBank | null = null;
@@ -208,6 +223,25 @@ function getSharedEnemyGeometries(): SharedEnemyGeometryBank {
     -Math.PI * 0.36,
     Math.PI * 0.72
   );
+
+  const botDarkJointMat = new THREE.MeshStandardMaterial({
+    color: '#172030',
+    roughness: 0.42,
+    metalness: 0.68,
+  });
+  botDarkJointMat.userData.sharedMaterial = true;
+
+  const botVisorGlassMat = new THREE.MeshStandardMaterial({
+    color: '#070b14',
+    roughness: 0.12,
+    metalness: 0.92,
+  });
+  botVisorGlassMat.userData.sharedMaterial = true;
+
+  const botEyeLightMat = new THREE.MeshBasicMaterial({
+    color: '#f8fafc',
+  });
+  botEyeLightMat.userData.sharedMaterial = true;
 
   cachedEnemyGeos = {
     botHipJoint: new THREE.SphereGeometry(0.105, 8, 8),
@@ -276,6 +310,10 @@ function getSharedEnemyGeometries(): SharedEnemyGeometryBank {
     titanHelm: new THREE.CylinderGeometry(0.62, 0.72, 0.86, 8),
     titanVisor: createChamferedPlateGeo(0.84, 0.24, 0.22, 0.06, 0.02),
     titanHorn: createSweptHornGeo(),
+    unitSphereGeo: new THREE.SphereGeometry(1, 8, 8),
+    botDarkJointMat,
+    botVisorGlassMat,
+    botEyeLightMat,
   };
 
   return cachedEnemyGeos;
@@ -559,21 +597,9 @@ export class EnemyManager {
     });
     emissiveBasicMaterials.push(coreGlowMat);
 
-    const darkJointMat = new THREE.MeshStandardMaterial({
-      color: '#172030',
-      roughness: 0.42,
-      metalness: 0.68,
-    });
-
-    const visorGlassMat = new THREE.MeshStandardMaterial({
-      color: '#070b14',
-      roughness: 0.12,
-      metalness: 0.92,
-    });
-
-    const eyeLightMat = new THREE.MeshBasicMaterial({
-      color: '#f8fafc',
-    });
+    const darkJointMat = geos.botDarkJointMat;
+    const visorGlassMat = geos.botVisorGlassMat;
+    const eyeLightMat = geos.botEyeLightMat;
 
     const bodyGroup = new THREE.Group();
     bodyGroup.scale.setScalar(scale);
@@ -792,12 +818,10 @@ export class EnemyManager {
       bodyGroup.add(gorget);
     }
 
-    const telegraph = new THREE.Mesh(
-      new THREE.SphereGeometry(def.projectileSize, 10, 10),
-      coreGlowMat
-    );
+    const telegraph = makeSharedMesh(geos.unitSphereGeo, coreGlowMat);
     telegraph.name = 'attack_telegraph';
     telegraph.position.set(0, 1.18, 0.85);
+    telegraph.scale.setScalar(def.projectileSize);
     telegraph.visible = false;
     bodyGroup.add(telegraph);
 
@@ -1702,54 +1726,77 @@ export class EnemyManager {
     const cDef = getColorDef(enemy.colorId);
     const speed = def.projectileSpeed * speedMult;
 
-    const toPlayerXZ = new THREE.Vector3(
+    _scratchToPlayerXZ.set(
       playerPos.x - enemy.position.x,
       0,
       playerPos.z - enemy.position.z
     );
-    if (toPlayerXZ.lengthSq() < 0.0001) toPlayerXZ.set(0, 0, 1);
-    else toPlayerXZ.normalize();
-    const rightXZ = new THREE.Vector3(-toPlayerXZ.z, 0, toPlayerXZ.x);
+    if (_scratchToPlayerXZ.lengthSq() < 0.0001) _scratchToPlayerXZ.set(0, 0, 1);
+    else _scratchToPlayerXZ.normalize();
+    _scratchRightXZ.set(-_scratchToPlayerXZ.z, 0, _scratchToPlayerXZ.x);
 
     if (enemy.type === 'chromabot_normal') {
-      const origin = enemy.position
-        .clone()
-        .addScaledVector(toPlayerXZ, 0.45)
-        .add(new THREE.Vector3(0, 1.25, 0));
-      const target = playerPos.clone().setY(1.25);
-      const dir = new THREE.Vector3().subVectors(target, origin).normalize();
-      this.spawnProjectile(origin, dir, speed, def.damage, def.projectileSize, cDef.hex, false);
+      _scratchAttackOrigin
+        .copy(enemy.position)
+        .addScaledVector(_scratchToPlayerXZ, 0.45);
+      _scratchAttackOrigin.y += 1.25;
+      _scratchAttackTarget.set(playerPos.x, 1.25, playerPos.z);
+      _scratchAttackDir.subVectors(_scratchAttackTarget, _scratchAttackOrigin).normalize();
+      this.spawnProjectile(
+        _scratchAttackOrigin,
+        _scratchAttackDir,
+        speed,
+        def.damage,
+        def.projectileSize,
+        cDef.hex,
+        false
+      );
     } else if (enemy.type === 'chromabot_elite') {
       for (let s = -1; s <= 1; s += 2) {
-        const origin = enemy.position
-          .clone()
-          .addScaledVector(toPlayerXZ, 0.45)
-          .addScaledVector(rightXZ, s * 0.55)
-          .add(new THREE.Vector3(0, 1.5, 0));
-        const target = playerPos
-          .clone()
-          .setY(1.25)
-          .addScaledVector(rightXZ, s * 1.1);
-        const dir = new THREE.Vector3().subVectors(target, origin).normalize();
-        this.spawnProjectile(origin, dir, speed, def.damage, def.projectileSize, cDef.hex, false);
+        _scratchAttackOrigin
+          .copy(enemy.position)
+          .addScaledVector(_scratchToPlayerXZ, 0.45)
+          .addScaledVector(_scratchRightXZ, s * 0.55);
+        _scratchAttackOrigin.y += 1.5;
+        _scratchAttackTarget
+          .set(playerPos.x, 1.25, playerPos.z)
+          .addScaledVector(_scratchRightXZ, s * 1.1);
+        _scratchAttackDir.subVectors(_scratchAttackTarget, _scratchAttackOrigin).normalize();
+        this.spawnProjectile(
+          _scratchAttackOrigin,
+          _scratchAttackDir,
+          speed,
+          def.damage,
+          def.projectileSize,
+          cDef.hex,
+          false
+        );
       }
     } else if (enemy.type === 'chroma_titan') {
       const bossPhase = getBossPhaseForHp(enemy.hp, enemy.maxHp).phase;
-      const origin = enemy.position
-        .clone()
-        .addScaledVector(toPlayerXZ, 1.6)
-        .add(new THREE.Vector3(0, 3.65, 0));
-      const target = playerPos.clone().setY(1.25);
-      const centerDir = new THREE.Vector3().subVectors(target, origin).normalize();
+      _scratchAttackOrigin
+        .copy(enemy.position)
+        .addScaledVector(_scratchToPlayerXZ, 1.6);
+      _scratchAttackOrigin.y += 3.65;
+      _scratchAttackTarget.set(playerPos.x, 1.25, playerPos.z);
+      _scratchAttackDir.subVectors(_scratchAttackTarget, _scratchAttackOrigin).normalize();
 
-      this.spawnProjectile(origin, centerDir, speed, def.damage, def.projectileSize, cDef.hex, true);
+      this.spawnProjectile(
+        _scratchAttackOrigin,
+        _scratchAttackDir,
+        speed,
+        def.damage,
+        def.projectileSize,
+        cDef.hex,
+        true
+      );
 
       const spreadAngles = bossPhase === 3 ? [-0.26, 0.26] : [-0.22];
       spreadAngles.forEach((ang) => {
-        const sideDir = centerDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), ang);
+        _scratchSideDir.copy(_scratchAttackDir).applyAxisAngle(_Y_AXIS, ang);
         this.spawnProjectile(
-          origin.clone(),
-          sideDir,
+          _scratchAttackOrigin,
+          _scratchSideDir,
           speed * 0.9,
           Math.round(def.damage * 0.65),
           0.4,
@@ -1800,7 +1847,8 @@ export class EnemyManager {
     colorHex: string,
     isBoss: boolean
   ) {
-    const count = isBoss ? 6 : 3;
+    if (this.fragments.length >= 36) return;
+    const count = isBoss ? 4 : 2;
     for (let i = 0; i < count; i++) {
       const mat = new THREE.MeshBasicMaterial({ color: colorHex });
       const fragMesh = new THREE.Mesh(this.sharedFragGeo, mat);
@@ -1828,7 +1876,8 @@ export class EnemyManager {
     speedMult: number = 1.0,
     scale: number = 1.0
   ) {
-    for (let i = 0; i < count; i++) {
+    const budget = Math.max(0, Math.min(count, 36 - this.fragments.length));
+    for (let i = 0; i < budget; i++) {
       const mat = new THREE.MeshBasicMaterial({
         color: i % 3 === 0 ? '#ffffff' : colorHex,
       });
@@ -1858,7 +1907,7 @@ export class EnemyManager {
   }
 
   private spawnBossDeathDebris(pos: THREE.Vector3) {
-    const count = 22;
+    const count = 16;
     for (let i = 0; i < count; i++) {
       const col = ALL_RYB_COLORS[i % ALL_RYB_COLORS.length].hex;
       const mat = new THREE.MeshBasicMaterial({ color: col });
@@ -1888,11 +1937,11 @@ export class EnemyManager {
   }
 
   public checkProjectileInterception(rayOrigin: THREE.Vector3, rayDir: THREE.Vector3): boolean {
-    const ray = new THREE.Ray(rayOrigin, rayDir);
+    _scratchInterceptRay.set(rayOrigin, rayDir);
     for (let s = this.projectiles.length - 1; s >= 0; s--) {
       const proj = this.projectiles[s];
-      const sphere = new THREE.Sphere(proj.position, proj.radius * 1.4);
-      if (ray.intersectsSphere(sphere)) {
+      _scratchInterceptSphere.set(proj.position, proj.radius * 1.4);
+      if (_scratchInterceptRay.intersectsSphere(_scratchInterceptSphere)) {
         sound.playProjectileImpact();
         sound.playHitmarker(false);
         this.shatterProjectile(proj.position, proj.radius, proj.colorHex, proj.isBossOrb);

@@ -64,10 +64,26 @@ export class CyberArena {
   private pillarStripeMaterials: THREE.MeshBasicMaterial[] = [];
   private pillarBeacons: THREE.Mesh[] = [];
   private cornerLights: THREE.PointLight[] = [];
+  private dirLight: THREE.DirectionalLight | null = null;
+  private centerLight: THREE.PointLight | null = null;
   private stagePropsGroup: THREE.Group;
   private gridTexture: THREE.CanvasTexture | null = null;
   private currentBossTargetColorId: GameColorId = 'red';
   private currentBossPhasePool: GameColorId[] = [];
+
+  private disposeBranch(obj: THREE.Object3D) {
+    obj.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.geometry?.dispose();
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach((m) => m.dispose());
+        } else {
+          mesh.material?.dispose();
+        }
+      }
+    });
+  }
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -90,50 +106,47 @@ export class CyberArena {
   }
 
   private setupLighting() {
-    // Pencahayaan netral putih-kebiruan agar warna pigmen RYB pada Chromabots tidak terdistorsi
-    const ambientLight = new THREE.AmbientLight('#e2e8f0', 1.65);
+    // Pencahayaan sangat ringan (Ambient + Hemisphere + 1 DirectionalLight) agar jalan 60 FPS di perangkat spek kentang
+    // tanpa membebani fragment shader dengan banyak PointLight per-piksel.
+    const ambientLight = new THREE.AmbientLight('#e2e8f0', 1.85);
     this.scene.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight('#f8fafc', '#0f172a', 1.4);
+    const hemiLight = new THREE.HemisphereLight('#f8fafc', '#0f172a', 1.55);
     this.scene.add(hemiLight);
 
     const dirLight = new THREE.DirectionalLight('#ffffff', 2.0);
     dirLight.position.set(25, 45, 20);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 1024;
-    dirLight.shadow.mapSize.height = 1024;
+    dirLight.castShadow = false;
+    dirLight.shadow.mapSize.width = 512;
+    dirLight.shadow.mapSize.height = 512;
     dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 120;
-    const d = 38;
+    dirLight.shadow.camera.far = 110;
+    const d = 36;
     dirLight.shadow.camera.left = -d;
     dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d;
     dirLight.shadow.camera.bottom = -d;
     dirLight.shadow.bias = -0.0005;
+    this.dirLight = dirLight;
     this.scene.add(dirLight);
 
-    const centerLight = new THREE.PointLight('#38bdf8', 2.2, 50);
+    const centerLight = new THREE.PointLight('#38bdf8', 1.8, 48);
     centerLight.position.set(0, 10, 0);
+    centerLight.visible = false;
+    this.centerLight = centerLight;
     this.scene.add(centerLight);
-
-    const corners = [
-      [-18, 8, -18],
-      [18, 8, -18],
-      [-18, 8, 18],
-      [18, 8, 18],
-    ];
-    corners.forEach(([x, y, z]) => {
-      const cornerLight = new THREE.PointLight('#e0f2fe', 1.3, 35);
-      cornerLight.position.set(x, y, z);
-      this.scene.add(cornerLight);
-      this.cornerLights.push(cornerLight);
-    });
   }
 
   public setGraphicsQuality(quality: GraphicsQuality) {
-    const showCorners = quality !== 'low';
+    const isHigh = quality === 'high';
+    if (this.dirLight) {
+      this.dirLight.castShadow = isHigh;
+    }
+    if (this.centerLight) {
+      this.centerLight.visible = isHigh;
+    }
     this.cornerLights.forEach((light) => {
-      light.visible = showCorners;
+      light.visible = isHigh;
     });
   }
 
@@ -329,8 +342,11 @@ export class CyberArena {
   }
 
   public spawnHazardNodes() {
-    // Bersihkan hazard lama
-    this.hazardNodes.forEach((h) => this.scene.remove(h.mesh));
+    // Bersihkan hazard lama beserta memori GPU-nya
+    this.hazardNodes.forEach((h) => {
+      this.scene.remove(h.mesh);
+      this.disposeBranch(h.mesh);
+    });
     this.hazardNodes = [];
 
     const positions = [
@@ -374,10 +390,11 @@ export class CyberArena {
    * Elemen dekoratif ditempatkan di bagian atas/tepi luar arena agar tidak mengaburkan warna Chromabots.
    */
   public setStageTheme(stageNumber: 1 | 2 | 3) {
-    // Bersihkan dekorasi stage sebelumnya
+    // Bersihkan dekorasi stage sebelumnya beserta memori GPU-nya
     while (this.stagePropsGroup.children.length > 0) {
       const child = this.stagePropsGroup.children[0];
       this.stagePropsGroup.remove(child);
+      this.disposeBranch(child);
     }
 
     const colorIds =
@@ -444,6 +461,7 @@ export class CyberArena {
   public clearBossCrystals() {
     this.bossCrystals.forEach((c) => {
       this.scene.remove(c.group);
+      this.disposeBranch(c.group);
     });
     this.bossCrystals = [];
   }
@@ -661,6 +679,7 @@ export class CyberArena {
   public spawnArenaPickups(stage: 1 | 2 | 3 = 1) {
     this.arenaPickups.forEach((p) => {
       this.scene.remove(p.group);
+      this.disposeBranch(p.group);
     });
     this.arenaPickups = [];
 
