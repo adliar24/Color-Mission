@@ -77,25 +77,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const client = getSupabase();
     if (!client) return;
 
+    // Debounce listener agar 30+ siswa submit bersamaan tidak membebani REST API Supabase
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const triggerDebouncedLoad = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadData();
+      }, 1800);
+    };
+
     const channel = client
       .channel('admin_live_updates')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'student_sessions' },
-        () => {
-          loadData();
-        }
+        triggerDebouncedLoad
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'lkpd_submissions' },
-        () => {
-          loadData();
-        }
+        triggerDebouncedLoad
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       client.removeChannel(channel);
     };
   }, [loadData]);

@@ -148,16 +148,42 @@ export function recordGameSessionAsync(summary: RunSummary): void {
   }
 }
 
+let _lastLKPDJson = '';
+
 /**
- * Mencatat pengumpulan LKPD siswa.
+ * Mencatat pengumpulan LKPD siswa (Dilengkapi Deduplikasi agar server Supabase tetap ringan).
  */
 export function recordLKPDSubmissionAsync(state: LKPDSubmissionState): void {
   const scoreBreakdown = calculateLKPDScore(state);
+  const name = (state.studentName || '').trim();
+  const cls = (state.studentClass || '').trim() || '-';
+  const absent = (state.studentAbsent || '').trim() || '-';
+
+  if (!name) return;
+
+  const jsonSignature = JSON.stringify({
+    name,
+    cls,
+    lab: state.labSolvedIds,
+    quiz: state.quizAnswers,
+    ref: state.reflectionAnswers,
+    score: scoreBreakdown.objectiveScore,
+  });
+
+  // Cegah pengiriman data kembar jika tidak ada perubahan
+  if (jsonSignature === _lastLKPDJson) {
+    return;
+  }
+  _lastLKPDJson = jsonSignature;
+
   const record: LKPDSubmissionRecord = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `lkpd_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    student_name: (state.studentName || '').trim() || 'Siswa Anonim',
-    student_class: (state.studentClass || '').trim() || '-',
-    student_absent: (state.studentAbsent || '').trim() || '-',
+    id:
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `lkpd_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    student_name: name,
+    student_class: cls,
+    student_absent: absent,
     lab_solved_ids: state.labSolvedIds,
     quiz_answers: state.quizAnswers,
     reflection_answers: state.reflectionAnswers,
@@ -238,10 +264,19 @@ export async function fetchAllLKPD(): Promise<LKPDSubmissionRecord[]> {
   }
 }
 
+let _cachedUnifiedData: UnifiedStudentRow[] | null = null;
+let _lastUnifiedFetch = 0;
+
 /**
  * Menggabungkan data sesi bermain dan LKPD siswa ke dalam satu tabel terpadu.
+ * Dilengkapi cache memori 4 detik untuk mereduksi beban query REST ke Supabase.
  */
-export async function getUnifiedStudentData(): Promise<UnifiedStudentRow[]> {
+export async function getUnifiedStudentData(force = false): Promise<UnifiedStudentRow[]> {
+  const now = Date.now();
+  if (!force && _cachedUnifiedData && now - _lastUnifiedFetch < 4000) {
+    return _cachedUnifiedData;
+  }
+
   const [sessions, lkpdList] = await Promise.all([fetchAllSessions(), fetchAllLKPD()]);
 
   // Indexing map berdasarkan Nama + Kelas
@@ -330,11 +365,15 @@ export async function getUnifiedStudentData(): Promise<UnifiedStudentRow[]> {
     }
   }
 
-  return Array.from(studentMap.values()).sort((a, b) => {
+  const result = Array.from(studentMap.values()).sort((a, b) => {
     // Urutkan berdasarkan waktu terakhir
     const timeA = new Date(a.lkpd_submitted_at || a.last_played_at).getTime();
     const timeB = new Date(b.lkpd_submitted_at || b.last_played_at).getTime();
     return timeB - timeA;
   });
+
+  _cachedUnifiedData = result;
+  _lastUnifiedFetch = now;
+  return result;
 }
 

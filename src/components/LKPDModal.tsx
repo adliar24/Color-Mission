@@ -76,9 +76,10 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
   useEffect(() => {
     saveLKPDSubmission(submission);
     if ((submission.studentName || '').trim().length > 0) {
+      // Debounce hemat kuota database (hanya sync saat jeda mengetik 3.5 detik)
       const timer = setTimeout(() => {
         recordLKPDSubmissionAsync(submission);
-      }, 600);
+      }, 3500);
       return () => clearTimeout(timer);
     }
   }, [submission]);
