@@ -4,12 +4,19 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const LS_SUPABASE_URL_KEY = 'color_mission_supabase_url';
 const LS_SUPABASE_KEY_KEY = 'color_mission_supabase_anon_key';
 
+export function normalizeSupabaseUrl(raw: string): string {
+  let cleaned = raw.trim();
+  cleaned = cleaned.replace(/\/rest\/v1\/?$/i, '');
+  cleaned = cleaned.replace(/\/+$/, '');
+  return cleaned;
+}
+
 export function getSupabaseCredentials(): { url: string; anonKey: string } {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || '';
   const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() || '';
 
   if (envUrl && envKey) {
-    return { url: envUrl, anonKey: envKey };
+    return { url: normalizeSupabaseUrl(envUrl), anonKey: envKey };
   }
 
   // Fallback ke localStorage jika guru memasukkan kredensial langsung lewat UI Admin
@@ -17,7 +24,7 @@ export function getSupabaseCredentials(): { url: string; anonKey: string } {
     const lsUrl = localStorage.getItem(LS_SUPABASE_URL_KEY)?.trim() || '';
     const lsKey = localStorage.getItem(LS_SUPABASE_KEY_KEY)?.trim() || '';
     if (lsUrl && lsKey) {
-      return { url: lsUrl, anonKey: lsKey };
+      return { url: normalizeSupabaseUrl(lsUrl), anonKey: lsKey };
     }
   }
 
