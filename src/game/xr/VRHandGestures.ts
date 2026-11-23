@@ -303,7 +303,30 @@ export class VRHandGestures {
     }
 
     // 3. JURUS / ABILITY (Mode Tangan Kosong):
-    // Sentuh jam tangan di pergelangan tangan kiri dengan telunjuk kanan (jarak < 8.5 cm)
+    // Tangan kanan tetap fokus memegang senjata laser & membidik musuh.
+    // Jurus diaktifkan oleh Tangan Kiri dengan menepuk Lencana Agen di Dada Kiri (Agent Badge Tap).
+    if (lWrist && camera) {
+      lWrist.getWorldPosition(_vWrist);
+      _vDelta.subVectors(_vWrist, _vCamPos);
+      const rightOff = _vDelta.dot(_vCamRight);
+      const fwdOff = _vDelta.dot(_vCamFwd);
+      const upOff = _vDelta.y;
+
+      const inChestBadgeZone =
+        rightOff >= -0.35 &&
+        rightOff <= 0.08 &&
+        upOff >= -0.50 &&
+        upOff <= -0.12 &&
+        fwdOff >= -0.08 &&
+        fwdOff <= 0.30;
+
+      if (inChestBadgeZone && this.abilityTapCooldown <= 0) {
+        useAbility = true;
+        this.abilityTapCooldown = 1.2;
+      }
+    }
+
+    // Dukungan cadangan: jika pemain menyentuhkan tangan kiri ke jam tangan / pergelangan
     const rIndexTip = VRHandGestures.getJoint(rightHand, 'index-finger-tip');
     if (lWrist && rIndexTip) {
       lWrist.getWorldPosition(_vWrist);

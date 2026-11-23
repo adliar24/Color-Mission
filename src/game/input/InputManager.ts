@@ -878,6 +878,7 @@ export class VRInput {
           pause = true;
         }
         if (this.wasJustPressed('left_grip', gp.buttons[1]?.pressed)) {
+          overdrive = true;
           dash = true;
         }
         if (this.wasJustPressed('left_trig', gp.buttons[0]?.pressed)) {
