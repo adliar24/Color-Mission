@@ -58,8 +58,9 @@ export function getSupabase(): SupabaseClient | null {
   try {
     _cachedClient = createClient(url, anonKey, {
       auth: {
-        persistSession: false,
-        autoRefreshToken: false,
+        persistSession: true,
+        autoRefreshToken: true,
+        storageKey: 'color_mission_auth_token',
       },
       realtime: {
         params: {
@@ -77,5 +78,121 @@ export function getSupabase(): SupabaseClient | null {
 export function isSupabaseConfigured(): boolean {
   const { url, anonKey } = getSupabaseCredentials();
   return Boolean(url && anonKey);
+}
+
+// ==============================================================================
+// AUTHENTIKASI ADMIN GURU DENGAN SUPABASE
+// ==============================================================================
+
+export function resolveAdminEmail(usernameOrEmail: string): string {
+  const trimmed = usernameOrEmail.trim().toLowerCase();
+  if (trimmed.includes('@')) {
+    return trimmed;
+  }
+  return `${trimmed}@colormission.internal`;
+}
+
+export async function loginAdminUser(
+  usernameOrEmail: string,
+  password: string
+): Promise<{ success: boolean; error?: string }> {
+  const client = getSupabase();
+  if (!client) {
+    return { success: false, error: 'Koneksi database Supabase belum terkonfigurasi.' };
+  }
+
+  const email = resolveAdminEmail(usernameOrEmail);
+
+  try {
+    const { data, error } = await client.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        return { success: false, error: 'Username atau password salah.' };
+      }
+      if (error.message.includes('Email not confirmed')) {
+        return {
+          success: false,
+          error: 'Email belum dikonfirmasi. Pastikan opsi "Confirm email" di Supabase Auth dinonaktifkan.',
+        };
+      }
+      return { success: false, error: error.message };
+    }
+
+    return { success: Boolean(data.session) };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal menghubungi server otentikasi.';
+    return { success: false, error: msg };
+  }
+}
+
+export async function registerAdminUser(
+  usernameOrEmail: string,
+  password: string
+): Promise<{ success: boolean; error?: string; needEmailConfirm?: boolean }> {
+  const client = getSupabase();
+  if (!client) {
+    return { success: false, error: 'Koneksi database Supabase belum terkonfigurasi.' };
+  }
+
+  if (password.length < 6) {
+    return { success: false, error: 'Password minimal 6 karakter.' };
+  }
+
+  const email = resolveAdminEmail(usernameOrEmail);
+
+  try {
+    const { data, error } = await client.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username: usernameOrEmail.trim(),
+          role: 'teacher_admin',
+        },
+      },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (data.session) {
+      return { success: true };
+    }
+
+    // Jika Supabase mengharuskan konfirmasi email
+    return {
+      success: true,
+      needEmailConfirm: true,
+      error: 'Akun berhasil didaftarkan di Supabase. Silakan login.',
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal mendaftarkan akun di Supabase.';
+    return { success: false, error: msg };
+  }
+}
+
+export async function logoutAdminUser(): Promise<void> {
+  const client = getSupabase();
+  if (client) {
+    try {
+      await client.auth.signOut();
+    } catch {}
+  }
+}
+
+export async function checkAdminSession(): Promise<boolean> {
+  const client = getSupabase();
+  if (!client) return false;
+  try {
+    const { data } = await client.auth.getSession();
+    return Boolean(data.session?.user);
+  } catch {
+    return false;
+  }
 }
 

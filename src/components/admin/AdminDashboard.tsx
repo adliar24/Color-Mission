@@ -19,13 +19,15 @@ import {
   Settings,
   Check,
   FileSpreadsheet,
+  LogOut,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   onBackToGame: () => void;
+  onLogout?: () => void;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, onLogout }) => {
   const [students, setStudents] = useState<UnifiedStudentRow[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -292,6 +294,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame }) 
           >
             <Settings className="w-4 h-4" />
           </button>
+
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              title="Keluar / Logout Akun Admin"
+              className="h-9 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Keluar</span>
+            </button>
+          )}
         </div>
       </header>
 
