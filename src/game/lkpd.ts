@@ -436,7 +436,17 @@ export function formatLKPDSummaryText(
     '',
     '[JAWABAN ESAI & REFLEKSI]',
     ...LKPD_REFLECTION_PROMPTS.map((p) => {
-      const ans = (submission.reflectionAnswers[p.id] || '').trim() || '(Belum diisi)';
+      const anyAns = submission.reflectionAnswers
+        ? Object.values(submission.reflectionAnswers).find((v) => (v || '').trim().length > 0)
+        : '';
+      const ans = (
+        submission.reflectionAnswers[p.id] ||
+        submission.reflectionAnswers['ref_kesan'] ||
+        submission.reflectionAnswers['ref_1_kategori'] ||
+        submission.reflectionAnswers['ref_1_kesan'] ||
+        anyAns ||
+        ''
+      ).trim() || '(Belum diisi)';
       return `${p.question}\nJawaban: ${ans}\n`;
     }),
   ];
@@ -631,7 +641,17 @@ export function exportLKPDCardAsPNG(
       yCursor += 26;
     }
 
-    const rawAns = (submission.reflectionAnswers[prompt.id] || '').trim() || '(Belum diisi)';
+    const anyAns = submission.reflectionAnswers
+      ? Object.values(submission.reflectionAnswers).find((v) => (v || '').trim().length > 0)
+      : '';
+    const rawAns = (
+      submission.reflectionAnswers[prompt.id] ||
+      submission.reflectionAnswers['ref_kesan'] ||
+      submission.reflectionAnswers['ref_1_kategori'] ||
+      submission.reflectionAnswers['ref_1_kesan'] ||
+      anyAns ||
+      ''
+    ).trim() || '(Belum diisi)';
     ctx.fillStyle = '#cbd5e1';
     ctx.font = '500 17px system-ui, sans-serif';
     const aLines = wrapCanvasText(ctx, `Jawaban: ${rawAns}`, canvas.width - 180).slice(0, 4);

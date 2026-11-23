@@ -630,16 +630,16 @@ export class VRSpatialMenu {
    * - COLOR (putih) & MISSION (cyan)
    * - Tombol cyan pill ▶ MULAI MISI
    * - Segmented Difficulty pill (MUDAH | NORMAL | SULIT) dengan indikator aktif solid putih teks hitam
-   * - Grid 2 kolom [ 📖 CARA MAIN ] & [ 🎛 PENGATURAN ]
+   * - Grid 2 kolom [ 📖 CARA MAIN ] & [ 🎚 PENGATURAN ]
    * - Card LKPD Evaluasi dengan icon gembok & badge status (TERKUNCI / TERBUKA)
-   * - Tombol Keluar Mode VR
+   * - Tombol Keluar Mode VR diletakkan secara elegan di bawah kartu agar estetika kartu tetap bersih
    */
   private drawMainMenuBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
-    const cardW = 540;
-    const cardH = 600;
+    const cardW = 470;
+    const cardH = 496;
     const cardX = (CANVAS_W - cardW) / 2;
-    const cardY = 20;
-    const cardRadius = 32;
+    const cardY = 32;
+    const cardRadius = 30;
 
     // Latar belakang kartu gelap
     ctx.fillStyle = '#080d19';
@@ -653,10 +653,10 @@ export class VRSpatialMenu {
     ctx.stroke();
 
     // 1. Tiga titik rounded RYB di bagian atas (Merah, Kuning, Biru)
-    const dots = ['#EF233C', '#FFD60A', '#1D6FFF'];
+    const dots = ['#ef4444', '#facc15', '#3b82f6'];
     const dotW = 28;
-    const dotH = 22;
-    const dotGap = 14;
+    const dotH = 20;
+    const dotGap = 12;
     const totalDotsW = dots.length * dotW + (dots.length - 1) * dotGap;
     const dotStartX = cardX + (cardW - totalDotsW) / 2;
     const dotY = cardY + 28;
@@ -672,22 +672,22 @@ export class VRSpatialMenu {
     // 2. Logo / Judul: COLOR (Putih) & MISSION (Cyan)
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.font = '900 52px Inter, system-ui, -apple-system, sans-serif';
+    ctx.font = '900 48px Inter, system-ui, -apple-system, sans-serif';
 
     // Baris 1: COLOR
     ctx.fillStyle = '#ffffff';
-    ctx.fillText('COLOR', CANVAS_W / 2, cardY + 104);
+    ctx.fillText('COLOR', CANVAS_W / 2, cardY + 102);
 
     // Baris 2: MISSION
     ctx.fillStyle = '#00e5ff';
-    ctx.fillText('MISSION', CANVAS_W / 2, cardY + 158);
+    ctx.fillText('MISSION', CANVAS_W / 2, cardY + 152);
 
     // Subtitle
     ctx.fillStyle = '#94a3b8';
     ctx.font = '600 15px Inter, system-ui, -apple-system, sans-serif';
-    ctx.fillText('Kuasai Warna. Selesaikan Misi.', CANVAS_W / 2, cardY + 190);
+    ctx.fillText('Kuasai Warna. Selesaikan Misi.', CANVAS_W / 2, cardY + 184);
 
-    const innerW = 440;
+    const innerW = 400;
     const innerX = cardX + (cardW - innerW) / 2;
 
     // 3. Tombol Utama Cyan: ▶ MULAI MISI
@@ -695,15 +695,16 @@ export class VRSpatialMenu {
       id: 'vr_setup_start',
       label: '▶  MULAI MISI',
       x: innerX,
-      y: cardY + 214,
+      y: cardY + 208,
       w: innerW,
       h: 56,
       variant: 'primary',
+      radius: 28,
     });
 
     // 4. Segmented Control Tingkat Kesulitan: MUDAH | NORMAL | SULIT
     const segH = 50;
-    const segY = cardY + 284;
+    const segY = cardY + 278;
     const segRadius = 25;
     const currentDiff = state.settings.difficulty ?? 'normal';
 
@@ -738,6 +739,7 @@ export class VRSpatialMenu {
         w: segBtnW,
         h: sh,
         variant: 'secondary',
+        radius: 20,
       });
 
       if (isActive) {
@@ -746,7 +748,7 @@ export class VRSpatialMenu {
         ctx.roundRect(sx, sy, segBtnW, sh, 20);
         ctx.fill();
         ctx.fillStyle = '#000000';
-        ctx.font = '900 16px Inter, system-ui, sans-serif';
+        ctx.font = '900 15px Inter, system-ui, sans-serif';
       } else {
         if (isHover) {
           ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
@@ -765,9 +767,9 @@ export class VRSpatialMenu {
       ctx.fillText(seg.label, sx + segBtnW / 2, sy + sh / 2);
     });
 
-    // 5. Dua Kolom Tombol: [ 📖 CARA MAIN ] & [ 🎛 PENGATURAN ]
-    const gridY = cardY + 348;
-    const gridGap = 14;
+    // 5. Dua Kolom Tombol: [ 📖 CARA MAIN ] & [ 🎚 PENGATURAN ]
+    const gridY = cardY + 342;
+    const gridGap = 12;
     const gridBtnW = (innerW - gridGap) / 2;
     const gridH = 50;
 
@@ -779,20 +781,22 @@ export class VRSpatialMenu {
       w: gridBtnW,
       h: gridH,
       variant: 'secondary',
+      radius: 18,
     });
 
     this.drawButton(ctx, {
       id: 'open_settings',
-      label: '🎛 PENGATURAN',
+      label: '🎚 PENGATURAN',
       x: innerX + gridBtnW + gridGap,
       y: gridY,
       w: gridBtnW,
       h: gridH,
       variant: 'secondary',
+      radius: 18,
     });
 
     // 6. Kartu LKPD Evaluasi (Gembok di kiri + Badge Status di kanan)
-    const lkpdY = cardY + 412;
+    const lkpdY = cardY + 406;
     const lkpdH = 54;
     const isLkpdUnlocked = Boolean(state.lkpdUnlocked);
     const isLkpdHover = this.hoveredId === 'open_lkpd';
@@ -805,13 +809,14 @@ export class VRSpatialMenu {
       w: innerW,
       h: lkpdH,
       variant: 'secondary',
+      radius: 18,
     });
 
-    ctx.fillStyle = isLkpdHover ? '#131e36' : '#0e1526';
+    ctx.fillStyle = isLkpdHover ? '#131e36' : '#111827';
     ctx.beginPath();
     ctx.roundRect(innerX, lkpdY, innerW, lkpdH, 18);
     ctx.fill();
-    ctx.strokeStyle = isLkpdHover ? 'rgba(34, 211, 238, 0.6)' : 'rgba(255, 255, 255, 0.12)';
+    ctx.strokeStyle = isLkpdHover ? 'rgba(34, 211, 238, 0.6)' : 'rgba(255, 255, 255, 0.1)';
     ctx.lineWidth = 1.8;
     ctx.stroke();
 
@@ -841,22 +846,27 @@ export class VRSpatialMenu {
     ctx.fillStyle = isLkpdUnlocked ? '#34d399' : '#f59e0b';
     ctx.fillText(isLkpdUnlocked ? 'TERBUKA' : 'TERKUNCI', badgeX + badgeW / 2, badgeY + badgeH / 2);
 
-    // 7. Tombol Keluar VR di bagian bawah
+    // 7. Tombol Keluar VR di bawah kartu secara rapi & proporsional
+    const exitW = 240;
+    const exitX = (CANVAS_W - exitW) / 2;
+    const exitY = cardY + cardH + 20;
     this.drawButton(ctx, {
       id: 'exit_vr',
       label: '✕  KELUAR MODE VR',
-      x: innerX,
-      y: cardY + 480,
-      w: innerW,
-      h: 44,
-      variant: 'danger',
+      x: exitX,
+      y: exitY,
+      w: exitW,
+      h: 38,
+      variant: 'secondary',
+      fontSize: 13,
+      radius: 19,
     });
 
-    // Banner Pesan Peringatan jika LKPD belum terbuka
+    // Banner Pesan Peringatan jika LKPD belum terbuka (melayang di bawah kartu)
     if (state.vrWarningMsg) {
       ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
       ctx.beginPath();
-      ctx.roundRect(cardX + 20, cardY + 536, cardW - 40, 42, 12);
+      ctx.roundRect(cardX + 20, cardY + cardH - 60, cardW - 40, 42, 12);
       ctx.fill();
       ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
       ctx.lineWidth = 1.8;
@@ -866,7 +876,7 @@ export class VRSpatialMenu {
       ctx.font = '700 14px Inter, system-ui, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(state.vrWarningMsg, CANVAS_W / 2, cardY + 557);
+      ctx.fillText(state.vrWarningMsg, CANVAS_W / 2, cardY + cardH - 39);
     }
   }
 

@@ -339,7 +339,22 @@ export async function syncLocalDataToSupabase(): Promise<{
       }
     }
 
-    const localLKPD = getLocalLKPDSubmissions();
+    const localLKPD = [...getLocalLKPDSubmissions()];
+    const activeSub = loadLKPDSubmission();
+    if (activeSub && (activeSub.studentName || '').trim().length > 0) {
+      const activeScore = calculateLKPDScore(activeSub);
+      localLKPD.push({
+        id: generateUUID(),
+        student_name: activeSub.studentName.trim(),
+        student_class: (activeSub.studentClass || '').trim() || '-',
+        student_absent: (activeSub.studentAbsent || '').trim() || '-',
+        lab_solved_ids: activeSub.labSolvedIds || [],
+        quiz_answers: activeSub.quizAnswers || {},
+        reflection_answers: activeSub.reflectionAnswers || {},
+        objective_score: activeScore.objectiveScore,
+        submitted_at: activeSub.completedAt || new Date().toISOString(),
+      });
+    }
     if (localLKPD.length > 0) {
       const { data: remoteLKPD } = await client
         .from('lkpd_submissions')
@@ -407,6 +422,27 @@ export async function fetchAllSessions(): Promise<StudentSessionRecord[]> {
 
 export async function fetchAllLKPD(): Promise<LKPDSubmissionRecord[]> {
   const local = getLocalLKPDSubmissions();
+
+  // Masukkan juga submission aktif di localStorage jika ada
+  try {
+    const active = loadLKPDSubmission();
+    if (active && (active.studentName || '').trim().length > 0) {
+      const score = calculateLKPDScore(active);
+      const activeRecord: LKPDSubmissionRecord = {
+        id: 'active_local_submission',
+        student_name: active.studentName.trim(),
+        student_class: (active.studentClass || '').trim() || '-',
+        student_absent: (active.studentAbsent || '').trim() || '-',
+        lab_solved_ids: active.labSolvedIds || [],
+        quiz_answers: active.quizAnswers || {},
+        reflection_answers: active.reflectionAnswers || {},
+        objective_score: score.objectiveScore,
+        submitted_at: active.completedAt || new Date().toISOString(),
+      };
+      local.push(activeRecord);
+    }
+  } catch {}
+
   const client = getSupabase();
 
   if (!client) return local;
@@ -497,20 +533,47 @@ export async function getUnifiedStudentData(force = false): Promise<UnifiedStude
 
     if (existing) {
       existing.lkpd_submitted = true;
-      existing.lkpd_score = l.objective_score;
-      existing.lkpd_lab_count = Array.isArray(l.lab_solved_ids) ? l.lab_solved_ids.length : 0;
-      existing.lkpd_submitted_at = l.submitted_at;
-      existing.lab_solved_ids = l.lab_solved_ids;
-      existing.reflection_answers = l.reflection_answers;
-      existing.quiz_answers = l.quiz_answers;
-      if (existing.student_absent === '-' && l.student_absent !== '-') {
+      if (typeof l.objective_score === 'number') {
+        existing.lkpd_score = Math.max(existing.lkpd_score ?? 0, l.objective_score);
+      }
+      const labCount = Array.isArray(l.lab_solved_ids) ? l.lab_solved_ids.length : 0;
+      if (labCount >= (existing.lkpd_lab_count ?? 0)) {
+        existing.lkpd_lab_count = labCount;
+        existing.lab_solved_ids = l.lab_solved_ids;
+      }
+      if (l.submitted_at) {
+        existing.lkpd_submitted_at = l.submitted_at;
+      }
+
+      // Smart merge quiz answers
+      if (l.quiz_answers && Object.keys(l.quiz_answers).length > 0) {
+        existing.quiz_answers = {
+          ...(existing.quiz_answers || {}),
+          ...l.quiz_answers,
+        };
+      }
+
+      // Smart merge reflection answers: Jangan pernah menimpa refleksi yang sudah ada dengan teks kosong
+      if (l.reflection_answers && typeof l.reflection_answers === 'object') {
+        const mergedRef = { ...(existing.reflection_answers || {}) };
+        for (const [k, v] of Object.entries(l.reflection_answers)) {
+          if (v && typeof v === 'string' && v.trim().length > 0) {
+            mergedRef[k] = v;
+          }
+        }
+        if (Object.keys(mergedRef).length > 0) {
+          existing.reflection_answers = mergedRef;
+        }
+      }
+
+      if (existing.student_absent === '-' && l.student_absent && l.student_absent !== '-') {
         existing.student_absent = l.student_absent;
       }
     } else {
       studentMap.set(key, {
         student_name: l.student_name,
         student_class: l.student_class,
-        student_absent: l.student_absent,
+        student_absent: l.student_absent || '-',
         character_id: '-',
         difficulty: '-',
         stage_reached: 0,
@@ -525,8 +588,8 @@ export async function getUnifiedStudentData(force = false): Promise<UnifiedStude
         lkpd_lab_count: Array.isArray(l.lab_solved_ids) ? l.lab_solved_ids.length : 0,
         lkpd_submitted_at: l.submitted_at,
         lab_solved_ids: l.lab_solved_ids,
-        reflection_answers: l.reflection_answers,
-        quiz_answers: l.quiz_answers,
+        reflection_answers: l.reflection_answers || {},
+        quiz_answers: l.quiz_answers || {},
       });
     }
   }

@@ -73,16 +73,30 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
   const [pngExportedMsg, setPngExportedMsg] = useState<string | null>(null);
   const [showQuizReview, setShowQuizReview] = useState<boolean>(false);
 
+  const flushSubmission = (sub: LKPDSubmissionState) => {
+    saveLKPDSubmission(sub);
+    if ((sub.studentName || '').trim().length > 0) {
+      recordLKPDSubmissionAsync(sub);
+    }
+  };
+
   useEffect(() => {
     saveLKPDSubmission(submission);
     if ((submission.studentName || '').trim().length > 0) {
-      // Debounce hemat kuota database (hanya sync saat jeda mengetik 3.5 detik)
+      // Debounce hemat kuota database (hanya sync saat jeda mengetik 600 ms)
       const timer = setTimeout(() => {
         recordLKPDSubmissionAsync(submission);
-      }, 3500);
+      }, 600);
       return () => clearTimeout(timer);
     }
   }, [submission]);
+
+  // Pastikan data tersimpan instan saat modal ditutup / unmount
+  useEffect(() => {
+    return () => {
+      flushSubmission(submission);
+    };
+  }, []);
 
   const scoreBreakdown = useMemo(() => calculateLKPDScore(submission), [submission]);
   const activeChallenge = LKPD_LAB_CHALLENGES[activeChallengeIdx] || LKPD_LAB_CHALLENGES[0];
@@ -152,18 +166,28 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
     }));
   };
 
+  const handleClose = () => {
+    flushSubmission(submission);
+    onClose();
+  };
+
   const handleOpenTab = (tabId: LKPDTabId) => {
+    // Flush data segera saat berpindah tab
+    flushSubmission(submission);
     if (tabId === 'hasil') {
-      setSubmission((prev) => ({
-        ...prev,
+      const stamped = {
+        ...submission,
         quizChecked: true,
-        completedAt: prev.completedAt || new Date().toISOString(),
-      }));
+        completedAt: submission.completedAt || new Date().toISOString(),
+      };
+      setSubmission(stamped);
+      flushSubmission(stamped);
     }
     setActiveTab(tabId);
   };
 
   const handleCopySummary = async () => {
+    flushSubmission(submission);
     const text = formatLKPDSummaryText(submission, progress);
     try {
       await navigator.clipboard.writeText(text);
@@ -179,6 +203,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
     if (!submission.completedAt) {
       setSubmission(stamped);
     }
+    flushSubmission(stamped);
     const ok = exportLKPDCardAsPNG(stamped, progress);
     if (ok) {
       setPngExportedMsg('Kartu Bukti Nilai (.PNG) berhasil diunduh.');
@@ -187,12 +212,13 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
   };
 
   const handlePrintPDF = () => {
+    const stamped = submission.completedAt
+      ? submission
+      : { ...submission, completedAt: new Date().toISOString() };
     if (!submission.completedAt) {
-      setSubmission((prev) => ({
-        ...prev,
-        completedAt: new Date().toISOString(),
-      }));
+      setSubmission(stamped);
     }
+    flushSubmission(stamped);
     setTimeout(() => {
       window.print();
     }, 60);
@@ -249,7 +275,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
             )}
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Tutup LKPD"
               className="p-2 rounded-xl bg-blue-950/60 hover:bg-blue-900/70 border border-blue-500/25 text-white cursor-pointer flex items-center justify-center"
             >
@@ -810,7 +836,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               TAB 4: ANALISIS & REFLEKSI SISWA (PERTANYAAN ESAI)
              ============================================================== */}
           {activeTab === 'refleksi' && (
-            <div className="space-y-4">
+            <div className="space-y-4 pb-32 sm:pb-6">
               <div className="bg-[#0e1e3e] border border-blue-500/35 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3">
                 <div>
                   <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-300 block">
@@ -826,21 +852,74 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               </div>
 
               {LKPD_REFLECTION_PROMPTS.map((prompt) => {
+                const anyAns = submission.reflectionAnswers
+                  ? Object.values(submission.reflectionAnswers).find((v) => (v || '').trim().length > 0)
+                  : '';
                 const val =
                   submission.reflectionAnswers[prompt.id] ||
+                  submission.reflectionAnswers['ref_kesan'] ||
                   submission.reflectionAnswers['ref_1_kategori'] ||
+                  submission.reflectionAnswers['ref_1_kesan'] ||
+                  anyAns ||
                   '';
+
+                const quickReflections = [
+                  'Paham konsep roda warna RYB',
+                  'Bisa mencampur warna sekunder & tersier',
+                  'Menguasai trik perlawanan bos Chroma Titan',
+                  'Game sangat seru, interaktif, dan mendidik',
+                ];
+
+                const handleAppendQuickChip = (chip: string) => {
+                  setSubmission((prev) => {
+                    const current = (prev.reflectionAnswers[prompt.id] || val || '').trim();
+                    const updated = current ? `${current}. ${chip}` : chip;
+                    const next = {
+                      ...prev,
+                      reflectionAnswers: {
+                        ...prev.reflectionAnswers,
+                        [prompt.id]: updated,
+                      },
+                    };
+                    saveLKPDSubmission(next);
+                    return next;
+                  });
+                };
+
                 return (
                   <div
                     key={prompt.id}
-                    className="bg-[#0d1424] border border-blue-500/25 rounded-2xl p-4 sm:p-5 space-y-2.5"
+                    className="bg-[#0d1424] border border-blue-500/25 rounded-2xl p-4 sm:p-5 space-y-3"
                   >
                     <label className="text-sm sm:text-base font-bold text-white block leading-relaxed">
                       {prompt.question}
                     </label>
+
+                    {/* Quick suggestion chips untuk kenyamanan sentuhan & keyboard di HP */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-300/80">
+                        Pilihan Cepat / Inspirasi:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {quickReflections.map((chip) => (
+                          <button
+                            key={chip}
+                            type="button"
+                            onClick={() => handleAppendQuickChip(chip)}
+                            className="px-2.5 py-1.5 rounded-lg bg-[#070b14] hover:bg-blue-900/50 border border-blue-500/20 text-xs text-blue-200 transition-colors cursor-pointer text-left"
+                          >
+                            + {chip}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <textarea
                       rows={5}
                       value={val}
+                      onFocus={(e) => {
+                        e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }}
                       onChange={(e) =>
                         setSubmission((prev) => ({
                           ...prev,
@@ -851,7 +930,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                         }))
                       }
                       placeholder={prompt.placeholder}
-                      className="w-full px-4 py-3 rounded-xl bg-[#080c16] border border-blue-500/30 focus:border-blue-400 focus:outline-none text-sm sm:text-base text-white placeholder:text-slate-500 resize-y leading-relaxed"
+                      className="w-full px-4 py-3 rounded-xl bg-[#080c16] border border-blue-500/30 focus:border-blue-400 focus:outline-none text-base text-white placeholder:text-slate-500 resize-y leading-relaxed overscroll-contain"
                     />
                   </div>
                 );
@@ -1095,7 +1174,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
           ) : (
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-xs sm:text-sm font-extrabold cursor-pointer"
             >
               Selesai &amp; Tutup

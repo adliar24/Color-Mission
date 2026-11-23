@@ -826,11 +826,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </h4>
                       <div className="flex flex-col gap-3">
                         {LKPD_REFLECTION_PROMPTS.map((prompt, idx) => {
+                          const anyRef = activeStudent.reflection_answers
+                            ? Object.values(activeStudent.reflection_answers).find((v) => (v || '').trim().length > 0)
+                            : '';
                           const studentEssay =
                             activeStudent.reflection_answers?.[prompt.id] ||
                             activeStudent.reflection_answers?.['ref_kesan'] ||
                             activeStudent.reflection_answers?.['ref_1_kategori'] ||
-                            activeStudent.reflection_answers?.[`q${idx + 1}`];
+                            activeStudent.reflection_answers?.['ref_1_kesan'] ||
+                            activeStudent.reflection_answers?.[`q${idx + 1}`] ||
+                            anyRef;
 
                           return (
                             <div
