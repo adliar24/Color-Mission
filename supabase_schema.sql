@@ -68,7 +68,12 @@ ON public.lkpd_submissions FOR SELECT
 TO anon, authenticated
 USING (true);
 
--- 4. Aktifkan Fitur Realtime (Pembaruan Otomatis Live di Layar Guru)
+-- 4. Hak Akses (GRANT) untuk Role Anon dan Authenticated
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON TABLE public.student_sessions TO anon, authenticated;
+GRANT ALL ON TABLE public.lkpd_submissions TO anon, authenticated;
+
+-- 5. Aktifkan Fitur Realtime (Pembaruan Otomatis Live di Layar Guru)
 DO $$
 BEGIN
   IF NOT EXISTS (
