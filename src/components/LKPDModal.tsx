@@ -34,6 +34,7 @@ import {
   mixRYBColors,
   saveLKPDSubmission,
 } from '../game/lkpd';
+import { recordLKPDSubmissionAsync } from '../lib/syncService';
 import { RYBColorDef, RYBColorId } from '../game/types';
 
 interface LKPDModalProps {
@@ -74,6 +75,12 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
 
   useEffect(() => {
     saveLKPDSubmission(submission);
+    if ((submission.studentName || '').trim().length > 0) {
+      const timer = setTimeout(() => {
+        recordLKPDSubmissionAsync(submission);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
   }, [submission]);
 
   const scoreBreakdown = useMemo(() => calculateLKPDScore(submission), [submission]);

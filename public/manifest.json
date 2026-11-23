@@ -1,0 +1,19 @@
+{
+  "name": "COLOR MISSION",
+  "short_name": "Color Mission",
+  "description": "3D Arena Shooter — Teori Warna Primer",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#050811",
+  "theme_color": "#090d18",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

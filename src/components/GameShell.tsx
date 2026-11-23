@@ -28,6 +28,7 @@ import {
   loadGameCompletionProgress,
   saveGameCompletionProgress,
 } from '../game/lkpd';
+import { recordGameSessionAsync } from '../lib/syncService';
 import {
   PlayerStats,
   WeaponType,
@@ -79,10 +80,12 @@ import {
   ClipboardCheck,
   AlertTriangle,
   X,
+  Shield,
 } from 'lucide-react';
 
 interface GameShellProps {
   autostart?: boolean;
+  onOpenAdmin?: () => void;
 }
 
 function getActiveUiBoard(): HTMLElement | null {
@@ -256,7 +259,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   characterId: 'raka',
 };
 
-export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
+export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenAdmin }) => {
   const mountRef = useRef<HTMLDivElement>(null);
 
   // State utama permainan
@@ -451,9 +454,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
   ]);
 
   useEffect(() => {
-    if (gameState === 'victory' && runSummary?.won) {
+    if ((gameState === 'victory' || gameState === 'gameover') && runSummary) {
       const saved = saveGameCompletionProgress(runSummary);
       setLkpdProgress(saved);
+      recordGameSessionAsync(runSummary);
     }
   }, [gameState, runSummary]);
 
@@ -3121,6 +3125,18 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false }) => {
                   className="p-2.5 rounded-xl bg-[#090d18]/90 hover:bg-slate-900 border border-white/15 text-cyan-400 transition-colors cursor-pointer shadow-xl"
                 >
                   <RotateCw className="w-4 h-4" />
+                </button>
+              )}
+
+              {onOpenAdmin && (
+                <button
+                  type="button"
+                  onClick={onOpenAdmin}
+                  title="Panel Guru / Admin"
+                  aria-label="Panel Guru / Admin"
+                  className="p-2.5 rounded-xl bg-[#090d18]/90 hover:bg-slate-900 border border-white/15 text-slate-300 hover:text-cyan-400 transition-colors cursor-pointer shadow-xl"
+                >
+                  <Shield className="w-4 h-4" />
                 </button>
               )}
 
