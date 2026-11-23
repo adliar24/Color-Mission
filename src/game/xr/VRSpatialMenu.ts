@@ -93,6 +93,8 @@ interface MenuButtonRect {
   w: number;
   h: number;
   variant: 'primary' | 'secondary' | 'danger';
+  fontSize?: number;
+  radius?: number;
 }
 
 export interface VRSpatialMenuState {
@@ -432,7 +434,8 @@ export class VRSpatialMenu {
     this.buttons.push(btn);
     const isHover = this.hoveredId === btn.id;
     const isPressed = this.pressedId === btn.id;
-    const radius = 22;
+    const radius = btn.radius ?? (btn.h < 36 ? Math.floor(btn.h / 2) : 22);
+    const fontSize = btn.fontSize ?? (btn.h < 36 ? 12 : btn.h < 46 ? 16 : 20);
 
     const cx = btn.x + btn.w / 2;
     const cy = btn.y + btn.h / 2;
@@ -504,7 +507,7 @@ export class VRSpatialMenu {
       ctx.restore();
     }
 
-    ctx.font = '800 22px Inter, system-ui, -apple-system, sans-serif';
+    ctx.font = `800 ${fontSize}px Inter, system-ui, -apple-system, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(btn.label, cx, cy);
@@ -956,6 +959,8 @@ export class VRSpatialMenu {
           w: keyW,
           h: rowHeight,
           variant: 'secondary',
+          fontSize: 18,
+          radius: 12,
         });
       });
     });
@@ -977,6 +982,8 @@ export class VRSpatialMenu {
       w: spaceW,
       h: rowHeight,
       variant: 'secondary',
+      fontSize: 15,
+      radius: 12,
     });
 
     this.drawButton(ctx, {
@@ -987,6 +994,8 @@ export class VRSpatialMenu {
       w: bsW,
       h: rowHeight,
       variant: 'secondary',
+      fontSize: 15,
+      radius: 12,
     });
 
     this.drawButton(ctx, {
@@ -997,6 +1006,8 @@ export class VRSpatialMenu {
       w: clrW,
       h: rowHeight,
       variant: 'secondary',
+      fontSize: 15,
+      radius: 12,
     });
 
     // Baris Navigasi Bawah
@@ -1009,6 +1020,8 @@ export class VRSpatialMenu {
       w: 200,
       h: 52,
       variant: 'secondary',
+      fontSize: 15,
+      radius: 16,
     });
 
     this.drawButton(ctx, {
@@ -1019,6 +1032,8 @@ export class VRSpatialMenu {
       w: 680,
       h: 52,
       variant: isNameValid ? 'primary' : 'secondary',
+      fontSize: 16,
+      radius: 16,
     });
   }
 
@@ -1839,53 +1854,105 @@ export class VRSpatialMenu {
 
     // Box Pertanyaan Aktif
     const pBoxX = 54;
-    const pBoxY = 152;
+    const pBoxY = 150;
     const pBoxW = 916;
     const pBoxH = 46;
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    ctx.fillStyle = '#0b1325';
     ctx.beginPath();
     ctx.roundRect(pBoxX, pBoxY, pBoxW, pBoxH, 12);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    ctx.textAlign = 'left';
+    // Badge SOAL
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
+    ctx.beginPath();
+    ctx.roundRect(pBoxX + 10, pBoxY + 10, 56, 26, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#38bdf8';
-    ctx.font = '700 14px Inter, system-ui, sans-serif';
-    ctx.fillText(activePrompt.question, pBoxX + 16, pBoxY + pBoxH / 2);
+    ctx.font = '800 11px Inter, system-ui, sans-serif';
+    ctx.fillText('SOAL', pBoxX + 38, pBoxY + 23);
+
+    // Teks Pertanyaan
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '700 15px Inter, system-ui, sans-serif';
+    ctx.fillText(activePrompt.question, pBoxX + 76, pBoxY + 23);
 
     // Box Input Respon Siswa
-    const inBoxY = 206;
-    const inBoxH = 56;
+    const inBoxY = 204;
+    const inBoxH = 54;
     ctx.fillStyle = '#080e1a';
     ctx.beginPath();
     ctx.roundRect(pBoxX, inBoxY, pBoxW, inBoxH, 14);
     ctx.fill();
     ctx.strokeStyle = '#22d3ee';
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2.2;
     ctx.stroke();
 
-    ctx.textAlign = 'left';
-    ctx.font = '700 18px Inter, system-ui, sans-serif';
+    // Pastikan teks jawaban tidak tembus kotak input jika panjang
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(pBoxX + 12, inBoxY + 2, pBoxW - 24, inBoxH - 4);
+    ctx.clip();
+
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 17px Inter, system-ui, sans-serif';
     if (curAnswer) {
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillText(curAnswer + '|', pBoxX + 18, inBoxY + inBoxH / 2 + 2);
+      const answerDisplay = curAnswer + '|';
+      const textW = ctx.measureText(answerDisplay).width;
+      const maxW = pBoxW - 40;
+      if (textW > maxW) {
+        // Jika teks lebih panjang dari kotak, ratakan ke kanan agar kursor dan ketikan terakhir selalu terlihat
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(answerDisplay, pBoxX + pBoxW - 20, inBoxY + inBoxH / 2);
+      } else {
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(answerDisplay, pBoxX + 20, inBoxY + inBoxH / 2);
+      }
     } else {
-      ctx.fillStyle = '#475569';
-      ctx.fillText('| ' + activePrompt.placeholder, pBoxX + 18, inBoxY + inBoxH / 2 + 2);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('| ' + activePrompt.placeholder, pBoxX + 20, inBoxY + inBoxH / 2);
+    }
+    ctx.restore();
+
+    // Chip Kata Kunci Cepat (1-Tap Suggestion Chips per pertanyaan dengan font presisi)
+    let chips: string[] = [];
+    if (activePrompt.id === 'ref_1_kategori') {
+      chips = ['Primer: Dasar Murni', 'Sekunder: Campuran 2 Primer', 'Tersier: Primer + Sekunder'];
+    } else if (activePrompt.id === 'ref_2_strategi') {
+      chips = ['Amati Target Kristal', 'Campur Sebelum Nembak', 'Fokus Kristal Boss'];
+    } else {
+      chips = ['Lab Campur Warna', 'Lawan Boss Chroma Titan', 'Visual 3D & 360° Sangat Seru'];
     }
 
-    // Chip Kata Kunci Cepat (1-Tap Suggestion Chips untuk kemudahan di VR)
-    const chips = ['Merah, Kuning, Biru', 'Warna Primer', 'Warna Sekunder', 'Warna Tersier', 'Sangat seru & jelas'];
-    const chipY = 270;
-    const chipH = 30;
-    let curChipX = 54;
+    const chipY = 266;
+    const chipH = 32;
+    ctx.font = '800 11px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SARAN CEPAT (1-KLIK):', pBoxX + 2, chipY + chipH / 2);
+
+    const labelW = Math.ceil(ctx.measureText('SARAN CEPAT (1-KLIK):').width) + 14;
+    let curChipX = pBoxX + labelW;
+    const chipFontSize = 12;
+    ctx.font = `700 ${chipFontSize}px Inter, system-ui, sans-serif`;
+
     chips.forEach((phrase) => {
-      ctx.font = '700 12px Inter, system-ui, sans-serif';
-      const cW = ctx.measureText(phrase).width + 24;
+      const cW = Math.ceil(ctx.measureText(phrase).width) + 24;
       this.drawButton(ctx, {
         id: `vr_lkpd_quick_${phrase}` as VRMenuAction,
         label: phrase,
@@ -1894,8 +1961,10 @@ export class VRSpatialMenu {
         w: cW,
         h: chipH,
         variant: 'secondary',
+        fontSize: chipFontSize,
+        radius: 16,
       });
-      curChipX += cW + 12;
+      curChipX += cW + 10;
     });
 
     // Virtual Keyboard (QWERTY + Angka)
@@ -1906,12 +1975,12 @@ export class VRSpatialMenu {
       ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
     ];
 
-    const startY = 308;
-    const rowHeight = 44;
+    const startY = 306;
+    const rowHeight = 42;
     const rowGap = 6;
 
     kbRows.forEach((row, rIdx) => {
-      const keyW = 78;
+      const keyW = rIdx === 2 ? 82 : rIdx === 3 ? 86 : 78;
       const keyGap = 8;
       const totalRowW = row.length * keyW + (row.length - 1) * keyGap;
       const rowStartX = (CANVAS_W - totalRowW) / 2;
@@ -1927,6 +1996,8 @@ export class VRSpatialMenu {
           w: keyW,
           h: rowHeight,
           variant: 'secondary',
+          fontSize: 17,
+          radius: 10,
         });
       });
     });
@@ -1948,6 +2019,8 @@ export class VRSpatialMenu {
       w: spaceW,
       h: rowHeight,
       variant: 'secondary',
+      fontSize: 15,
+      radius: 12,
     });
 
     this.drawButton(ctx, {
@@ -1958,6 +2031,8 @@ export class VRSpatialMenu {
       w: bsW,
       h: rowHeight,
       variant: 'secondary',
+      fontSize: 15,
+      radius: 12,
     });
 
     this.drawButton(ctx, {
@@ -1968,28 +2043,35 @@ export class VRSpatialMenu {
       w: clrW,
       h: rowHeight,
       variant: 'secondary',
+      fontSize: 15,
+      radius: 12,
     });
 
     // === BARIS NAVIGASI BAWAH ===
-    const navY = 562;
+    const navY = 556;
+    const navH = 50;
     this.drawButton(ctx, {
       id: 'vr_lkpd_open_quiz',
       label: '⬅ KEMBALI KE KUIS',
       x: 54,
       y: navY,
       w: 260,
-      h: 52,
+      h: navH,
       variant: 'secondary',
+      fontSize: 14,
+      radius: 16,
     });
 
     this.drawButton(ctx, {
       id: 'vr_lkpd_submit',
       label: '🚀 KIRIM & SELESAIKAN EVALUASI LKPD',
-      x: 334,
+      x: 330,
       y: navY,
-      w: 636,
-      h: 52,
+      w: 640,
+      h: navH,
       variant: 'primary',
+      fontSize: 16,
+      radius: 16,
     });
   }
 
