@@ -339,19 +339,18 @@ test('InputManager mendukung toggle Gyro HP dan Haptic Feedback tanpa error di b
   assert.equal(cmdGyroOn.lookDeltaY, 0);
 
   // Simulasi DeviceMotionEvent: Verifikasi arah rotasi konsisten & tidak terbalik
-  // Di Landscape (angle 90 default):
   im.mobile.setScreenOrientationAngle(90);
-  // 1. Miring ke atas (pitch up / ceiling) -> lookDeltaY > 0
+  // 1. Miring ke atas (pitch up / ceiling) -> lookDeltaY > 0 (menggunakan sumbu beta)
   im.mobile.onDeviceMotion({
-    rotationRate: { alpha: 0, beta: 0, gamma: -30 }, // rGamma negatif = tilt up di landscape 90
+    rotationRate: { alpha: 0, beta: 30, gamma: 0 },
     interval: 16,
   } as unknown as DeviceMotionEvent);
   const cmdPitchUp = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true }, 0.016);
   assert.ok(cmdPitchUp.lookDeltaY > 0, 'Miring ke atas harus menghasilkan lookDeltaY > 0');
 
-  // 2. Putar ke kanan (yaw right) -> lookDeltaX < 0 (memutar kamera ke kanan)
+  // 2. Putar ke kanan (yaw right) -> lookDeltaX < 0 (memutar kamera ke kanan menggunakan sumbu alpha & gamma)
   im.mobile.onDeviceMotion({
-    rotationRate: { alpha: -20, beta: -20, gamma: 0 }, // rBeta & rAlpha negatif = putar kanan
+    rotationRate: { alpha: -20, beta: 0, gamma: -20 },
     interval: 16,
   } as unknown as DeviceMotionEvent);
   const cmdYawRight = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true }, 0.016);

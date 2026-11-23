@@ -594,51 +594,24 @@ export class MobileInput {
     const rGamma = rate.gamma ?? 0;
     const rAlpha = rate.alpha ?? 0;
 
-    let angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
-    // Deteksi jika viewport horizontal (landscape) namun orientation angle belum berganti
-    if (angle === 0 && typeof window !== 'undefined' && window.innerWidth > window.innerHeight) {
-      angle = 90;
-    }
+    const angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
+    const isInverted = angle === 180 || angle === 270;
 
-    // Sudut kemiringan HP saat digenggam (default ~60° dari posisi horizontal)
-    const tiltRad =
-      Math.max(15, Math.min(85, Math.abs(this.currentTiltBeta))) * (Math.PI / 180);
-    const sinTilt = Math.sin(tiltRad);
-    const cosTilt = Math.cos(tiltRad);
+    // Sumbu Vertikal (Atas - Bawah / Pitch):
+    // Menggerakkan HP ke atas / bawah memutar sumbu rBeta -> kamera mengarah ke atas / bawah
+    let rawPitch = isInverted ? -rBeta : rBeta;
 
-    let rawYaw = 0;
-    let rawPitch = 0;
+    // Sumbu Horizontal (Kiri - Kanan / Yaw):
+    // Memutar HP ke samping kiri / kanan memutar sumbu rAlpha & rGamma -> kamera memutar ke samping
+    let rawYaw = isInverted ? -(rAlpha * 0.75 + rGamma * 0.75) : rAlpha * 0.75 + rGamma * 0.75;
 
-    if (angle === 90) {
-      // Landscape Primary (bagian atas HP di sisi kiri, port charger di kanan)
-      // Miring ke atas (pitch up) = rGamma negatif -> rawPitch positif -> cameraRot.pitch bertambah (melihat ke atas)
-      rawPitch = -rGamma;
-      // Putar ke kanan (yaw right) = rBeta negatif & rAlpha negatif -> rawYaw negatif -> cameraRot.yaw berkurang (melihat ke kanan)
-      rawYaw = rBeta * sinTilt + rAlpha * cosTilt;
-    } else if (angle === 270) {
-      // Landscape Secondary (bagian atas HP di sisi kanan, port charger di kiri)
-      rawPitch = rGamma;
-      rawYaw = -(rBeta * sinTilt - rAlpha * cosTilt);
-    } else {
-      // Portrait (0 derajat)
-      rawPitch = rBeta;
-      rawYaw = rGamma * sinTilt + rAlpha * cosTilt;
-    }
+    // Deadzone mikro (0.04 deg/s) untuk menyaring getaran sensor tanpa mengurangi responsivitas gerakan halus
+    if (Math.abs(rawPitch) < 0.04) rawPitch = 0;
+    if (Math.abs(rawYaw) < 0.04) rawYaw = 0;
 
-    // Deadzone mikro (0.08 deg/s) untuk menyaring getaran sensor statis tanpa mematikan bidikan mikro
-    const deadzone = 0.08;
-    const cleanYaw =
-      Math.abs(rawYaw) < deadzone ? 0 : Math.sign(rawYaw) * (Math.abs(rawYaw) - deadzone);
-    const cleanPitch =
-      Math.abs(rawPitch) < deadzone ? 0 : Math.sign(rawPitch) * (Math.abs(rawPitch) - deadzone);
-
-    // Filter peredam frekuensi tinggi pada kecepatan sudut (80% nilai baru, 20% nilai lama)
-    // agar bidikan halus tanpa delay atau sensasi ketahan
-    this.filteredYawRate = this.filteredYawRate * 0.2 + cleanYaw * 0.8;
-    this.filteredPitchRate = this.filteredPitchRate * 0.2 + cleanPitch * 0.8;
-
-    this.gyroAccumX += THREE.MathUtils.clamp(this.filteredYawRate * dt, -12, 12);
-    this.gyroAccumY += THREE.MathUtils.clamp(this.filteredPitchRate * dt, -12, 12);
+    // Integrasi langsung responsif 0-latency (instan tanpa delay atau rasa tersangkut/ketahan)
+    this.gyroAccumX += THREE.MathUtils.clamp(rawYaw * dt, -16, 16);
+    this.gyroAccumY += THREE.MathUtils.clamp(rawPitch * dt, -16, 16);
   };
 
   /**
@@ -682,37 +655,17 @@ export class MobileInput {
       return;
     }
 
-    let angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
-    if (angle === 0 && typeof window !== 'undefined' && window.innerWidth > window.innerHeight) {
-      angle = 90;
-    }
+    const angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
+    const isInverted = angle === 180 || angle === 270;
 
-    const tiltRad =
-      Math.max(15, Math.min(85, Math.abs(this.currentTiltBeta))) * (Math.PI / 180);
-    const sinTilt = Math.sin(tiltRad);
-    const cosTilt = Math.cos(tiltRad);
+    let rawPitch = isInverted ? -dBeta : dBeta;
+    let rawYaw = isInverted ? -(dAlpha * 0.75 + dGamma * 0.75) : dAlpha * 0.75 + dGamma * 0.75;
 
-    let rawYaw = 0;
-    let rawPitch = 0;
+    if (Math.abs(rawPitch) < 0.03) rawPitch = 0;
+    if (Math.abs(rawYaw) < 0.03) rawYaw = 0;
 
-    if (angle === 90) {
-      rawPitch = -dGamma;
-      rawYaw = dBeta * sinTilt + dAlpha * cosTilt;
-    } else if (angle === 270) {
-      rawPitch = dGamma;
-      rawYaw = -(dBeta * sinTilt - dAlpha * cosTilt);
-    } else {
-      rawPitch = dBeta;
-      rawYaw = dGamma * sinTilt + dAlpha * cosTilt;
-    }
-
-    const dz = 0.03;
-    if (Math.abs(rawYaw) > dz) {
-      this.gyroAccumX += rawYaw;
-    }
-    if (Math.abs(rawPitch) > dz) {
-      this.gyroAccumY += rawPitch;
-    }
+    this.gyroAccumX += rawYaw;
+    this.gyroAccumY += rawPitch;
   };
 
   public setJoystick(x: number, y: number) {
@@ -803,8 +756,8 @@ export class MobileInput {
 
     // Jika Gyro HP diaktifkan, terapkan akumulasi rotasi secara presisi & instan tanpa lag/ketahan
     if (settings.mobileGyroEnabled) {
-      // Rasio 1:1 antara pergerakan fisik perangkat dengan perputaran kamera in-game (~0.0175 rad/deg)
-      const gyroSens = 0.0175 * settings.touchSensitivity * cameraMult;
+      // Sensitivitas responsif ala mobile shooter (0.035 rad/deg ~ 2.0x perputaran alami)
+      const gyroSens = 0.035 * settings.touchSensitivity * cameraMult;
       lookDeltaX += this.gyroAccumX * gyroSens;
       lookDeltaY += this.gyroAccumY * gyroSens;
     } else {
