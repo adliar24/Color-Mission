@@ -3417,6 +3417,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
           MAIN MENU MINIMALIS & KONTRAS TINGGI (BERLATAR ARENA 3D)
          ==================================================================== */}
       {gameState === 'title' &&
+        platformMode !== 'vr' &&
         !isVRActive &&
         !(platformMode === 'mobile' && !mobileFullscreenConfirmed) &&
         !(platformMode === 'desktop' && !desktopFullscreenConfirmed) && (
@@ -3697,7 +3698,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       )}
 
       {/* === MODAL PERMAINAN BERAKHIR (GAME OVER) === */}
-      <AnimatedPresence show={gameState === 'gameover' && Boolean(runSummary)}>
+      <AnimatedPresence show={gameState === 'gameover' && Boolean(runSummary) && !isVRActive && platformMode !== 'vr'}>
         {runSummary && (
           <GameOverModal
             summary={runSummary}
@@ -3710,7 +3711,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       </AnimatedPresence>
 
       {/* === MODAL KEMENANGAN (VICTORY) === */}
-      <AnimatedPresence show={gameState === 'victory' && Boolean(runSummary)}>
+      <AnimatedPresence show={gameState === 'victory' && Boolean(runSummary) && !isVRActive && platformMode !== 'vr'}>
         {runSummary && (
           <VictoryModal
             summary={runSummary}
@@ -3727,7 +3728,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       </AnimatedPresence>
 
       {/* === MODAL JEDA (PAUSE) === */}
-      <AnimatedPresence show={gameState === 'paused'}>
+      <AnimatedPresence show={gameState === 'paused' && !isVRActive && platformMode !== 'vr'}>
         <PauseModal
           onResume={() => {
             setGameState('playing');
@@ -3748,7 +3749,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       </AnimatedPresence>
 
       {/* === MODAL PEMILIHAN 2 KARAKTER SEBELUM MULAI MISI === */}
-      <AnimatedPresence show={showMissionSetup}>
+      <AnimatedPresence show={showMissionSetup && !isVRActive && platformMode !== 'vr'}>
         <MissionSetupModal
           selectedCharacter={settings.characterId ?? 'raka'}
           onSelectCharacter={(characterId) =>
