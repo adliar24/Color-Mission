@@ -18,6 +18,7 @@ export interface VRHandGestureResult {
   weaponSwitch: boolean;
   shoulderEntered: boolean;
   pause: boolean;
+  useAbility?: boolean;
   rightAimOrigin: THREE.Vector3 | null;
   rightAimDir: THREE.Vector3 | null;
   teleportPreview: VRTeleportPreview;
@@ -61,6 +62,7 @@ export class VRHandGestures {
   private rightShoulderDwell = 0;
   private shoulderSwapCooldown = 0;
   private teleportCooldown = 0;
+  private abilityTapCooldown = 0;
   private hasTeleportTarget = false;
   private leftPinchLockTimer = 0;
 
@@ -92,12 +94,14 @@ export class VRHandGestures {
   ): VRHandGestureResult {
     this.shoulderSwapCooldown = Math.max(0, this.shoulderSwapCooldown - dt);
     this.teleportCooldown = Math.max(0, this.teleportCooldown - dt);
+    this.abilityTapCooldown = Math.max(0, this.abilityTapCooldown - dt);
 
     const moveZ = 0;
     const lookDeltaX = 0;
     let weaponSwitch = false;
     let shoulderEntered = false;
     let pause = false;
+    let useAbility = false;
     let rightAimOrigin: THREE.Vector3 | null = null;
     let rightAimDir: THREE.Vector3 | null = null;
     const teleportPreview: VRTeleportPreview = {
@@ -298,6 +302,18 @@ export class VRHandGestures {
       this.teleportCooldown = 0.45;
     }
 
+    // 3. JURUS / ABILITY (Mode Tangan Kosong):
+    // Sentuh jam tangan di pergelangan tangan kiri dengan telunjuk kanan (jarak < 8.5 cm)
+    const rIndexTip = VRHandGestures.getJoint(rightHand, 'index-finger-tip');
+    if (lWrist && rIndexTip) {
+      lWrist.getWorldPosition(_vWrist);
+      rIndexTip.getWorldPosition(_vIndex);
+      if (_vIndex.distanceTo(_vWrist) < 0.085 && this.abilityTapCooldown <= 0) {
+        useAbility = true;
+        this.abilityTapCooldown = 1.2;
+      }
+    }
+
     return {
       moveZ,
       lookDeltaX,
@@ -307,6 +323,7 @@ export class VRHandGestures {
       weaponSwitch,
       shoulderEntered,
       pause,
+      useAbility,
       rightAimOrigin,
       rightAimDir,
       teleportPreview,

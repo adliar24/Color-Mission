@@ -921,6 +921,7 @@ export class VRInput {
       if (Math.abs(handGestures.lookDeltaX) > 0.0001) lookDeltaX = handGestures.lookDeltaX;
       if (handGestures.shoot) shoot = true;
       if (handGestures.pause) pause = true;
+      if (handGestures.useAbility) overdrive = true;
       if (handGestures.weaponSwitch) {
         this.currentWeaponIndex = (this.currentWeaponIndex + 1) % this.weaponsOrder.length;
         weaponSwitch = this.weaponsOrder[this.currentWeaponIndex];
