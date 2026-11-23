@@ -111,12 +111,16 @@ export async function loginAdminUser(
 
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
-        return { success: false, error: 'Username atau password salah.' };
+        return {
+          success: false,
+          error: 'Email/Username atau password salah. Pastikan sesuai dengan akun di Supabase Auth.',
+        };
       }
       if (error.message.includes('Email not confirmed')) {
         return {
           success: false,
-          error: 'Email belum dikonfirmasi. Pastikan opsi "Confirm email" di Supabase Auth dinonaktifkan.',
+          error:
+            'Email belum dikonfirmasi. Masuk ke Supabase > Authentication > Providers > Email, lalu matikan "Confirm email".',
         };
       }
       return { success: false, error: error.message };
