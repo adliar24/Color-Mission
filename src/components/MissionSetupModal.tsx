@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
 import { CharacterId } from '../game/types';
 import { CHARACTER_REGISTRY } from '../game/rules';
-import { Shield, Heart, Play, X, Check } from 'lucide-react';
+import {
+  Shield,
+  Heart,
+  Play,
+  X,
+  Check,
+  User,
+  GraduationCap,
+  AlertCircle,
+} from 'lucide-react';
 import { GamepadBadge } from './GamepadBadge';
+import { loadLKPDSubmission, saveLKPDSubmission } from '../game/lkpd';
 
 interface MissionSetupModalProps {
   selectedCharacter: CharacterId;
@@ -14,7 +24,7 @@ interface MissionSetupModalProps {
 
 const CHARACTER_LIST: CharacterId[] = ['raka', 'naya'];
 
-// Preload & pre-decode potret kedua karakter sejak awal aplikasi dimuat agar tampil instan tanpa loading saat klik MULAI MISI
+// Preload potret kedua karakter
 const preloadedCharacterImages: HTMLImageElement[] = [];
 if (typeof window !== 'undefined') {
   CHARACTER_LIST.forEach((charId) => {
@@ -37,119 +47,189 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
 }) => {
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
+  // Muat data identitas yang sudah tersimpan sebelumnya
+  const [studentName, setStudentName] = useState<string>(() => {
+    return loadLKPDSubmission().studentName || '';
+  });
+  const [studentClass, setStudentClass] = useState<string>(() => {
+    return loadLKPDSubmission().studentClass || '';
+  });
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const handleStart = () => {
+    const trimmedName = studentName.trim();
+    if (!trimmedName) {
+      setValidationError('Nama pemain wajib diisi sebelum memulai misi!');
+      return;
+    }
+
+    // Simpan identitas ke penyimpanan lokal & sinkronisasi LKPD
+    const currentLKPD = loadLKPDSubmission();
+    saveLKPDSubmission({
+      ...currentLKPD,
+      studentName: trimmedName,
+      studentClass: studentClass.trim() || '-',
+    });
+
+    onConfirmStart();
+  };
+
   return (
-    <div className="fixed inset-0 bg-[#050811]/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50 font-sans text-white ui-backdrop-enter">
+    <div className="fixed inset-0 bg-[#050811]/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50 font-sans text-white ui-backdrop-enter">
       <div
         data-ui-board="true"
-        className="max-w-xl w-full bg-[#090d18]/98 border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-4 ui-panel-enter"
+        className="max-w-xl w-full max-h-[95vh] overflow-y-auto bg-[#090d18]/98 border border-white/15 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-4 ui-panel-enter"
       >
         {/* Header Singkat */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white">
-            PILIH KARAKTER
-          </h2>
+        <div className="flex items-center justify-between pb-1 border-b border-white/10">
+          <div>
+            <h2 className="text-lg sm:text-xl font-black uppercase tracking-tight text-white leading-tight">
+              Persiapan Misi &amp; Identitas
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Isi nama untuk merekam skor dan progres lembar kerja ke panel guru
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Tutup"
-            className="p-2 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-300 hover:text-white cursor-pointer"
+            className="p-2 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-300 hover:text-white cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* 2 Papan Karakter (Singkat, Padat, Ruang Gambar Lega) */}
-        <div className="grid grid-cols-2 gap-3.5">
-          {CHARACTER_LIST.map((charId) => {
-            const profile = CHARACTER_REGISTRY[charId];
-            const isSelected = selectedCharacter === charId;
-            const isRaka = charId === 'raka';
-            const imgFailed = Boolean(failedImages[charId]);
+        {/* Form Identitas Siswa (Nama Wajib, Kelas Opsional) */}
+        <div className="bg-[#0c1222] border border-white/10 rounded-2xl p-4 flex flex-col gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-200 block mb-1">
+                Nama Siswa / Pemain <span className="text-cyan-400">*</span>
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={studentName}
+                  onChange={(e) => {
+                    setStudentName(e.target.value);
+                    if (validationError) setValidationError(null);
+                  }}
+                  placeholder="Ketik nama lengkap/panggilan..."
+                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-[#060a14] border border-white/15 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+            </div>
 
-            return (
-              <button
-                key={charId}
-                type="button"
-                onClick={() => onSelectCharacter(charId)}
-                className={`group text-left rounded-2xl p-3 sm:p-3.5 border-2 transition-all cursor-pointer flex flex-col gap-3 ${
-                  isSelected
-                    ? 'bg-[#0e1e3e]/90 border-cyan-400 shadow-lg shadow-cyan-500/10'
-                    : 'bg-[#0b101e] hover:bg-[#0f172a] border-white/12 hover:border-white/25'
-                }`}
-              >
-                {/* Ruang Gambar Karakter */}
-                <div className="relative w-full aspect-square max-h-60 rounded-xl overflow-hidden bg-[#050811] border border-white/10 p-1.5 flex items-center justify-center">
-                  {!imgFailed ? (
-                    <img
-                      src={profile.imagePath}
-                      alt={profile.name}
-                      loading="eager"
-                      decoding="sync"
-                      fetchPriority="high"
-                      onError={() =>
-                        setFailedImages((prev) => ({ ...prev, [charId]: true }))
-                      }
-                      className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-105 drop-shadow-[0_6px_16px_rgba(0,0,0,0.45)]"
-                    />
-                  ) : (
-                    <div
-                      className={`w-16 h-16 rounded-2xl border flex items-center justify-center ${
-                        isRaka
-                          ? 'bg-cyan-500/15 border-cyan-400/40 text-cyan-300'
-                          : 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
-                      }`}
-                    >
-                      {isRaka ? (
-                        <Shield className="w-8 h-8" />
-                      ) : (
-                        <Heart className="w-8 h-8" />
-                      )}
-                    </div>
-                  )}
+            <div>
+              <label className="text-xs font-bold text-slate-200 block mb-1">
+                Kelas <span className="text-slate-500 font-normal">(Opsional)</span>
+              </label>
+              <div className="relative">
+                <GraduationCap className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={studentClass}
+                  onChange={(e) => setStudentClass(e.target.value)}
+                  placeholder="contoh: X RPL 1 atau 7A"
+                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-[#060a14] border border-white/15 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+            </div>
+          </div>
 
-                  {isSelected && (
-                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white text-slate-950 flex items-center justify-center shadow-sm">
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </div>
-                  )}
-                </div>
+          {validationError && (
+            <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{validationError}</span>
+            </div>
+          )}
+        </div>
 
-                {/* Info Karakter Singkat & Padat */}
-                <div>
-                  <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-white">
-                    {profile.name}
-                  </h3>
+        {/* Pemilihan Karakter */}
+        <div>
+          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
+            Pilih Agen Karakter
+          </span>
+          <div className="grid grid-cols-2 gap-3">
+            {CHARACTER_LIST.map((charId) => {
+              const profile = CHARACTER_REGISTRY[charId];
+              const isSelected = selectedCharacter === charId;
+              const isRaka = charId === 'raka';
+              const imgFailed = Boolean(failedImages[charId]);
 
-                  <div className="mt-1.5 px-2.5 py-2 rounded-xl bg-[#060913] border border-white/10 flex flex-col gap-0.5">
-                    <div className="flex items-center justify-between gap-1 text-[11px] font-extrabold uppercase">
-                      <span
-                        className={`flex items-center gap-1 ${
-                          isRaka ? 'text-cyan-300' : 'text-emerald-300'
+              return (
+                <button
+                  key={charId}
+                  type="button"
+                  onClick={() => onSelectCharacter(charId)}
+                  className={`group text-left rounded-2xl p-3 border-2 transition-all cursor-pointer flex flex-col gap-2.5 ${
+                    isSelected
+                      ? 'bg-[#0e1e3e]/90 border-cyan-400 shadow-lg shadow-cyan-500/10'
+                      : 'bg-[#0b101e] hover:bg-[#0f172a] border-white/12 hover:border-white/25'
+                  }`}
+                >
+                  {/* Gambar Karakter */}
+                  <div className="relative w-full aspect-square max-h-48 rounded-xl overflow-hidden bg-[#050811] border border-white/10 p-1.5 flex items-center justify-center">
+                    {!imgFailed ? (
+                      <img
+                        src={profile.imagePath}
+                        alt={profile.name}
+                        loading="eager"
+                        decoding="sync"
+                        fetchPriority="high"
+                        onError={() =>
+                          setFailedImages((prev) => ({ ...prev, [charId]: true }))
+                        }
+                        className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-105 drop-shadow-[0_6px_16px_rgba(0,0,0,0.45)]"
+                      />
+                    ) : (
+                      <div
+                        className={`w-14 h-14 rounded-2xl border flex items-center justify-center ${
+                          isRaka
+                            ? 'bg-cyan-500/15 border-cyan-400/40 text-cyan-300'
+                            : 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
                         }`}
                       >
                         {isRaka ? (
-                          <Shield className="w-3 h-3 shrink-0" />
+                          <Shield className="w-7 h-7" />
                         ) : (
-                          <Heart className="w-3 h-3 shrink-0" />
+                          <Heart className="w-7 h-7" />
                         )}
-                        <span>{profile.abilityName}</span>
+                      </div>
+                    )}
+
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-sm">
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info Karakter */}
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black uppercase tracking-tight text-white">
+                      {profile.name}
+                    </h3>
+                    <div className="mt-1 px-2 py-1 rounded-lg bg-[#060913] border border-white/10 flex items-center justify-between gap-1 text-[11px] font-semibold">
+                      <span className={isRaka ? 'text-cyan-300' : 'text-emerald-300'}>
+                        {profile.abilityName}
                       </span>
-                      <span className="text-slate-400 tabular-nums">
-                        CD {profile.abilityCooldownSeconds / 60}m
+                      <span className="text-slate-400">
+                        {profile.abilityCooldownSeconds / 60}m
                       </span>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-300">
-                      {isRaka ? 'Kebal tembakan 6 detik' : 'Pulihkan +20% HP'}
-                    </span>
                   </div>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Tombol Aksi */}
-        <div className="flex items-center gap-2.5 pt-1">
+        <div className="flex items-center gap-2.5 pt-2 border-t border-white/10">
           <button
             type="button"
             onClick={onClose}
@@ -160,12 +240,12 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
 
           <button
             type="button"
-            onClick={onConfirmStart}
+            onClick={handleStart}
             data-start="true"
-            className="flex-1 h-11 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+            className="flex-1 h-11 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
           >
-            <Play className="w-4 h-4 fill-current text-blue-700" />
-            <span>MULAI</span>
+            <Play className="w-4 h-4 fill-current text-slate-950" />
+            <span>MULAI MISI</span>
             {isGamepadConnected && <GamepadBadge button="A" visible size="sm" />}
           </button>
         </div>

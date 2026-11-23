@@ -11,6 +11,12 @@ import {
   clearSupabaseCredentials,
 } from '../../lib/supabase';
 import {
+  LKPD_QUIZ_QUESTIONS,
+  LKPD_REFLECTION_PROMPTS,
+  LKPD_LAB_CHALLENGES,
+} from '../../game/lkpd';
+import { getColorDef } from '../../game/colors';
+import {
   Search,
   Download,
   RefreshCw,
@@ -18,8 +24,14 @@ import {
   X,
   Settings,
   Check,
-  FileSpreadsheet,
   LogOut,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  Trophy,
+  BookOpen,
+  Gamepad2,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -27,7 +39,10 @@ interface AdminDashboardProps {
   onLogout?: () => void;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, onLogout }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({
+  onBackToGame,
+  onLogout,
+}) => {
   const [students, setStudents] = useState<UnifiedStudentRow[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -85,7 +100,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
     };
   }, [loadData]);
 
-  // Buka modal config & isi field yang ada
+  // Buka modal config
   const handleOpenConfig = () => {
     const creds = getSupabaseCredentials();
     setDbUrl(creds.url);
@@ -107,14 +122,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
     clearSupabaseCredentials();
     setDbUrl('');
     setDbKey('');
-    setConfigSuccessMsg('Pengaturan Supabase dibersihkan. Beralih ke penyimpanan lokal.');
+    setConfigSuccessMsg('Pengaturan Supabase dibersihkan.');
     setTimeout(() => {
       setShowConfigModal(false);
       loadData();
     }, 900);
   };
 
-  // Daftar opsi kelas
+  // Daftar kelas
   const classList = useMemo(() => {
     const set = new Set<string>();
     students.forEach((s) => {
@@ -130,7 +145,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
       const matchSearch =
         !q ||
         s.student_name.toLowerCase().includes(q) ||
-        s.student_absent.toLowerCase().includes(q);
+        s.student_class.toLowerCase().includes(q);
 
       const matchClass = selectedClass === 'all' || s.student_class === selectedClass;
 
@@ -172,7 +187,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
     return { total, avgScore, avgLkpd, wonCount, wonRate };
   }, [students]);
 
-  // Ekspor ke CSV
+  // Ekspor CSV
   const handleExportCSV = () => {
     if (filteredStudents.length === 0) return;
 
@@ -180,7 +195,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
       'No',
       'Nama Siswa',
       'Kelas',
-      'No Absen',
       'Stage Terakhir',
       'Status Game',
       'Skor Game',
@@ -192,7 +206,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
     ];
 
     const rows = filteredStudents.map((s, idx) => {
-      const stageLabel = s.won ? 'Tamat (Boss)' : s.stage_reached > 0 ? `Stage ${s.stage_reached}` : '-';
+      const stageLabel = s.won
+        ? 'Tamat (Boss)'
+        : s.stage_reached > 0
+        ? `Stage ${s.stage_reached}`
+        : '-';
       const statusLabel = s.won ? 'Menang' : s.stage_reached > 0 ? 'Gugur' : '-';
       const timeStr = s.lkpd_submitted_at || s.last_played_at;
       const dateFormatted = timeStr ? new Date(timeStr).toLocaleString('id-ID') : '-';
@@ -200,8 +218,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
       return [
         idx + 1,
         `"${s.student_name.replace(/"/g, '""')}"`,
-        `"${s.student_class.replace(/"/g, '""')}"`,
-        `"${s.student_absent.replace(/"/g, '""')}"`,
+        `"${(s.student_class || '-').replace(/"/g, '""')}"`,
         stageLabel,
         statusLabel,
         s.score,
@@ -226,27 +243,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
   return (
     <div className="w-full min-h-screen bg-[#070b14] text-slate-100 flex flex-col font-sans select-text">
       {/* ====================================================================
-          HEADER UTAMA (RINGKAS & BERSIH)
+          HEADER UTAMA (BERSIH, PROFESIONAL, KONTRASTING)
          ==================================================================== */}
-      <header className="border-b border-white/10 bg-[#090e1c] px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-30">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="border-b border-white/10 bg-[#090e1c] px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-30">
+        <div className="flex items-center gap-3.5 min-w-0">
           <button
             type="button"
             onClick={onBackToGame}
-            title="Kembali ke Game"
+            title="Kembali ke Permainan"
             className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="min-w-0">
             <h1 className="text-base sm:text-lg font-bold text-white tracking-tight uppercase leading-tight truncate">
-              Panel Rekap &amp; Progres Siswa
+              Panel Pengajar · Color Mission
             </h1>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-xs text-slate-400 font-medium">COLOR MISSION</span>
+              <span className="text-xs text-slate-400 font-medium">Rekapitulasi Siswa</span>
               <span className="text-slate-600">·</span>
               <span
-                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
                   supabaseActive
                     ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                     : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
@@ -257,7 +274,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
                     supabaseActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
                   }`}
                 />
-                {supabaseActive ? 'Supabase Terhubung' : 'Penyimpanan Lokal'}
+                {supabaseActive ? 'Supabase Aktif' : 'Penyimpanan Lokal'}
               </span>
             </div>
           </div>
@@ -267,7 +284,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
           <button
             type="button"
             onClick={loadData}
-            title="Muat Ulang Data"
+            title="Segarkan Data"
             disabled={isLoading}
             className="h-9 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
@@ -278,7 +295,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
           <button
             type="button"
             onClick={handleExportCSV}
-            title="Unduh Rekap CSV"
+            title="Unduh Rekap Spreadsheet (.CSV)"
             disabled={filteredStudents.length === 0}
             className="h-9 px-3.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
           >
@@ -289,7 +306,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
           <button
             type="button"
             onClick={handleOpenConfig}
-            title="Pengaturan Database Supabase"
+            title="Pengaturan Supabase"
             className="h-9 w-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <Settings className="w-4 h-4" />
@@ -310,13 +327,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
       </header>
 
       {/* ====================================================================
-          METRICS BAR: 4 KOTAK RINGKAS (ANTI-SLOP, HIGH DENSITY)
+          METRICS BAR: 4 KOTAK RINGKAS PROFESIONAL
          ==================================================================== */}
-      <section className="px-4 sm:px-6 pt-5 pb-3">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <section className="px-4 sm:px-8 pt-6 pb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
           <div className="bg-[#0c1222] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-              Total Siswa
+              Total Siswa Terdaftar
             </span>
             <div className="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-white">
               {stats.total}
@@ -334,7 +351,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
 
           <div className="bg-[#0c1222] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-              Rata-rata LKPD
+              Rata-rata Nilai LKPD
             </span>
             <div className="mt-2 text-2xl sm:text-3xl font-bold tabular-nums text-emerald-400">
               {stats.avgLkpd}
@@ -357,15 +374,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
       {/* ====================================================================
           TOOLBAR PENCARIAN & FILTER
          ==================================================================== */}
-      <section className="px-4 sm:px-6 py-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <section className="px-4 sm:px-8 py-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari nama atau nomor absen..."
-            className="w-full h-9 pl-9 pr-3 rounded-xl bg-[#0c1222] border border-white/12 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
+            placeholder="Cari nama siswa atau kelas..."
+            className="w-full h-9 pl-9 pr-3 rounded-xl bg-[#0c1222] border border-white/12 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
           />
         </div>
 
@@ -399,103 +416,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
       </section>
 
       {/* ====================================================================
-          TABEL DATA SISWA
+          TABEL DATA RINGKAS & FOKUS (HANYA INFO PENTING)
          ==================================================================== */}
-      <main className="flex-1 px-4 sm:px-6 py-3 overflow-x-auto">
-        <div className="border border-white/10 rounded-2xl bg-[#090e1c] overflow-hidden min-w-[760px]">
+      <main className="flex-1 px-4 sm:px-8 py-3">
+        <div className="border border-white/10 rounded-2xl bg-[#090e1c] overflow-hidden">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-white/10 bg-[#0c1326] text-slate-400 uppercase font-semibold tracking-wider">
-                <th className="py-3 px-3.5 w-12 text-center">No</th>
-                <th className="py-3 px-4">Nama Siswa</th>
-                <th className="py-3 px-3">Kelas</th>
-                <th className="py-3 px-3 text-center">Absen</th>
-                <th className="py-3 px-3">Stage Terakhir</th>
-                <th className="py-3 px-3.5 text-right">Skor Game</th>
-                <th className="py-3 px-3 text-right">Akurasi</th>
-                <th className="py-3 px-3.5 text-center">Nilai LKPD</th>
-                <th className="py-3 px-3.5">Waktu Terakhir</th>
-                <th className="py-3 px-3 text-center w-20">Aksi</th>
+                <th className="py-3.5 px-4 w-12 text-center">No</th>
+                <th className="py-3.5 px-5">Nama Siswa</th>
+                <th className="py-3.5 px-4">Kelas</th>
+                <th className="py-3.5 px-4">Status Progres</th>
+                <th className="py-3.5 px-4 text-center w-28">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/6 text-slate-200 font-normal">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400 text-sm">
-                    {isLoading ? 'Memuat data siswa...' : 'Belum ada data siswa yang cocok.'}
+                  <td colSpan={5} className="py-12 text-center text-slate-400 text-sm">
+                    {isLoading ? 'Memuat data siswa...' : 'Belum ada data siswa tercatat.'}
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((s, idx) => {
-                  const timeFormatted = s.lkpd_submitted_at || s.last_played_at;
-                  return (
-                    <tr
-                      key={`${s.student_name}_${s.student_class}_${idx}`}
-                      className="hover:bg-white/[0.03] transition-colors"
-                    >
-                      <td className="py-3 px-3.5 text-center text-slate-500 font-mono text-[11px]">
-                        {idx + 1}
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-white">
-                        {s.student_name}
-                      </td>
-                      <td className="py-3 px-3 text-slate-300">
-                        {s.student_class}
-                      </td>
-                      <td className="py-3 px-3 text-center tabular-nums text-slate-400">
-                        {s.student_absent}
-                      </td>
-                      <td className="py-3 px-3">
+                filteredStudents.map((s, idx) => (
+                  <tr
+                    key={`${s.student_name}_${s.student_class}_${idx}`}
+                    className="hover:bg-white/[0.03] transition-colors"
+                  >
+                    <td className="py-3.5 px-4 text-center text-slate-500 font-mono text-[11px]">
+                      {idx + 1}
+                    </td>
+                    <td className="py-3.5 px-5 font-semibold text-white text-sm">
+                      {s.student_name}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-300">
+                      {s.student_class && s.student_class !== '-' ? (
+                        <span className="px-2 py-0.5 rounded-md bg-white/6 border border-white/10 font-medium">
+                          {s.student_class}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 italic">Tanpa Kelas</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2">
                         {s.won ? (
-                          <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold">
-                            Tamat (Menang)
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold">
+                            <Check className="w-3 h-3" />
+                            <span>Tamat (Menang)</span>
                           </span>
                         ) : s.stage_reached > 0 ? (
-                          <span className="inline-block px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium">
-                            Stage {s.stage_reached}
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] font-medium">
+                            <span>Stage {s.stage_reached}</span>
                           </span>
                         ) : (
-                          <span className="text-slate-500">-</span>
+                          <span className="text-slate-500 text-[11px]">-</span>
                         )}
-                      </td>
-                      <td className="py-3 px-3.5 text-right tabular-nums font-bold text-white">
-                        {s.score > 0 ? s.score.toLocaleString('id-ID') : '-'}
-                      </td>
-                      <td className="py-3 px-3 text-right tabular-nums text-slate-300">
-                        {s.accuracy > 0 ? `${s.accuracy}%` : '-'}
-                      </td>
-                      <td className="py-3 px-3.5 text-center">
-                        {s.lkpd_submitted && s.lkpd_score !== null ? (
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-md font-bold text-xs ${
-                              s.lkpd_score >= 80
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                : s.lkpd_score >= 60
-                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                            }`}
-                          >
-                            {s.lkpd_score}
+
+                        {s.lkpd_submitted && s.lkpd_score !== null && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[11px] font-semibold">
+                            LKPD: {s.lkpd_score}/100
                           </span>
-                        ) : (
-                          <span className="text-slate-500 text-[11px]">Belum</span>
                         )}
-                      </td>
-                      <td className="py-3 px-3.5 text-slate-400 text-[11px] tabular-nums whitespace-nowrap">
-                        {timeFormatted ? new Date(timeFormatted).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setActiveStudent(s)}
-                          className="px-2.5 py-1 rounded-lg bg-white/6 hover:bg-white/12 border border-white/10 text-cyan-300 hover:text-cyan-200 text-xs font-semibold transition-colors cursor-pointer"
-                        >
-                          Detail
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setActiveStudent(s)}
+                        className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition-all cursor-pointer shadow-sm inline-flex items-center gap-1.5"
+                      >
+                        <span>Detail</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -503,137 +499,284 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
       </main>
 
       {/* ====================================================================
-          DRAWER DETAIL SISWA (SLIDE-OVER PANEL)
+          KARTU PAPAN DETAIL SISWA (MODAL BOARD LENGKAP & SISTEMATIS)
          ==================================================================== */}
       {activeStudent && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end">
-          <div className="w-full max-w-lg bg-[#0a0f1d] border-l border-white/12 h-full flex flex-col p-6 overflow-y-auto">
-            {/* Header Drawer */}
-            <div className="flex items-center justify-between pb-4 border-b border-white/10">
-              <div>
-                <h3 className="text-lg font-bold text-white leading-tight">
-                  {activeStudent.student_name}
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Kelas {activeStudent.student_class} · No. Absen {activeStudent.student_absent}
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="w-full max-w-3xl bg-[#090e1c] border border-white/15 rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden my-auto">
+            {/* Header Papan Kartu */}
+            <div className="p-5 sm:p-6 border-b border-white/10 bg-[#060a14] flex items-center justify-between gap-4 shrink-0">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight truncate">
+                    {activeStudent.student_name}
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-md bg-white/10 text-slate-300 text-xs font-semibold shrink-0">
+                    {activeStudent.student_class && activeStudent.student_class !== '-'
+                      ? `Kelas ${activeStudent.student_class}`
+                      : 'Tanpa Kelas'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Waktu Tercatat:{' '}
+                  {activeStudent.lkpd_submitted_at || activeStudent.last_played_at
+                    ? new Date(
+                        activeStudent.lkpd_submitted_at || activeStudent.last_played_at
+                      ).toLocaleString('id-ID', {
+                        dateStyle: 'full',
+                        timeStyle: 'medium',
+                      })
+                    : '-'}
                 </p>
               </div>
+
               <button
                 type="button"
                 onClick={() => setActiveStudent(null)}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                title="Tutup Papan"
+                className="p-2 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Konten Detail */}
-            <div className="py-5 flex flex-col gap-5 text-xs">
-              {/* Progres Game */}
-              <div className="bg-[#0e1526] border border-white/8 rounded-2xl p-4">
-                <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-3">
-                  Ringkasan Game 3D
-                </h4>
-                <div className="grid grid-cols-2 gap-3 text-slate-300">
-                  <div>
-                    <span className="text-slate-500 block">Stage Terakhir:</span>
-                    <span className="font-semibold text-white text-sm">
+            {/* Isi Papan: Scrollable */}
+            <div className="p-5 sm:p-6 overflow-y-auto flex flex-col gap-5 text-xs">
+              {/* Seksi 1: Performa Game 3D */}
+              <div className="bg-[#0c1222] border border-white/10 rounded-2xl p-4 sm:p-5">
+                <div className="flex items-center gap-2 mb-3 text-cyan-400 font-bold uppercase tracking-wider text-xs">
+                  <Gamepad2 className="w-4 h-4" />
+                  <span>Capaian Permainan Game 3D</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-slate-300">
+                  <div className="bg-black/25 p-3 rounded-xl border border-white/6">
+                    <span className="text-slate-500 block text-[11px]">Skor Akhir</span>
+                    <span className="text-lg font-black text-cyan-300 tabular-nums">
+                      {activeStudent.score.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+
+                  <div className="bg-black/25 p-3 rounded-xl border border-white/6">
+                    <span className="text-slate-500 block text-[11px]">Stage Terakhir</span>
+                    <span className="text-sm font-bold text-white block mt-1">
                       {activeStudent.won
-                        ? 'Tamat (Boss Kalah)'
+                        ? 'Tamat (Boss Menang)'
                         : activeStudent.stage_reached > 0
                         ? `Stage ${activeStudent.stage_reached}`
                         : '-'}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-slate-500 block">Skor Akhir:</span>
-                    <span className="font-semibold text-white text-sm tabular-nums">
-                      {activeStudent.score.toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Akurasi Laser:</span>
-                    <span className="font-semibold text-white text-sm tabular-nums">
+
+                  <div className="bg-black/25 p-3 rounded-xl border border-white/6">
+                    <span className="text-slate-500 block text-[11px]">Akurasi Laser</span>
+                    <span className="text-lg font-black text-emerald-300 tabular-nums">
                       {activeStudent.accuracy}%
                     </span>
                   </div>
-                  <div>
-                    <span className="text-slate-500 block">Kombo Maksimal:</span>
-                    <span className="font-semibold text-white text-sm tabular-nums">
+
+                  <div className="bg-black/25 p-3 rounded-xl border border-white/6">
+                    <span className="text-slate-500 block text-[11px]">Kombo Maksimum</span>
+                    <span className="text-lg font-black text-amber-300 tabular-nums">
                       {activeStudent.best_combo}x
                     </span>
                   </div>
-                  <div>
-                    <span className="text-slate-500 block">Karakter / Kesulitan:</span>
-                    <span className="font-semibold text-white capitalize">
-                      {activeStudent.character_id} / {activeStudent.difficulty}
+
+                  <div className="bg-black/25 p-3 rounded-xl border border-white/6">
+                    <span className="text-slate-500 block text-[11px]">Agen Karakter</span>
+                    <span className="text-xs font-bold text-white capitalize block mt-1">
+                      {activeStudent.character_id}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-slate-500 block">Durasi Bermain:</span>
-                    <span className="font-semibold text-white tabular-nums">
-                      {Math.floor(activeStudent.play_duration_seconds / 60)}m {activeStudent.play_duration_seconds % 60}s
+
+                  <div className="bg-black/25 p-3 rounded-xl border border-white/6">
+                    <span className="text-slate-500 block text-[11px]">Tingkat Kesulitan</span>
+                    <span className="text-xs font-bold text-white capitalize block mt-1">
+                      {activeStudent.difficulty}
+                    </span>
+                  </div>
+
+                  <div className="bg-black/25 p-3 rounded-xl border border-white/6 col-span-2">
+                    <span className="text-slate-500 block text-[11px]">Durasi Bermain</span>
+                    <span className="text-xs font-bold text-white block mt-1">
+                      {Math.floor(activeStudent.play_duration_seconds / 60)} Menit{' '}
+                      {activeStudent.play_duration_seconds % 60} Detik
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Progres LKPD */}
-              <div className="bg-[#0e1526] border border-white/8 rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                    Lembar Kerja (LKPD)
-                  </h4>
+              {/* Seksi 2: Nilai & Evaluasi LKPD */}
+              <div className="bg-[#0c1222] border border-white/10 rounded-2xl p-4 sm:p-5">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/8">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-xs">
+                    <BookOpen className="w-4 h-4" />
+                    <span>Lembar Kerja Siswa (LKPD)</span>
+                  </div>
                   {activeStudent.lkpd_submitted && (
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
-                      Nilai: {activeStudent.lkpd_score}/100
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400 font-medium">Nilai Otomatis:</span>
+                      <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black text-sm tabular-nums">
+                        {activeStudent.lkpd_score}/100
+                      </span>
+                    </div>
                   )}
                 </div>
 
                 {!activeStudent.lkpd_submitted ? (
-                  <p className="text-slate-400 italic">Siswa belum mengumpulkan LKPD.</p>
+                  <p className="text-slate-400 italic py-3 text-center">
+                    Siswa belum mengisi atau mengumpulkan lembar kerja (LKPD).
+                  </p>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-4">
+                    {/* A. Eksperimen Lab RYB */}
                     <div>
-                      <span className="text-slate-500 block mb-1">Eksperimen Lab RYB:</span>
-                      <span className="font-medium text-white">
-                        {activeStudent.lkpd_lab_count} kombinasi warna primer berhasil dipecahkan.
-                      </span>
+                      <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                        1. Eksperimen Lab Campur Warna (RYB)
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {LKPD_LAB_CHALLENGES.map((ch) => {
+                          const isSolved = (activeStudent.lab_solved_ids || []).includes(
+                            ch.targetColorId
+                          );
+                          const colorDef = getColorDef(ch.targetColorId);
+
+                          return (
+                            <div
+                              key={ch.id}
+                              className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                                isSolved
+                                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+                                  : 'bg-white/4 border-white/8 text-slate-400'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className="w-4 h-4 rounded-md border border-white/50 shrink-0"
+                                  style={{ backgroundColor: colorDef.hex }}
+                                />
+                                <span className="font-semibold text-xs truncate">
+                                  {colorDef.nameId}
+                                </span>
+                              </div>
+                              <span className="text-[11px] font-bold shrink-0">
+                                {isSolved ? 'Tercapai' : 'Belum'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    {/* Jawaban Refleksi Esai */}
-                    {activeStudent.reflection_answers && (
-                      <div className="mt-2 pt-3 border-t border-white/8">
-                        <span className="text-slate-400 font-semibold block mb-2">
-                          Esai Refleksi Siswa:
-                        </span>
-                        <div className="flex flex-col gap-2.5">
-                          {Object.entries(activeStudent.reflection_answers).map(([key, val]) => (
-                            <div key={key} className="bg-black/30 rounded-xl p-3 border border-white/6">
-                              <span className="text-[11px] text-slate-500 uppercase block font-mono mb-1">
-                                {key}
-                              </span>
-                              <p className="text-slate-200 leading-relaxed whitespace-pre-wrap">
-                                {val || '-'}
-                              </p>
+                    {/* B. Rincian Jawaban Kuis Pilihan Ganda */}
+                    <div className="pt-2">
+                      <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                        2. Jawaban Kuis Pilihan Ganda
+                      </h4>
+                      <div className="flex flex-col gap-2.5">
+                        {LKPD_QUIZ_QUESTIONS.map((q, idx) => {
+                          const studentAnswerId = activeStudent.quiz_answers?.[q.id];
+                          const isCorrect = studentAnswerId === q.correctOptionId;
+                          const studentOption = q.options.find(
+                            (opt) => opt.id === studentAnswerId
+                          );
+                          const correctOption = q.options.find(
+                            (opt) => opt.id === q.correctOptionId
+                          );
+
+                          return (
+                            <div
+                              key={q.id}
+                              className="bg-black/25 rounded-xl p-3 border border-white/6 flex flex-col gap-1.5"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="font-bold text-white text-xs">
+                                  {idx + 1}. {q.question}
+                                </span>
+                                {studentAnswerId ? (
+                                  isCorrect ? (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md shrink-0">
+                                      <CheckCircle2 className="w-3 h-3" /> Benar
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-400 bg-red-500/15 px-2 py-0.5 rounded-md shrink-0">
+                                      <XCircle className="w-3 h-3" /> Salah
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="text-[11px] text-slate-500 italic shrink-0">
+                                    Tidak Dijawab
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="text-[11px] text-slate-300 mt-0.5">
+                                <span className="text-slate-500">Jawaban Siswa: </span>
+                                <span
+                                  className={
+                                    isCorrect ? 'text-emerald-300 font-semibold' : 'text-red-300 font-semibold'
+                                  }
+                                >
+                                  {studentOption ? studentOption.label : '-'}
+                                </span>
+                                {!isCorrect && correctOption && (
+                                  <span className="text-slate-400 ml-2">
+                                    (Kunci: {correctOption.label})
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-                    )}
+                    </div>
+
+                    {/* C. Esai Refleksi Siswa */}
+                    <div className="pt-2">
+                      <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                        3. Esai Refleksi Pembelajaran Siswa
+                      </h4>
+                      <div className="flex flex-col gap-2.5">
+                        {LKPD_REFLECTION_PROMPTS.map((prompt, idx) => {
+                          const studentEssay =
+                            activeStudent.reflection_answers?.[prompt.id] ||
+                            activeStudent.reflection_answers?.[`q${idx + 1}`];
+
+                          return (
+                            <div
+                              key={prompt.id}
+                              className="bg-black/35 rounded-xl p-3 border border-white/8 flex flex-col gap-1.5"
+                            >
+                              <span className="font-bold text-slate-300 text-xs">
+                                {prompt.question}
+                              </span>
+                              <div className="p-2.5 rounded-lg bg-black/40 border border-white/6 text-slate-200 leading-relaxed whitespace-pre-wrap text-xs">
+                                {studentEssay && studentEssay.trim().length > 0 ? (
+                                  `"${studentEssay.trim()}"`
+                                ) : (
+                                  <span className="text-slate-500 italic">
+                                    (Siswa tidak mengisi jawaban esai ini)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="mt-auto pt-4 border-t border-white/10">
+            {/* Footer Papan Kartu */}
+            <div className="p-4 bg-[#060a14] border-t border-white/10 flex justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveStudent(null)}
-                className="w-full py-2.5 rounded-xl bg-white/8 hover:bg-white/12 text-white font-semibold transition-colors cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
               >
-                Tutup Panel
+                Tutup Papan
               </button>
             </div>
           </div>
@@ -660,7 +803,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
             </div>
 
             <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-              Masukkan kredensial project Supabase Anda. Nilai ini akan disimpan secara aman di browser ini atau dapat diatur via file <code className="text-cyan-300">.env</code>.
+              Masukkan kredensial project Supabase Anda jika ingin mengubah pengaturan secara langsung.
             </p>
 
             <div className="mt-4 flex flex-col gap-3 text-xs">
@@ -704,7 +847,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
                 onClick={handleClearConfig}
                 className="px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-semibold cursor-pointer transition-colors"
               >
-                Hapus / Mode Lokal
+                Hapus Kredensial
               </button>
 
               <div className="flex items-center gap-2">
@@ -730,4 +873,3 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToGame, on
     </div>
   );
 };
-

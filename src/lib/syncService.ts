@@ -50,6 +50,7 @@ export interface UnifiedStudentRow {
   lkpd_score: number | null;
   lkpd_lab_count: number;
   lkpd_submitted_at: string | null;
+  lab_solved_ids?: string[];
   reflection_answers?: Record<string, string>;
   quiz_answers?: Record<string, string>;
 }
@@ -298,6 +299,7 @@ export async function getUnifiedStudentData(): Promise<UnifiedStudentRow[]> {
       existing.lkpd_score = l.objective_score;
       existing.lkpd_lab_count = Array.isArray(l.lab_solved_ids) ? l.lab_solved_ids.length : 0;
       existing.lkpd_submitted_at = l.submitted_at;
+      existing.lab_solved_ids = l.lab_solved_ids;
       existing.reflection_answers = l.reflection_answers;
       existing.quiz_answers = l.quiz_answers;
       if (existing.student_absent === '-' && l.student_absent !== '-') {
@@ -321,6 +323,7 @@ export async function getUnifiedStudentData(): Promise<UnifiedStudentRow[]> {
         lkpd_score: l.objective_score,
         lkpd_lab_count: Array.isArray(l.lab_solved_ids) ? l.lab_solved_ids.length : 0,
         lkpd_submitted_at: l.submitted_at,
+        lab_solved_ids: l.lab_solved_ids,
         reflection_answers: l.reflection_answers,
         quiz_answers: l.quiz_answers,
       });
