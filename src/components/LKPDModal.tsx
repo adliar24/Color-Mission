@@ -807,7 +807,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
           )}
 
           {/* ==============================================================
-              TAB 4: ANALISIS & REFLEKSI SISWA (3 PERTANYAAN ESAI)
+              TAB 4: ANALISIS & REFLEKSI SISWA (PERTANYAAN ESAI)
              ============================================================== */}
           {activeTab === 'refleksi' && (
             <div className="space-y-4">
@@ -817,7 +817,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     REFLEKSI SISWA
                   </span>
                   <p className="text-sm text-slate-200 mt-0.5">
-                    Jawab singkat sesuai pengalamanmu bermain Stage 1–3.
+                    Jawab sesuai pengalaman dan hal yang kamu dapatkan setelah menyelesaikan game.
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-xl bg-white text-slate-950 text-xs sm:text-sm font-black shrink-0 tabular-nums">
@@ -826,7 +826,10 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
               </div>
 
               {LKPD_REFLECTION_PROMPTS.map((prompt) => {
-                const val = submission.reflectionAnswers[prompt.id] || '';
+                const val =
+                  submission.reflectionAnswers[prompt.id] ||
+                  submission.reflectionAnswers['ref_1_kategori'] ||
+                  '';
                 return (
                   <div
                     key={prompt.id}
@@ -836,7 +839,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                       {prompt.question}
                     </label>
                     <textarea
-                      rows={3}
+                      rows={5}
                       value={val}
                       onChange={(e) =>
                         setSubmission((prev) => ({

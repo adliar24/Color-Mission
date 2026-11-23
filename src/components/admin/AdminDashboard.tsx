@@ -958,6 +958,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {LKPD_REFLECTION_PROMPTS.map((prompt, idx) => {
                           const studentEssay =
                             activeStudent.reflection_answers?.[prompt.id] ||
+                            activeStudent.reflection_answers?.['ref_kesan'] ||
+                            activeStudent.reflection_answers?.['ref_1_kategori'] ||
                             activeStudent.reflection_answers?.[`q${idx + 1}`];
 
                           return (

@@ -362,7 +362,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
   const [vrLkpdReflectionAnswers, setVrLkpdReflectionAnswers] = useState<Record<string, string>>(() => {
     return loadLKPDSubmission().reflectionAnswers || {};
   });
-  const [vrLkpdActiveReflectionPrompt, setVrLkpdActiveReflectionPrompt] = useState<string>('ref_1_kategori');
+  const [vrLkpdActiveReflectionPrompt, setVrLkpdActiveReflectionPrompt] = useState<string>('ref_kesan');
   const [vrLkpdScore, setVrLkpdScore] = useState<LKPDScoreBreakdown | undefined>(() => {
     const sub = loadLKPDSubmission();
     return sub.completedAt ? calculateLKPDScore(sub) : undefined;

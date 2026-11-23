@@ -364,7 +364,7 @@ export class VRSpatialMenu {
       lkpdQIdx: state.vrLkpdQuizIndex ?? 0,
       lkpdQAns: JSON.stringify(state.vrLkpdQuizAnswers || {}),
       lkpdRefAns: JSON.stringify(state.vrLkpdReflectionAnswers || {}),
-      lkpdRefPrompt: state.vrLkpdActiveReflectionPrompt || 'ref_1_kategori',
+      lkpdRefPrompt: state.vrLkpdActiveReflectionPrompt || 'ref_kesan',
       lkpdScore: state.vrLkpdScore ? state.vrLkpdScore.objectiveScore : 0,
     });
     if (sig === this.lastSignature || !this.ctx) return;
@@ -1788,11 +1788,9 @@ export class VRSpatialMenu {
    * Papan Evaluasi LKPD Langkah 3: Lembar Refleksi & Analisis Siswa di VR
    */
   private drawVRLkpdReflectionBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
-    const activePromptId = state.vrLkpdActiveReflectionPrompt || 'ref_1_kategori';
-    const activePrompt =
-      LKPD_REFLECTION_PROMPTS.find((p) => p.id === activePromptId) || LKPD_REFLECTION_PROMPTS[0];
+    const activePrompt = LKPD_REFLECTION_PROMPTS[0];
     const refAnswers = state.vrLkpdReflectionAnswers || {};
-    const curAnswer = refAnswers[activePrompt.id] || '';
+    const curAnswer = refAnswers[activePrompt.id] || refAnswers['ref_1_kategori'] || '';
 
     // Header Badge
     ctx.fillStyle = '#0284c7';
@@ -1810,68 +1808,26 @@ export class VRSpatialMenu {
     ctx.fillStyle = '#ffffff';
     ctx.fillText('LEMBAR REFLEKSI & ANALISIS SISWA', CANVAS_W / 2, 88);
 
-    // 3 Tab Pilihan Pertanyaan Refleksi
-    const tabY = 104;
-    const tabW = 296;
-    const tabH = 38;
-    const tabGap = 14;
-    const tabStartX = (CANVAS_W - (3 * tabW + 2 * tabGap)) / 2;
-
-    LKPD_REFLECTION_PROMPTS.forEach((p, idx) => {
-      const tx = tabStartX + idx * (tabW + tabGap);
-      const isTabActive = activePromptId === p.id;
-      const isAnswered = (refAnswers[p.id] || '').trim().length >= 8;
-
-      this.buttons.push({
-        id: `vr_lkpd_reflection_select_${p.id}` as VRMenuAction,
-        label: '',
-        x: tx,
-        y: tabY,
-        w: tabW,
-        h: tabH,
-        variant: isTabActive ? 'primary' : 'secondary',
-      });
-
-      ctx.fillStyle = isTabActive ? '#0284c7' : isAnswered ? '#0f291e' : '#0f172a';
-      ctx.beginPath();
-      ctx.roundRect(tx, tabY, tabW, tabH, 12);
-      ctx.fill();
-      ctx.strokeStyle = isTabActive ? '#38bdf8' : isAnswered ? '#10b981' : 'rgba(255, 255, 255, 0.12)';
-      ctx.lineWidth = isTabActive ? 2.5 : 1.2;
-      ctx.stroke();
-
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = '800 13px Inter, system-ui, sans-serif';
-      ctx.fillStyle = isTabActive ? '#ffffff' : isAnswered ? '#34d399' : '#94a3b8';
-      const shortLabels = ['1. Kategori Warna', '2. Strategi Main', '3. Refleksi Belajar'];
-      ctx.fillText(
-        `${shortLabels[idx]} ${isAnswered ? '✔' : ''}`,
-        tx + tabW / 2,
-        tabY + tabH / 2
-      );
-    });
-
-    // Box Pertanyaan Aktif
+    // Box Pertanyaan Aktif (Tunggal & Jelas)
     const pBoxX = 54;
-    const pBoxY = 150;
+    const pBoxY = 106;
     const pBoxW = 916;
-    const pBoxH = 46;
+    const pBoxH = 50;
 
     ctx.fillStyle = '#0b1325';
     ctx.beginPath();
-    ctx.roundRect(pBoxX, pBoxY, pBoxW, pBoxH, 12);
+    ctx.roundRect(pBoxX, pBoxY, pBoxW, pBoxH, 14);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+    ctx.lineWidth = 1.8;
     ctx.stroke();
 
-    // Badge SOAL
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
+    // Badge REFLEKSI SISWA
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
     ctx.beginPath();
-    ctx.roundRect(pBoxX + 10, pBoxY + 10, 56, 26, 8);
+    ctx.roundRect(pBoxX + 12, pBoxY + 10, 116, 30, 8);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -1879,24 +1835,24 @@ export class VRSpatialMenu {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#38bdf8';
     ctx.font = '800 11px Inter, system-ui, sans-serif';
-    ctx.fillText('SOAL', pBoxX + 38, pBoxY + 23);
+    ctx.fillText('REFLEKSI SISWA', pBoxX + 70, pBoxY + 25);
 
     // Teks Pertanyaan
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#f8fafc';
-    ctx.font = '700 15px Inter, system-ui, sans-serif';
-    ctx.fillText(activePrompt.question, pBoxX + 76, pBoxY + 23);
+    ctx.font = '700 17px Inter, system-ui, sans-serif';
+    ctx.fillText(activePrompt.question, pBoxX + 140, pBoxY + 25);
 
     // Box Input Respon Siswa
-    const inBoxY = 204;
-    const inBoxH = 54;
+    const inBoxY = 168;
+    const inBoxH = 68;
     ctx.fillStyle = '#080e1a';
     ctx.beginPath();
     ctx.roundRect(pBoxX, inBoxY, pBoxW, inBoxH, 14);
     ctx.fill();
     ctx.strokeStyle = '#22d3ee';
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
     // Pastikan teks jawaban tidak tembus kotak input jika panjang
@@ -1906,13 +1862,12 @@ export class VRSpatialMenu {
     ctx.clip();
 
     ctx.textBaseline = 'middle';
-    ctx.font = '700 17px Inter, system-ui, sans-serif';
+    ctx.font = '700 18px Inter, system-ui, sans-serif';
     if (curAnswer) {
       const answerDisplay = curAnswer + '|';
       const textW = ctx.measureText(answerDisplay).width;
       const maxW = pBoxW - 40;
       if (textW > maxW) {
-        // Jika teks lebih panjang dari kotak, ratakan ke kanan agar kursor dan ketikan terakhir selalu terlihat
         ctx.textAlign = 'right';
         ctx.fillStyle = '#f8fafc';
         ctx.fillText(answerDisplay, pBoxX + pBoxW - 20, inBoxY + inBoxH / 2);
@@ -1928,18 +1883,16 @@ export class VRSpatialMenu {
     }
     ctx.restore();
 
-    // Chip Kata Kunci Cepat (1-Tap Suggestion Chips per pertanyaan dengan font presisi)
-    let chips: string[] = [];
-    if (activePrompt.id === 'ref_1_kategori') {
-      chips = ['Primer: Dasar Murni', 'Sekunder: Campuran 2 Primer', 'Tersier: Primer + Sekunder'];
-    } else if (activePrompt.id === 'ref_2_strategi') {
-      chips = ['Amati Target Kristal', 'Campur Sebelum Nembak', 'Fokus Kristal Boss'];
-    } else {
-      chips = ['Lab Campur Warna', 'Lawan Boss Chroma Titan', 'Visual 3D & 360° Sangat Seru'];
-    }
+    // Chip Kata Kunci Cepat (1-Tap Suggestion Chips)
+    const chips = [
+      'Paham teori warna RYB',
+      'Bisa campur warna primer & sekunder',
+      'Menguasai strategi perlawanan boss',
+      'Game sangat seru & edukatif',
+    ];
 
-    const chipY = 266;
-    const chipH = 32;
+    const chipY = 248;
+    const chipH = 34;
     ctx.font = '800 11px Inter, system-ui, sans-serif';
     ctx.fillStyle = '#94a3b8';
     ctx.textAlign = 'left';
@@ -1975,8 +1928,8 @@ export class VRSpatialMenu {
       ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
     ];
 
-    const startY = 306;
-    const rowHeight = 42;
+    const startY = 294;
+    const rowHeight = 44;
     const rowGap = 6;
 
     kbRows.forEach((row, rIdx) => {
@@ -2048,8 +2001,8 @@ export class VRSpatialMenu {
     });
 
     // === BARIS NAVIGASI BAWAH ===
-    const navY = 556;
-    const navH = 50;
+    const navY = 554;
+    const navH = 52;
     this.drawButton(ctx, {
       id: 'vr_lkpd_open_quiz',
       label: '⬅ KEMBALI KE KUIS',
@@ -2146,8 +2099,8 @@ export class VRSpatialMenu {
     const labTotal = state.vrLkpdScore ? state.vrLkpdScore.labTotal : 5;
     const quizCorrect = state.vrLkpdScore ? state.vrLkpdScore.quizCorrect : 6;
     const quizTotal = state.vrLkpdScore ? state.vrLkpdScore.quizTotal : 6;
-    const refCount = state.vrLkpdScore ? state.vrLkpdScore.reflectionAnswered : 3;
-    const refTotal = state.vrLkpdScore ? state.vrLkpdScore.reflectionTotal : 3;
+    const refCount = state.vrLkpdScore ? state.vrLkpdScore.reflectionAnswered : 1;
+    const refTotal = state.vrLkpdScore ? state.vrLkpdScore.reflectionTotal : 1;
 
     const metrics = [
       { label: 'LAB CAMPUR WARNA', val: `${labCorrect}/${labTotal} Selesai` },

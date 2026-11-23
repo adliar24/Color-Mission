@@ -253,26 +253,13 @@ export const LKPD_QUIZ_QUESTIONS: LKPDQuizQuestion[] = [
 ];
 
 /**
- * 3 Pertanyaan Esai Analisis & Refleksi Siswa.
+ * Pertanyaan Esai Analisis & Refleksi Siswa.
  */
 export const LKPD_REFLECTION_PROMPTS: LKPDReflectionPrompt[] = [
   {
-    id: 'ref_1_kategori',
-    question:
-      '1. Apa perbedaan Warna Primer, Sekunder, dan Tersier di Stage 1–3?',
-    placeholder: 'Jelaskan singkat beserta contohnya...',
-  },
-  {
-    id: 'ref_2_strategi',
-    question:
-      '2. Bagaimana strategimu menentukan warna campuran & kristal Boss?',
-    placeholder: 'Ceritakan strategimu saat bermain...',
-  },
-  {
-    id: 'ref_3_refleksi',
-    question:
-      '3. Bagian mana yang paling membantumu memahami teori Warna Primer?',
-    placeholder: 'Tuliskan refleksi belajarmu...',
+    id: 'ref_kesan',
+    question: 'Apa yang kamu dapatkan setelah menyelesaikan game ini?',
+    placeholder: 'Tuliskan pengalaman belajarmu, pemahaman teori warna, dan hal berkesan yang kamu dapatkan...',
   },
 ];
 
@@ -324,7 +311,13 @@ export function calculateLKPDScore(submission: LKPDSubmissionState): LKPDScoreBr
 
   let reflectionAnswered = 0;
   for (const prompt of LKPD_REFLECTION_PROMPTS) {
-    if ((submission.reflectionAnswers[prompt.id] || '').trim().length >= 8) {
+    const ans = (
+      submission.reflectionAnswers[prompt.id] ||
+      submission.reflectionAnswers['ref_1_kategori'] ||
+      submission.reflectionAnswers['ref_1_kesan'] ||
+      ''
+    ).trim();
+    if (ans.length >= 8) {
       reflectionAnswered += 1;
     }
   }

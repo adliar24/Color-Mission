@@ -478,7 +478,7 @@ test('Preset kecepatan jalan & kamera (Lambat, Normal, Cepat, Kustom terpatok 10
 test('LKPD interaktif: pencampuran lab warna RYB bersifat komutatif dan perhitungan skor akurat', () => {
   assert.equal(LKPD_LAB_CHALLENGES.length, 5);
   assert.equal(LKPD_QUIZ_QUESTIONS.length, 6);
-  assert.equal(LKPD_REFLECTION_PROMPTS.length, 3);
+  assert.equal(LKPD_REFLECTION_PROMPTS.length, 1);
 
   assert.equal(mixRYBColors('red', 'yellow')?.id, 'orange');
   assert.equal(mixRYBColors('yellow', 'red')?.id, 'orange');
@@ -494,7 +494,7 @@ test('LKPD interaktif: pencampuran lab warna RYB bersifat komutatif dan perhitun
       q3_tersier_konsep: 'd',
     },
     reflectionAnswers: {
-      ref_1_kategori: 'Primer adalah merah kuning biru, sekunder campuran primer.',
+      ref_kesan: 'Game ini sangat membantu saya memahami teori warna RYB dengan seru.',
     },
   };
   const partialScore = calculateLKPDScore(partial);
@@ -514,7 +514,7 @@ test('LKPD interaktif: pencampuran lab warna RYB bersifat komutatif dan perhitun
   const fullScore = calculateLKPDScore(full);
   assert.equal(fullScore.objectiveScore, 100);
   assert.equal(fullScore.predicate, 'Sangat Baik');
-  assert.equal(fullScore.reflectionAnswered, 3);
+  assert.equal(fullScore.reflectionAnswered, 1);
 });
 
 test('Profil audio BGM membedakan tempo dan energi antara Menu (santai), Combat (energik), dan Boss (cepat ngebeat)', () => {
