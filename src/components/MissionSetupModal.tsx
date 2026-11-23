@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { GamepadBadge } from './GamepadBadge';
 import { loadLKPDSubmission, saveLKPDSubmission } from '../game/lkpd';
+import { recordInitialSessionStartAsync } from '../lib/syncService';
 
 interface MissionSetupModalProps {
   selectedCharacter: CharacterId;
@@ -81,6 +82,8 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
   };
 
   const handleFinalStart = () => {
+    const trimmedName = studentName.trim();
+    recordInitialSessionStartAsync(trimmedName, studentClass.trim() || '-', selectedCharacter);
     onConfirmStart();
   };
 

@@ -58,6 +58,22 @@ export interface UnifiedStudentRow {
 const LS_SESSIONS_HISTORY = 'color_mission_sessions_history';
 const LS_LKPD_HISTORY = 'color_mission_lkpd_history';
 
+/**
+ * Menghasilkan UUID v4 valid yang dijamin kompatibel dengan PostgreSQL UUID schema.
+ */
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch {}
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // ==============================================================================
 // LOCAL STORAGE HELPERS
 // ==============================================================================
@@ -105,6 +121,59 @@ function saveLocalLKPD(submission: LKPDSubmissionRecord): void {
 // ==============================================================================
 
 /**
+ * Mencatat awal sesi permainan begitu siswa menekan 'Mulai Misi'.
+ * Mengirimkan status awal (stage 1, score 0) ke Supabase Cloud secara realtime
+ * sehingga guru langsung dapat memantau siswa aktif di kelas dari laptop/perangkat lain.
+ */
+export async function recordInitialSessionStartAsync(
+  studentName: string,
+  studentClass: string,
+  characterId: string = 'raka',
+  difficulty: string = 'normal'
+): Promise<string> {
+  const name = (studentName || '').trim() || 'Siswa Anonim';
+  const cls = (studentClass || '').trim() || '-';
+  const recordId = generateUUID();
+
+  const record: StudentSessionRecord = {
+    id: recordId,
+    student_name: name,
+    student_class: cls,
+    student_absent: '-',
+    character_id: characterId,
+    difficulty: difficulty,
+    stage_reached: 1,
+    won: false,
+    score: 0,
+    accuracy: 100,
+    best_combo: 0,
+    kills: 0,
+    play_duration_seconds: 0,
+    created_at: new Date().toISOString(),
+  };
+
+  saveLocalSession(record);
+
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabase();
+      if (client) {
+        const { error } = await client.from('student_sessions').insert([record]);
+        if (error) {
+          console.warn('[SyncService] Supabase initial session insert error:', error.message);
+        } else {
+          console.info('[SyncService] Sesi aktif siswa terkirim ke Supabase Cloud:', name);
+        }
+      }
+    } catch (err) {
+      console.warn('[SyncService] Supabase initial session exception:', err);
+    }
+  }
+
+  return recordId;
+}
+
+/**
  * Mencatat hasil sesi game siswa (dipanggil saat game over atau tamat).
  * Menulis ke localStorage secara instan, lalu sync ke Supabase di background tanpa menghambat 60fps game.
  */
@@ -115,7 +184,7 @@ export function recordGameSessionAsync(summary: RunSummary): void {
   const absent = (lkpdCurrent.studentAbsent || '').trim() || '-';
 
   const record: StudentSessionRecord = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    id: generateUUID(),
     student_name: name,
     student_class: cls,
     student_absent: absent,
@@ -140,7 +209,12 @@ export function recordGameSessionAsync(summary: RunSummary): void {
       try {
         const client = getSupabase();
         if (!client) return;
-        await client.from('student_sessions').insert([record]);
+        const { error } = await client.from('student_sessions').insert([record]);
+        if (error) {
+          console.warn('[SyncService] Supabase session sync error:', error.message);
+        } else {
+          console.info('[SyncService] Sesi hasil game berhasil tersimpan di Supabase Cloud:', name);
+        }
       } catch (err) {
         console.warn('[SyncService] Gagal sync sesi ke Supabase:', err);
       }
@@ -177,10 +251,7 @@ export function recordLKPDSubmissionAsync(state: LKPDSubmissionState): void {
   _lastLKPDJson = jsonSignature;
 
   const record: LKPDSubmissionRecord = {
-    id:
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `lkpd_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    id: generateUUID(),
     student_name: name,
     student_class: cls,
     student_absent: absent,
@@ -200,7 +271,12 @@ export function recordLKPDSubmissionAsync(state: LKPDSubmissionState): void {
       try {
         const client = getSupabase();
         if (!client) return;
-        await client.from('lkpd_submissions').insert([record]);
+        const { error } = await client.from('lkpd_submissions').insert([record]);
+        if (error) {
+          console.warn('[SyncService] Supabase LKPD sync error:', error.message);
+        } else {
+          console.info('[SyncService] LKPD berhasil tersimpan di Supabase Cloud:', name);
+        }
       } catch (err) {
         console.warn('[SyncService] Gagal sync LKPD ke Supabase:', err);
       }

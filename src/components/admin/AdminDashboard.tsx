@@ -61,7 +61,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getUnifiedStudentData();
+      const data = await getUnifiedStudentData(true);
       setStudents(data);
     } catch (err) {
       console.warn('[AdminDashboard] Gagal memuat data siswa:', err);

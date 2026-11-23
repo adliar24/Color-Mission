@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {
+  CharacterId,
   GameSettings,
   GameState,
   RunSummary,
@@ -41,7 +42,17 @@ export type VRMenuAction =
   | 'bgm_vol_down'
   | 'bgm_vol_up'
   | 'sfx_vol_down'
-  | 'sfx_vol_up';
+  | 'sfx_vol_up'
+  | 'vr_setup_start'
+  | 'vr_setup_back_to_menu'
+  | 'vr_setup_select_name_input'
+  | 'vr_setup_select_class_input'
+  | 'vr_setup_next_to_character'
+  | 'vr_setup_back_to_identity'
+  | 'vr_setup_pick_raka'
+  | 'vr_setup_pick_rana'
+  | 'vr_setup_confirm_start'
+  | `kb_${string}`;
 
 interface MenuButtonRect {
   id: VRMenuAction;
@@ -68,6 +79,13 @@ export interface VRSpatialMenuState {
   isMuted: boolean;
   lkpdUnlocked?: boolean;
   vrWarningMsg?: string | null;
+
+  // In-Game Setup Identitas & Karakter di VR
+  vrSetupStep?: 'none' | 'identity' | 'character';
+  studentName?: string;
+  studentClass?: string;
+  activeInputField?: 'name' | 'class';
+  selectedCharacterId?: CharacterId;
 }
 
 const BOARD_WIDTH = 2.24;
@@ -97,6 +115,8 @@ export class VRSpatialMenu {
   private lastSignature = '';
   private raycaster = new THREE.Raycaster();
   private prevTriggerPressed = false;
+  private rakaImg: HTMLImageElement | null = null;
+  private ranaImg: HTMLImageElement | null = null;
 
   private static readonly ORIGIN = new THREE.Vector3();
   private static readonly QUAT = new THREE.Quaternion();
@@ -130,6 +150,19 @@ export class VRSpatialMenu {
       new THREE.MeshBasicMaterial({ visible: false })
     );
     this.group.add(this.frameMesh);
+
+    // Preload gambar karakter PNG untuk Papan Pemilihan Karakter di VR
+    if (typeof window !== 'undefined') {
+      this.rakaImg = new Image();
+      this.rakaImg.src = '/characters/agen-raka.png';
+      this.ranaImg = new Image();
+      this.ranaImg.src = '/characters/agen-naya.png';
+      const markTextureUpdate = () => {
+        this.lastSignature = ''; // trigger kanvas redraw saat gambar selesai dimuat
+      };
+      this.rakaImg.onload = markTextureUpdate;
+      this.ranaImg.onload = markTextureUpdate;
+    }
 
     this.group.visible = false;
   }
@@ -272,6 +305,11 @@ export class VRSpatialMenu {
       diff: state.settings.difficulty ?? 'normal',
       lkpd: Boolean(state.lkpdUnlocked),
       warn: state.vrWarningMsg || '',
+      setupStep: state.vrSetupStep || 'none',
+      sName: state.studentName || '',
+      sClass: state.studentClass || '',
+      actIn: state.activeInputField || 'name',
+      selChar: state.selectedCharacterId || state.settings.characterId || 'raka',
     });
     if (sig === this.lastSignature || !this.ctx) return;
     this.lastSignature = sig;
@@ -295,7 +333,13 @@ export class VRSpatialMenu {
     } else if (state.showTutorial) {
       this.drawTutorialBoard(ctx);
     } else if (state.gameState === 'title') {
-      this.drawMainMenuBoard(ctx, state);
+      if (state.vrSetupStep === 'identity') {
+        this.drawVRIdentityBoard(ctx, state);
+      } else if (state.vrSetupStep === 'character') {
+        this.drawVRCharacterBoard(ctx, state);
+      } else {
+        this.drawMainMenuBoard(ctx, state);
+      }
     } else if (state.gameState === 'stage_transition') {
       this.drawStageTransitionBoard(ctx, state);
     } else if (state.gameState === 'paused') {
@@ -438,7 +482,7 @@ export class VRSpatialMenu {
     const activeDiff = DIFFICULTY_REGISTRY[state.settings.difficulty ?? 'normal'] || DIFFICULTY_REGISTRY.normal;
 
     this.drawButton(ctx, {
-      id: 'start_mission',
+      id: 'vr_setup_start',
       label: 'MULAI MISI',
       x: bx,
       y: 222,
@@ -521,6 +565,369 @@ export class VRSpatialMenu {
       ctx.textBaseline = 'middle';
       ctx.fillText(state.vrWarningMsg, CANVAS_W / 2, 576);
     }
+  }
+
+  /**
+   * Papan Setup Misi Langkah 1: Input Identitas Siswa + Virtual Keyboard QWERTY 3D di VR
+   */
+  private drawVRIdentityBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
+    const studentName = state.studentName || '';
+    const studentClass = state.studentClass || '';
+    const activeField = state.activeInputField || 'name';
+    const isNameValid = studentName.trim().length >= 2;
+
+    // Header Badge
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.roundRect((CANVAS_W - 220) / 2, 34, 220, 30, 15);
+    ctx.fill();
+    ctx.fillStyle = '#f0f9ff';
+    ctx.font = '800 14px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('LANGKAH 1 DARI 2', CANVAS_W / 2, 54);
+
+    // Title
+    ctx.font = '900 34px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('IDENTITAS AGEN', CANVAS_W / 2, 96);
+
+    ctx.font = '500 15px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Masukkan nama dan kelas sebelum memulai misi penyelamatan', CANVAS_W / 2, 122);
+
+    // Input Field 1: NAMA SISWA (WAJIB)
+    const nameX = 64;
+    const nameY = 140;
+    const nameW = 560;
+    const nameH = 64;
+    const isNameActive = activeField === 'name';
+
+    ctx.fillStyle = isNameActive ? '#0f172a' : '#080e1a';
+    ctx.beginPath();
+    ctx.roundRect(nameX, nameY, nameW, nameH, 14);
+    ctx.fill();
+
+    ctx.strokeStyle = isNameActive ? '#22d3ee' : 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = isNameActive ? 3 : 1.5;
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = isNameActive ? '#38bdf8' : '#64748b';
+    ctx.font = '700 12px Inter, system-ui, sans-serif';
+    ctx.fillText('NAMA SISWA (WAJIB)', nameX + 16, nameY + 22);
+
+    ctx.font = '700 20px Inter, system-ui, sans-serif';
+    if (studentName) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(studentName + (isNameActive ? '|' : ''), nameX + 16, nameY + 49);
+    } else {
+      ctx.fillStyle = '#475569';
+      ctx.fillText(isNameActive ? '| Ketik nama siswa...' : 'Ketik nama siswa...', nameX + 16, nameY + 49);
+    }
+
+    this.drawButton(ctx, {
+      id: 'vr_setup_select_name_input',
+      label: '',
+      x: nameX,
+      y: nameY,
+      w: nameW,
+      h: nameH,
+      variant: 'secondary',
+    });
+
+    // Input Field 2: KELAS (OPSIONAL)
+    const classX = 640;
+    const classY = 140;
+    const classW = 320;
+    const classH = 64;
+    const isClassActive = activeField === 'class';
+
+    ctx.fillStyle = isClassActive ? '#0f172a' : '#080e1a';
+    ctx.beginPath();
+    ctx.roundRect(classX, classY, classW, classH, 14);
+    ctx.fill();
+
+    ctx.strokeStyle = isClassActive ? '#22d3ee' : 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = isClassActive ? 3 : 1.5;
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = isClassActive ? '#38bdf8' : '#64748b';
+    ctx.font = '700 12px Inter, system-ui, sans-serif';
+    ctx.fillText('KELAS (OPSIONAL)', classX + 16, classY + 22);
+
+    ctx.font = '700 20px Inter, system-ui, sans-serif';
+    if (studentClass) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(studentClass + (isClassActive ? '|' : ''), classX + 16, classY + 49);
+    } else {
+      ctx.fillStyle = '#475569';
+      ctx.fillText(isClassActive ? '| Contoh: 7A' : 'Contoh: 7A', classX + 16, classY + 49);
+    }
+
+    this.drawButton(ctx, {
+      id: 'vr_setup_select_class_input',
+      label: '',
+      x: classX,
+      y: classY,
+      w: classW,
+      h: classH,
+      variant: 'secondary',
+    });
+
+    // In-Game Virtual Keyboard (QWERTY + Angka)
+    const kbRows = [
+      ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+      ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+      ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+      ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+    ];
+
+    const startY = 220;
+    const rowHeight = 48;
+    const rowGap = 8;
+
+    kbRows.forEach((row, rIdx) => {
+      const keyW = 78;
+      const keyGap = 8;
+      const totalRowW = row.length * keyW + (row.length - 1) * keyGap;
+      const rowStartX = (CANVAS_W - totalRowW) / 2;
+      const y = startY + rIdx * (rowHeight + rowGap);
+
+      row.forEach((char, cIdx) => {
+        const x = rowStartX + cIdx * (keyW + keyGap);
+        this.drawButton(ctx, {
+          id: `kb_${char}` as VRMenuAction,
+          label: char,
+          x,
+          y,
+          w: keyW,
+          h: rowHeight,
+          variant: 'secondary',
+        });
+      });
+    });
+
+    // Baris Aksi Keyboard (Space, Backspace, Clear)
+    const actY = startY + 4 * (rowHeight + rowGap);
+    const spaceW = 380;
+    const bsW = 160;
+    const clrW = 160;
+    const actGap = 12;
+    const totalActW = spaceW + bsW + clrW + 2 * actGap;
+    const actStartX = (CANVAS_W - totalActW) / 2;
+
+    this.drawButton(ctx, {
+      id: 'kb_space',
+      label: 'SPASI',
+      x: actStartX,
+      y: actY,
+      w: spaceW,
+      h: rowHeight,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'kb_backspace',
+      label: '⌫ HAPUS',
+      x: actStartX + spaceW + actGap,
+      y: actY,
+      w: bsW,
+      h: rowHeight,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'kb_clear',
+      label: 'BERSIHKAN',
+      x: actStartX + spaceW + actGap + bsW + actGap,
+      y: actY,
+      w: clrW,
+      h: rowHeight,
+      variant: 'secondary',
+    });
+
+    // Baris Navigasi Bawah
+    const navY = 562;
+    this.drawButton(ctx, {
+      id: 'vr_setup_back_to_menu',
+      label: '⬅ BATAL',
+      x: 64,
+      y: navY,
+      w: 200,
+      h: 52,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'vr_setup_next_to_character',
+      label: isNameValid ? 'LANJUT KE PILIH KARAKTER ➔' : 'NAMA WAJIB DIISI (MIN. 2 HURUF)',
+      x: 280,
+      y: navY,
+      w: 680,
+      h: 52,
+      variant: isNameValid ? 'primary' : 'secondary',
+    });
+  }
+
+  /**
+   * Papan Setup Misi Langkah 2: Pemilihan Karakter dengan Visual Gambar PNG di VR
+   */
+  private drawVRCharacterBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
+    const selectedChar = state.selectedCharacterId || state.settings.characterId || 'raka';
+
+    // Header Badge
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.roundRect((CANVAS_W - 220) / 2, 34, 220, 30, 15);
+    ctx.fill();
+    ctx.fillStyle = '#f0f9ff';
+    ctx.font = '800 14px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('LANGKAH 2 DARI 2', CANVAS_W / 2, 54);
+
+    // Title
+    ctx.font = '900 34px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('PILIH KARAKTER AGEN', CANVAS_W / 2, 96);
+
+    ctx.font = '500 15px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Tentukan agen dan kemampuan khusus Anda untuk misi ini', CANVAS_W / 2, 122);
+
+    const cardY = 138;
+    const cardW = 430;
+    const cardH = 404;
+    const cardRadius = 24;
+
+    // === KARTU 1: AGEN RAKA ===
+    const isRaka = selectedChar === 'raka';
+    const rakaX = 64;
+
+    ctx.fillStyle = isRaka ? 'rgba(15, 23, 42, 0.96)' : 'rgba(8, 14, 26, 0.88)';
+    ctx.beginPath();
+    ctx.roundRect(rakaX, cardY, cardW, cardH, cardRadius);
+    ctx.fill();
+
+    ctx.strokeStyle = isRaka ? '#22d3ee' : 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = isRaka ? 4 : 2;
+    ctx.stroke();
+
+    // Visual Gambar PNG Agen Raka
+    const imgSize = 164;
+    const imgRakaX = rakaX + (cardW - imgSize) / 2;
+    const imgRakaY = cardY + 18;
+
+    if (this.rakaImg && this.rakaImg.complete) {
+      ctx.drawImage(this.rakaImg, imgRakaX, imgRakaY, imgSize, imgSize);
+    } else {
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.roundRect(imgRakaX, imgRakaY, imgSize, imgSize, 16);
+      ctx.fill();
+    }
+
+    ctx.textAlign = 'center';
+    ctx.font = '900 24px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('AGEN RAKA', rakaX + cardW / 2, cardY + 218);
+
+    ctx.font = '700 13px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('SPESIALIS PERTAHANAN', rakaX + cardW / 2, cardY + 242);
+
+    ctx.font = '700 14px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText('Jurus: PERISAI SUPER (Grip Kiri)', rakaX + cardW / 2, cardY + 276);
+    ctx.font = '500 13px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Kebal 100% damage selama 6 detik', rakaX + cardW / 2, cardY + 298);
+
+    this.drawButton(ctx, {
+      id: 'vr_setup_pick_raka',
+      label: isRaka ? '✔ TERPILIH' : 'PILIH RAKA',
+      x: rakaX + 30,
+      y: cardY + 332,
+      w: cardW - 60,
+      h: 52,
+      variant: isRaka ? 'primary' : 'secondary',
+    });
+
+    // === KARTU 2: AGEN RANA ===
+    const isRana = selectedChar === 'naya';
+    const ranaX = 530;
+
+    ctx.fillStyle = isRana ? 'rgba(15, 23, 42, 0.96)' : 'rgba(8, 14, 26, 0.88)';
+    ctx.beginPath();
+    ctx.roundRect(ranaX, cardY, cardW, cardH, cardRadius);
+    ctx.fill();
+
+    ctx.strokeStyle = isRana ? '#22d3ee' : 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = isRana ? 4 : 2;
+    ctx.stroke();
+
+    // Visual Gambar PNG Agen Rana
+    const imgRanaX = ranaX + (cardW - imgSize) / 2;
+    const imgRanaY = cardY + 18;
+
+    if (this.ranaImg && this.ranaImg.complete) {
+      ctx.drawImage(this.ranaImg, imgRanaX, imgRanaY, imgSize, imgSize);
+    } else {
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.roundRect(imgRanaX, imgRanaY, imgSize, imgSize, 16);
+      ctx.fill();
+    }
+
+    ctx.textAlign = 'center';
+    ctx.font = '900 24px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('AGEN RANA', ranaX + cardW / 2, cardY + 218);
+
+    ctx.font = '700 13px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#f43f5e';
+    ctx.fillText('SPESIALIS PEMULIHAN', ranaX + cardW / 2, cardY + 242);
+
+    ctx.font = '700 14px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText('Jurus: RECOVERY HP (Grip Kiri)', ranaX + cardW / 2, cardY + 276);
+    ctx.font = '500 13px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Langsung pulihkan +20% HP', ranaX + cardW / 2, cardY + 298);
+
+    this.drawButton(ctx, {
+      id: 'vr_setup_pick_rana',
+      label: isRana ? '✔ TERPILIH' : 'PILIH RANA',
+      x: ranaX + 30,
+      y: cardY + 332,
+      w: cardW - 60,
+      h: 52,
+      variant: isRana ? 'primary' : 'secondary',
+    });
+
+    // Baris Navigasi Bawah
+    const navY = 562;
+    this.drawButton(ctx, {
+      id: 'vr_setup_back_to_identity',
+      label: '⬅ KEMBALI KE IDENTITAS',
+      x: 64,
+      y: navY,
+      w: 320,
+      h: 52,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'vr_setup_confirm_start',
+      label: '🚀 MULAI PERTEMPURAN VR',
+      x: 410,
+      y: navY,
+      w: 550,
+      h: 52,
+      variant: 'primary',
+    });
   }
 
   private drawTutorialBoard(ctx: CanvasRenderingContext2D) {

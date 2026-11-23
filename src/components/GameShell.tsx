@@ -27,8 +27,13 @@ import {
   GameCompletionProgress,
   loadGameCompletionProgress,
   saveGameCompletionProgress,
+  loadLKPDSubmission,
+  saveLKPDSubmission,
 } from '../game/lkpd';
-import { recordGameSessionAsync } from '../lib/syncService';
+import {
+  recordGameSessionAsync,
+  recordInitialSessionStartAsync,
+} from '../lib/syncService';
 import {
   PlayerStats,
   WeaponType,
@@ -323,6 +328,17 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
   const [isVRActive, setIsVRActive] = useState<boolean>(false);
   const [vrErrorMsg, setVrErrorMsg] = useState<string | null>(null);
 
+  // In-Game Setup Identitas & Karakter di Mode 360° VR
+  const [vrSetupStep, setVrSetupStep] = useState<'none' | 'identity' | 'character'>('none');
+  const [vrStudentName, setVrStudentName] = useState<string>(() => {
+    return loadLKPDSubmission().studentName || '';
+  });
+  const [vrStudentClass, setVrStudentClass] = useState<string>(() => {
+    return loadLKPDSubmission().studentClass || '';
+  });
+  const [vrActiveInput, setVrActiveInput] = useState<'name' | 'class'>('name');
+  const [vrSelectedChar, setVrSelectedChar] = useState<CharacterId>('raka');
+
   // Pengaturan yang disimpan di localStorage
   const [settings, setSettings] = useState<GameSettings>(() => {
     try {
@@ -429,6 +445,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
     isMuted,
     lkpdUnlocked: lkpdProgress.gameCompleted,
     vrWarningMsg,
+    vrSetupStep,
+    vrStudentName,
+    vrStudentClass,
+    vrActiveInput,
+    vrSelectedChar,
   });
 
   useEffect(() => {
@@ -441,6 +462,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       isMuted,
       lkpdUnlocked: lkpdProgress.gameCompleted,
       vrWarningMsg,
+      vrSetupStep,
+      vrStudentName,
+      vrStudentClass,
+      vrActiveInput,
+      vrSelectedChar,
     };
   }, [
     stageModalMode,
@@ -451,6 +477,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
     isMuted,
     lkpdProgress.gameCompleted,
     vrWarningMsg,
+    vrSetupStep,
+    vrStudentName,
+    vrStudentClass,
+    vrActiveInput,
+    vrSelectedChar,
   ]);
 
   useEffect(() => {
@@ -1410,6 +1441,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             isHandTracking: vrManager.isHandTrackingLeft || vrManager.isHandTrackingRight,
             lkpdUnlocked: vrInfo.lkpdUnlocked,
             vrWarningMsg: vrInfo.vrWarningMsg,
+            vrSetupStep: vrInfo.vrSetupStep,
+            studentName: vrInfo.vrStudentName,
+            studentClass: vrInfo.vrStudentClass,
+            activeInputField: vrInfo.vrActiveInput,
+            selectedCharacterId: vrInfo.vrSelectedChar,
           },
           vrManager.rightController,
           vrManager.currentSession,
@@ -1427,7 +1463,84 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
         if (action) {
           sound.playUiClick();
           const dispatchVRMenuAction = (act: VRMenuAction) => {
-            if (act === 'start_mission' || act === 'restart') {
+            if (act === 'vr_setup_start' || act === 'start_mission') {
+              setVrSetupStep('identity');
+              setVrActiveInput('name');
+            } else if (act === 'vr_setup_back_to_menu') {
+              setVrSetupStep('none');
+            } else if (act === 'vr_setup_select_name_input') {
+              setVrActiveInput('name');
+            } else if (act === 'vr_setup_select_class_input') {
+              setVrActiveInput('class');
+            } else if (act === 'kb_space') {
+              if (vrMenuInfoRef.current.vrActiveInput === 'name') {
+                setVrStudentName((prev) => (prev.length < 24 ? prev + ' ' : prev));
+              } else {
+                setVrStudentClass((prev) => (prev.length < 12 ? prev + ' ' : prev));
+              }
+            } else if (act === 'kb_backspace') {
+              if (vrMenuInfoRef.current.vrActiveInput === 'name') {
+                setVrStudentName((prev) => prev.slice(0, -1));
+              } else {
+                setVrStudentClass((prev) => prev.slice(0, -1));
+              }
+            } else if (act === 'kb_clear') {
+              if (vrMenuInfoRef.current.vrActiveInput === 'name') {
+                setVrStudentName('');
+              } else {
+                setVrStudentClass('');
+              }
+            } else if (act.startsWith('kb_')) {
+              const char = act.slice(3);
+              if (vrMenuInfoRef.current.vrActiveInput === 'name') {
+                setVrStudentName((prev) => (prev.length < 24 ? prev + char : prev));
+              } else {
+                setVrStudentClass((prev) => (prev.length < 12 ? prev + char : prev));
+              }
+            } else if (act === 'vr_setup_next_to_character') {
+              const curName = vrMenuInfoRef.current.vrStudentName.trim();
+              if (curName.length >= 2) {
+                const curLKPD = loadLKPDSubmission();
+                saveLKPDSubmission({
+                  ...curLKPD,
+                  studentName: curName,
+                  studentClass: vrMenuInfoRef.current.vrStudentClass.trim() || '-',
+                });
+                setVrSetupStep('character');
+              }
+            } else if (act === 'vr_setup_back_to_identity') {
+              setVrSetupStep('identity');
+            } else if (act === 'vr_setup_pick_raka') {
+              setVrSelectedChar('raka');
+              setSettings((prev) => ({ ...prev, characterId: 'raka' }));
+            } else if (act === 'vr_setup_pick_rana') {
+              setVrSelectedChar('naya');
+              setSettings((prev) => ({ ...prev, characterId: 'naya' }));
+            } else if (act === 'vr_setup_confirm_start') {
+              const finalName = vrMenuInfoRef.current.vrStudentName.trim() || 'Siswa Anonim';
+              const finalClass = vrMenuInfoRef.current.vrStudentClass.trim() || '-';
+              const chosenChar =
+                vrMenuInfoRef.current.vrSelectedChar || stateRef.current.settings.characterId || 'raka';
+              const curLKPD = loadLKPDSubmission();
+              saveLKPDSubmission({
+                ...curLKPD,
+                studentName: finalName,
+                studentClass: finalClass,
+              });
+              recordInitialSessionStartAsync(
+                finalName,
+                finalClass,
+                chosenChar,
+                stateRef.current.settings.difficulty || 'normal'
+              );
+              setSettings((prev) => ({ ...prev, characterId: chosenChar }));
+              setVrSetupStep('none');
+              vrTriggerReleaseGuardRef.current = true;
+              vrShootCooldownUntilRef.current = performance.now() + 380;
+              setShowTutorial(false);
+              setShowSettings(false);
+              menuCallbacksRef.current.startRun();
+            } else if (act === 'restart') {
               vrTriggerReleaseGuardRef.current = true;
               vrShootCooldownUntilRef.current = performance.now() + 380;
               setShowTutorial(false);
@@ -2445,6 +2558,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
 
   // Kembali ke Menu Utama dengan Ruangan 3D Bersih Tanpa Musuh & Tanpa Boss
   const handleReturnToMenu = () => {
+    setVrSetupStep('none');
     if (bossVictoryTimerRef.current) {
       clearTimeout(bossVictoryTimerRef.current);
       bossVictoryTimerRef.current = null;
