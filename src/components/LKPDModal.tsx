@@ -45,15 +45,15 @@ interface LKPDModalProps {
 type LKPDTabId = 'identitas' | 'lab' | 'kuis' | 'refleksi' | 'hasil';
 
 const TABS: { id: LKPDTabId; label: string; shortLabel: string; icon: React.FC<{ className?: string }> }[] = [
-  { id: 'identitas', label: '1. Identitas', shortLabel: 'Identitas', icon: User },
-  { id: 'lab', label: '2. Lab Warna', shortLabel: 'Lab', icon: FlaskConical },
-  { id: 'kuis', label: '3. Kuis Warna', shortLabel: 'Kuis', icon: HelpCircle },
-  { id: 'refleksi', label: '4. Refleksi', shortLabel: 'Refleksi', icon: MessageSquareText },
+  { id: 'lab', label: '1. Lab Warna', shortLabel: 'Lab', icon: FlaskConical },
+  { id: 'kuis', label: '2. Kuis Warna', shortLabel: 'Kuis', icon: HelpCircle },
+  { id: 'refleksi', label: '3. Refleksi', shortLabel: 'Refleksi', icon: MessageSquareText },
+  { id: 'identitas', label: '4. Profil Siswa', shortLabel: 'Profil', icon: User },
   { id: 'hasil', label: '5. Rekap', shortLabel: 'Rekap', icon: Award },
 ];
 
 export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
-  const [activeTab, setActiveTab] = useState<LKPDTabId>('identitas');
+  const [activeTab, setActiveTab] = useState<LKPDTabId>('lab');
   const [submission, setSubmission] = useState<LKPDSubmissionState>(() => loadLKPDSubmission());
 
   // State khusus Lab Campur Warna
@@ -1052,7 +1052,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
                     setMixResult(null);
                     setShowQuizReview(false);
                     setActiveChallengeIdx(0);
-                    setActiveTab('identitas');
+                    setActiveTab('lab');
                   }}
                   className="text-xs sm:text-sm font-bold text-slate-400 hover:text-rose-400 flex items-center gap-1.5 cursor-pointer"
                 >
@@ -1069,7 +1069,7 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
           <button
             type="button"
             onClick={() => goAdjacentTab(-1)}
-            disabled={activeTab === 'identitas'}
+            disabled={activeTab === TABS[0].id}
             className="px-4 py-2.5 rounded-xl bg-[#0d1424] hover:bg-blue-950/70 disabled:opacity-35 disabled:cursor-not-allowed border border-blue-500/30 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />

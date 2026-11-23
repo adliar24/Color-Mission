@@ -1231,7 +1231,7 @@ export class VRSpatialMenu {
     ctx.font = '800 13px Inter, system-ui, sans-serif';
     ctx.fillText('MEJA CAMPUR WARNA', benchX + 22, benchY + 28);
 
-    // Slot 1 (Tabung A)
+    // Slot 1 (Wadah 1)
     const slotW = 168;
     const slotH = 74;
     const slot1X = benchX + 20;
@@ -1256,27 +1256,32 @@ export class VRSpatialMenu {
     ctx.lineWidth = isSlot1Active ? 3 : 1.5;
     ctx.stroke();
 
+    ctx.textAlign = 'center';
     ctx.fillStyle = isSlot1Active ? '#38bdf8' : '#64748b';
     ctx.font = '700 11px Inter, system-ui, sans-serif';
-    ctx.fillText('TABUNG 1 ' + (isSlot1Active ? '(AKTIF)' : ''), slot1X + 14, slot1Y + 20);
+    ctx.fillText('WADAH 1 ' + (isSlot1Active ? '(AKTIF)' : ''), slot1X + slotW / 2, slot1Y + 18);
+
+    const swatchSize = 40;
+    const swatch1X = slot1X + (slotW - swatchSize) / 2;
+    const swatch1Y = slot1Y + 24;
 
     if (slotA) {
       const defA = getColorDef(slotA);
       ctx.fillStyle = defA.hex;
       ctx.beginPath();
-      ctx.roundRect(slot1X + 14, slot1Y + 28, 32, 32, 8);
+      ctx.roundRect(swatch1X, swatch1Y, swatchSize, swatchSize, 10);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.stroke();
-
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = '800 16px Inter, system-ui, sans-serif';
-      ctx.fillText(defA.nameId, slot1X + 54, slot1Y + 50);
     } else {
-      ctx.fillStyle = '#475569';
-      ctx.font = '600 14px Inter, system-ui, sans-serif';
-      ctx.fillText('Pilih Warna 1...', slot1X + 14, slot1Y + 48);
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.roundRect(swatch1X, swatch1Y, swatchSize, swatchSize, 10);
+      ctx.fill();
+      ctx.fillStyle = '#64748b';
+      ctx.font = '900 18px Inter, system-ui, sans-serif';
+      ctx.fillText('?', slot1X + slotW / 2, slot1Y + 50);
     }
 
     // Tanda Plus (+)
@@ -1285,7 +1290,7 @@ export class VRSpatialMenu {
     ctx.font = '900 24px Inter, system-ui, sans-serif';
     ctx.fillText('+', benchX + 203, slot1Y + 44);
 
-    // Slot 2 (Tabung B)
+    // Slot 2 (Wadah 2)
     const slot2X = benchX + 222;
     const slot2Y = slot1Y;
     const isSlot2Active = activeSlot === 'b';
@@ -1308,28 +1313,31 @@ export class VRSpatialMenu {
     ctx.lineWidth = isSlot2Active ? 3 : 1.5;
     ctx.stroke();
 
-    ctx.textAlign = 'left';
+    ctx.textAlign = 'center';
     ctx.fillStyle = isSlot2Active ? '#38bdf8' : '#64748b';
     ctx.font = '700 11px Inter, system-ui, sans-serif';
-    ctx.fillText('TABUNG 2 ' + (isSlot2Active ? '(AKTIF)' : ''), slot2X + 14, slot2Y + 20);
+    ctx.fillText('WADAH 2 ' + (isSlot2Active ? '(AKTIF)' : ''), slot2X + slotW / 2, slot2Y + 18);
+
+    const swatch2X = slot2X + (slotW - swatchSize) / 2;
+    const swatch2Y = slot2Y + 24;
 
     if (slotB) {
       const defB = getColorDef(slotB);
       ctx.fillStyle = defB.hex;
       ctx.beginPath();
-      ctx.roundRect(slot2X + 14, slot2Y + 28, 32, 32, 8);
+      ctx.roundRect(swatch2X, swatch2Y, swatchSize, swatchSize, 10);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.stroke();
-
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = '800 16px Inter, system-ui, sans-serif';
-      ctx.fillText(defB.nameId, slot2X + 54, slot2Y + 50);
     } else {
-      ctx.fillStyle = '#475569';
-      ctx.font = '600 14px Inter, system-ui, sans-serif';
-      ctx.fillText('Pilih Warna 2...', slot2X + 14, slot2Y + 48);
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.roundRect(swatch2X, swatch2Y, swatchSize, swatchSize, 10);
+      ctx.fill();
+      ctx.fillStyle = '#64748b';
+      ctx.font = '900 18px Inter, system-ui, sans-serif';
+      ctx.fillText('?', slot2X + slotW / 2, slot2Y + 50);
     }
 
     // Tombol Campur & Reset
@@ -1371,22 +1379,21 @@ export class VRSpatialMenu {
     ctx.stroke();
 
     if (mixedDef) {
-      // Swatch besar
+      // Swatch besar visual
       ctx.fillStyle = mixedDef.hex;
       ctx.beginPath();
-      ctx.roundRect(resX + 24, resY + 28, 72, 72, 14);
+      ctx.roundRect(resX + 24, resY + 24, 72, 72, 14);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      // Judul Hasil
+      // Keterangan Kategori & Status (tanpa teks nama warna)
       ctx.textAlign = 'left';
       ctx.fillStyle = '#22d3ee';
-      ctx.font = '900 22px Inter, system-ui, sans-serif';
-      ctx.fillText(mixedDef.nameId.toUpperCase(), resX + 112, resY + 54);
+      ctx.font = '900 20px Inter, system-ui, sans-serif';
+      ctx.fillText('HASIL CAMPURAN', resX + 112, resY + 52);
 
-      // Klasifikasi
       ctx.fillStyle = '#f8fafc';
       ctx.font = '700 14px Inter, system-ui, sans-serif';
       const catLabel =
@@ -1395,25 +1402,31 @@ export class VRSpatialMenu {
           : mixedDef.category === 'sekunder'
             ? 'Kategori: Warna Sekunder'
             : 'Kategori: Warna Tersier';
-      ctx.fillText(catLabel, resX + 112, resY + 80);
-
-      // Rumus Campuran
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '500 13px Inter, system-ui, sans-serif';
-      const ingText = mixedDef.ingredients
-        ? `Dibentuk dari: ${getColorDef(mixedDef.ingredients[0]).nameId} + ${getColorDef(mixedDef.ingredients[1]).nameId}`
-        : 'Warna murni dasar';
-      ctx.fillText(ingText, resX + 24, resY + 134);
+      ctx.fillText(catLabel, resX + 112, resY + 78);
 
       ctx.fillStyle = '#34d399';
       ctx.font = '700 13px Inter, system-ui, sans-serif';
-      ctx.fillText('✔ Hasil pencampuran terverifikasi!', resX + 24, resY + 164);
+      ctx.fillText('✔ Hasil pencampuran terverifikasi!', resX + 24, resY + 140);
     } else {
+      // Swatch kosong
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.roundRect(resX + 24, resY + 24, 72, 72, 14);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
       ctx.textAlign = 'center';
       ctx.fillStyle = '#64748b';
-      ctx.font = '600 15px Inter, system-ui, sans-serif';
-      ctx.fillText('Pilih 2 bahan warna di sebelah kanan,', resX + resW / 2, resY + 84);
-      ctx.fillText('lalu tekan tombol CAMPUR WARNA di atas.', resX + resW / 2, resY + 112);
+      ctx.font = '900 26px Inter, system-ui, sans-serif';
+      ctx.fillText('?', resX + 60, resY + 68);
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 14px Inter, system-ui, sans-serif';
+      ctx.fillText('Pilih 2 kotak warna bahan di sebelah kanan,', resX + 112, resY + 54);
+      ctx.fillText('lalu tekan tombol CAMPUR WARNA di atas.', resX + 112, resY + 76);
     }
 
     // === PANEL KANAN: PALET BAHAN & STATUS TANTANGAN ===
@@ -1435,9 +1448,9 @@ export class VRSpatialMenu {
     ctx.textAlign = 'left';
     ctx.fillStyle = '#38bdf8';
     ctx.font = '800 13px Inter, system-ui, sans-serif';
-    ctx.fillText('PILIH TABUNG BAHAN (KLIK WARNA)', palX + 22, palY + 28);
+    ctx.fillText('KOTAK BAHAN WARNA (KLIK UNTUK MEMILIH)', palX + 22, palY + 28);
 
-    // 6 Tabung Warna Bahan (3 Primer + 3 Sekunder)
+    // 6 Kotak Warna Bahan Visual (3 Primer + 3 Sekunder)
     const tubes = LKPD_LAB_INGREDIENTS;
     const tubeW = 128;
     const tubeH = 46;
@@ -1472,18 +1485,18 @@ export class VRSpatialMenu {
       ctx.lineWidth = isHover ? 2.5 : 1.2;
       ctx.stroke();
 
-      // Mini Swatch
+      // Swatch Visual Penuh/Besar tanpa teks nama warna
+      const swW = 60;
+      const swH = 30;
+      const swX = tx + (tubeW - swW) / 2;
+      const swY = ty + (tubeH - swH) / 2;
       ctx.fillStyle = def.hex;
       ctx.beginPath();
-      ctx.roundRect(tx + 8, ty + 10, 26, 26, 6);
+      ctx.roundRect(swX, swY, swW, swH, 8);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.8;
       ctx.stroke();
-
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = '700 13px Inter, system-ui, sans-serif';
-      ctx.fillText(def.nameId, tx + 40, ty + 28);
     });
 
     // Checklist Target Tantangan
@@ -1505,16 +1518,19 @@ export class VRSpatialMenu {
       ctx.lineWidth = 1.2;
       ctx.stroke();
 
-      // Swatch Target
+      // Swatch Target Visual
       ctx.fillStyle = targetDef.hex;
       ctx.beginPath();
-      ctx.roundRect(palX + 28, rowY + 7, 22, 22, 5);
+      ctx.roundRect(palX + 28, rowY + 6, 30, 24, 6);
       ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
 
-      // Nama Target
+      // Label Misi & Kategori Target (Tanpa teks nama warna)
       ctx.fillStyle = '#f8fafc';
       ctx.font = '700 13px Inter, system-ui, sans-serif';
-      ctx.fillText(targetDef.nameId, palX + 58, rowY + 23);
+      ctx.fillText(`Misi ${idx + 1} (${targetDef.categoryLabelId})`, palX + 68, rowY + 23);
 
       // Status Badge
       ctx.textAlign = 'right';
