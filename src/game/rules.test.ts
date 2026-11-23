@@ -618,10 +618,10 @@ test('Tingkat kesulitan (Mudah, Normal, Sulit) menyesuaikan target eliminasi, ke
   );
 });
 
-test('Ability Agen Raka (Perisai Super CD 60s) menahan 100% damage & Agen Naya (Recovery +20% HP CD 120s) memulihkan darah', () => {
+test('Ability Agen Raka (Perisai Super CD 60s) menahan 100% damage & Agen Rana (Recovery +20% HP CD 120s) memulihkan darah', () => {
   assert.equal(CHARACTER_REGISTRY.raka.name, 'Agen Raka');
   assert.equal(CHARACTER_REGISTRY.raka.abilityCooldownSeconds, 60);
-  assert.equal(CHARACTER_REGISTRY.naya.name, 'Agen Naya');
+  assert.equal(CHARACTER_REGISTRY.naya.name, 'Agen Rana');
   assert.equal(CHARACTER_REGISTRY.naya.abilityCooldownSeconds, 120);
 
   const basePlayer: PlayerStats = {

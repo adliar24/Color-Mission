@@ -133,7 +133,7 @@ export const CHARACTER_REGISTRY: Record<CharacterId, CharacterProfile> = {
   },
   naya: {
     id: 'naya',
-    name: 'Agen Naya',
+    name: 'Agen Rana',
     genderLabel: 'Perempuan',
     codename: 'CHROMA-02',
     role: 'Spesialis Sintesis & Pemulihan Nano',

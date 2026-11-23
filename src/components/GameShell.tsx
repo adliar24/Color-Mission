@@ -514,7 +514,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       triggerShotBanner({
         type: 'pickup',
         title: `RECOVERY +${res.healedAmount} HP!`,
-        subtitle: 'Agen Naya memulihkan +20% Kesehatan Maksimum',
+        subtitle: 'Agen Rana memulihkan +20% Kesehatan Maksimum',
         colorHex: '#34d399',
         timestamp: performance.now(),
       });
