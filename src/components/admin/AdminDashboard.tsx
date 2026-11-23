@@ -205,9 +205,94 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     <div className="w-full min-h-screen bg-[#060913] text-slate-100 flex flex-col font-sans select-text antialiased">
       {/* ====================================================================
           HEADER UTAMA (MINIMALIS, BERSIH, HANYA TOMBOL PENTING)
+          Area tengah atas sengaja dikosongkan di mobile untuk kamera depan HP / notch
          ==================================================================== */}
-      <header className="border-b border-white/10 bg-[#090e1c]/95 backdrop-blur-md px-4 sm:px-8 py-4 sticky top-0 z-40">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+      <header className="border-b border-white/10 bg-[#090e1c]/95 backdrop-blur-md px-4 sm:px-8 pt-[max(env(safe-area-inset-top,0px),1.75rem)] sm:pt-4 pb-3 sm:pb-4 sticky top-0 z-40">
+        {/* MOBILE LAYOUT: Area tengah atas sengaja dikosongkan untuk kamera depan HP */}
+        <div className="flex flex-col sm:hidden w-full gap-2.5">
+          {/* Baris 1: Kiri (Ke Game) - Tengah (KOSONG: Kamera Depan) - Kanan (Keluar) */}
+          <div className="flex items-center justify-between w-full">
+            <button
+              type="button"
+              onClick={onBackToGame}
+              title="Kembali ke Permainan"
+              className="h-9 px-3 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-200 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Ke Game</span>
+            </button>
+
+            {/* AREA TENGAH ATAS: SENGAJA DIKOSONGKAN KARENA AREA KAMERA DEPAN HP / NOTCH */}
+            <div className="flex-1 min-w-[70px] pointer-events-none" aria-hidden="true" />
+
+            {onLogout ? (
+              <button
+                type="button"
+                onClick={onLogout}
+                title="Keluar dari Panel Admin"
+                className="h-9 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Keluar</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={loadData}
+                title="Muat Data Terbaru"
+                disabled={isLoading}
+                className="h-9 px-3 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-cyan-400' : ''}`} />
+                <span>Segarkan</span>
+              </button>
+            )}
+          </div>
+
+          {/* Baris 2: Judul Panel & Tombol Aksi di bawah area kamera depan */}
+          <div className="flex items-center justify-between gap-3 w-full pt-1">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/35 flex items-center justify-center text-cyan-400 shrink-0">
+                <GraduationCap className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-base font-black text-white tracking-tight uppercase leading-tight truncate">
+                  Panel Guru
+                </h1>
+                <p className="text-[10px] text-slate-400 truncate">
+                  Rekap Aktivitas &amp; LKPD Siswa
+                </p>
+              </div>
+            </div>
+
+            {/* Tombol Segarkan & Ekspor CSV */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={loadData}
+                title="Muat Data Terbaru"
+                disabled={isLoading}
+                className="h-9 w-9 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-200 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-cyan-400' : ''}`} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                title="Unduh Rekap Spreadsheet (.CSV)"
+                disabled={filteredStudents.length === 0}
+                className="h-9 px-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 disabled:opacity-40 text-slate-950 text-xs font-black uppercase tracking-wide flex items-center gap-1.5 transition-all cursor-pointer shadow-sm shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Ekspor CSV</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* DESKTOP LAYOUT (Horizontal Flex) */}
+        <div className="hidden sm:flex items-center justify-between gap-4 w-full">
           {/* Logo & Judul Dashboard */}
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -220,7 +305,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span>Ke Game</span>
             </button>
 
-            <div className="h-6 w-px bg-white/10 hidden sm:block shrink-0" />
+            <div className="h-6 w-px bg-white/10 shrink-0" />
 
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/35 flex items-center justify-center text-cyan-400 shrink-0">
@@ -230,16 +315,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <h1 className="text-base sm:text-lg font-black text-white tracking-tight uppercase leading-tight truncate">
                   Panel Guru
                 </h1>
-                <p className="text-[11px] text-slate-400 truncate hidden sm:block">
+                <p className="text-[11px] text-slate-400 truncate">
                   Rekapitulasi Aktivitas &amp; Evaluasi LKPD Siswa
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Action Toolbar: HANYA TOMBOL PENTING (Segarkan, Ekspor CSV, Keluar) */}
+          {/* Action Toolbar Desktop */}
           <div className="flex items-center gap-2.5 justify-end shrink-0">
-            {/* Segarkan Data */}
             <button
               type="button"
               onClick={loadData}
@@ -248,10 +332,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               className="h-10 px-3.5 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-200 hover:text-white text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors cursor-pointer shrink-0"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-cyan-400' : ''}`} />
-              <span className="hidden sm:inline">Segarkan</span>
+              <span>Segarkan</span>
             </button>
 
-            {/* Ekspor CSV */}
             <button
               type="button"
               onClick={handleExportCSV}
@@ -263,7 +346,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span>Ekspor CSV</span>
             </button>
 
-            {/* Keluar */}
             {onLogout && (
               <button
                 type="button"
@@ -272,7 +354,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="h-10 px-3 sm:px-3.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors cursor-pointer shrink-0"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Keluar</span>
+                <span>Keluar</span>
               </button>
             )}
           </div>
