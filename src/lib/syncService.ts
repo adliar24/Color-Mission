@@ -74,6 +74,11 @@ export function generateUUID(): string {
   });
 }
 
+export function isValidUUID(str: string): boolean {
+  if (!str || typeof str !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+}
+
 // ==============================================================================
 // LOCAL STORAGE HELPERS
 // ==============================================================================
@@ -282,6 +287,91 @@ export function recordLKPDSubmissionAsync(state: LKPDSubmissionState): void {
       }
     });
   }
+}
+
+// ==============================================================================
+// SYNCHRONIZATION: PUSH LOCAL TO SUPABASE CLOUD
+// ==============================================================================
+
+/**
+ * Mengunggah seluruh data lokal yang ada di browser saat ini ke Supabase Cloud.
+ * Digunakan agar data yang pernah dimainkan di perangkat ini langsung tersinkronkan
+ * dan dapat diakses dari perangkat lain (HP/laptop guru).
+ */
+export async function syncLocalDataToSupabase(): Promise<{
+  sessionsSynced: number;
+  lkpdSynced: number;
+  error?: string;
+}> {
+  const client = getSupabase();
+  if (!client) {
+    return { sessionsSynced: 0, lkpdSynced: 0, error: 'Supabase belum terkonfigurasi' };
+  }
+
+  let sessionsSynced = 0;
+  let lkpdSynced = 0;
+
+  try {
+    const localSessions = getLocalSessions();
+    if (localSessions.length > 0) {
+      const { data: remoteRows } = await client
+        .from('student_sessions')
+        .select('id')
+        .limit(1000);
+
+      const remoteIds = new Set((remoteRows || []).map((r) => r.id));
+
+      const toUpload = localSessions
+        .filter((s) => !remoteIds.has(s.id))
+        .map((s) => ({
+          ...s,
+          id: isValidUUID(s.id) ? s.id : generateUUID(),
+        }));
+
+      if (toUpload.length > 0) {
+        const { error: insertErr } = await client.from('student_sessions').insert(toUpload);
+        if (insertErr) {
+          console.warn('[SyncService] Gagal upload sesi lokal ke Supabase:', insertErr.message);
+        } else {
+          sessionsSynced = toUpload.length;
+          console.info(`[SyncService] Berhasil mengunggah ${sessionsSynced} sesi lokal ke Supabase`);
+        }
+      }
+    }
+
+    const localLKPD = getLocalLKPDSubmissions();
+    if (localLKPD.length > 0) {
+      const { data: remoteLKPD } = await client
+        .from('lkpd_submissions')
+        .select('id')
+        .limit(1000);
+
+      const remoteLKPDIds = new Set((remoteLKPD || []).map((r) => r.id));
+
+      const toUploadLKPD = localLKPD
+        .filter((l) => !remoteLKPDIds.has(l.id))
+        .map((l) => ({
+          ...l,
+          id: isValidUUID(l.id) ? l.id : generateUUID(),
+        }));
+
+      if (toUploadLKPD.length > 0) {
+        const { error: insertErr } = await client.from('lkpd_submissions').insert(toUploadLKPD);
+        if (insertErr) {
+          console.warn('[SyncService] Gagal upload LKPD lokal ke Supabase:', insertErr.message);
+        } else {
+          lkpdSynced = toUploadLKPD.length;
+          console.info(`[SyncService] Berhasil mengunggah ${lkpdSynced} LKPD lokal ke Supabase`);
+        }
+      }
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[SyncService] Exception saat sync lokal ke Supabase:', msg);
+    return { sessionsSynced, lkpdSynced, error: msg };
+  }
+
+  return { sessionsSynced, lkpdSynced };
 }
 
 // ==============================================================================
