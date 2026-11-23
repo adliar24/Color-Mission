@@ -255,6 +255,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   mouseSensitivity: 1.0,
   touchSensitivity: 1.0,
   mobileGyroEnabled: false,
+  gyroSensitivity: 1.0,
   hapticsEnabled: true,
   keyboardCameraMode: true,
   graphicsQuality: detectOptimalQuality(),

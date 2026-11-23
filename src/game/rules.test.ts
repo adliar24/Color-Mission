@@ -56,6 +56,7 @@ const TEST_SETTINGS: GameSettings = {
   mouseSensitivity: 1.0,
   touchSensitivity: 1.0,
   mobileGyroEnabled: false,
+  gyroSensitivity: 1.0,
   hapticsEnabled: true,
   graphicsQuality: 'high',
   vrTurnMode: 'snap',
@@ -340,12 +341,12 @@ test('InputManager mendukung toggle Gyro HP dan Haptic Feedback tanpa error di b
 
   // Simulasi DeviceMotionEvent: Verifikasi arah rotasi konsisten & tidak terbalik
   im.mobile.setScreenOrientationAngle(90);
-  // 1. Miring ke atas (pitch up / ceiling) -> lookDeltaY > 0 (menggunakan sumbu beta)
+  // 1. Miring ke atas (pitch up / ceiling) -> lookDeltaY > 0 (menggunakan sumbu beta dengan orientasi natural)
   im.mobile.onDeviceMotion({
-    rotationRate: { alpha: 0, beta: 30, gamma: 0 },
+    rotationRate: { alpha: 0, beta: -30, gamma: 0 },
     interval: 16,
   } as unknown as DeviceMotionEvent);
-  const cmdPitchUp = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true }, 0.016);
+  const cmdPitchUp = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true, gyroSensitivity: 1.0 }, 0.016);
   assert.ok(cmdPitchUp.lookDeltaY > 0, 'Miring ke atas harus menghasilkan lookDeltaY > 0');
 
   // 2. Putar ke kanan (yaw right) -> lookDeltaX < 0 (memutar kamera ke kanan menggunakan sumbu alpha & gamma)
@@ -353,10 +354,19 @@ test('InputManager mendukung toggle Gyro HP dan Haptic Feedback tanpa error di b
     rotationRate: { alpha: -20, beta: 0, gamma: -20 },
     interval: 16,
   } as unknown as DeviceMotionEvent);
-  const cmdYawRight = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true }, 0.016);
+  const cmdYawRight = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true, gyroSensitivity: 1.0 }, 0.016);
   assert.ok(cmdYawRight.lookDeltaX < 0, 'Putar HP ke kanan harus menghasilkan lookDeltaX < 0');
 
-  // 3. Saat HP diam, delta gyro harus langsung 0 (bebas lag / drifting)
+  // 3. Multiplier gyroSensitivity bekerja melipatgandakan kecepatan/sensitivitas gyro
+  im.mobile.reset();
+  im.mobile.onDeviceMotion({
+    rotationRate: { alpha: 0, beta: -30, gamma: 0 },
+    interval: 16,
+  } as unknown as DeviceMotionEvent);
+  const cmdFast = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true, gyroSensitivity: 2.0 }, 0.016);
+  assert.ok(cmdFast.lookDeltaY > cmdPitchUp.lookDeltaY, 'Sensitivitas 2.0x harus menghasilkan lookDelta lebih besar dari 1.0x');
+
+  // 4. Saat HP diam, delta gyro harus langsung 0 (bebas lag / drifting)
   const cmdRest = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true }, 0.016);
   assert.equal(cmdRest.lookDeltaX, 0, 'Saat HP diam, lookDeltaX harus langsung 0');
   assert.equal(cmdRest.lookDeltaY, 0, 'Saat HP diam, lookDeltaY harus langsung 0');

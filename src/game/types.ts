@@ -408,6 +408,7 @@ export interface GameSettings {
   mouseSensitivity: number;
   touchSensitivity: number;
   mobileGyroEnabled: boolean;
+  gyroSensitivity?: number;
   hapticsEnabled: boolean;
   keyboardCameraMode?: boolean;
   graphicsQuality: GraphicsQuality;

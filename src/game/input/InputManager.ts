@@ -598,8 +598,8 @@ export class MobileInput {
     const isInverted = angle === 180 || angle === 270;
 
     // Sumbu Vertikal (Atas - Bawah / Pitch):
-    // Menggerakkan HP ke atas / bawah memutar sumbu rBeta -> kamera mengarah ke atas / bawah
-    let rawPitch = isInverted ? -rBeta : rBeta;
+    // Menggerakkan HP ke atas / bawah memutar sumbu rBeta -> kamera mengarah ke atas / bawah secara natural
+    let rawPitch = isInverted ? rBeta : -rBeta;
 
     // Sumbu Horizontal (Kiri - Kanan / Yaw):
     // Memutar HP ke samping kiri / kanan memutar sumbu rAlpha & rGamma -> kamera memutar ke samping
@@ -658,7 +658,7 @@ export class MobileInput {
     const angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
     const isInverted = angle === 180 || angle === 270;
 
-    let rawPitch = isInverted ? -dBeta : dBeta;
+    let rawPitch = isInverted ? dBeta : -dBeta;
     let rawYaw = isInverted ? -(dAlpha * 0.75 + dGamma * 0.75) : dAlpha * 0.75 + dGamma * 0.75;
 
     if (Math.abs(rawPitch) < 0.03) rawPitch = 0;
@@ -757,7 +757,8 @@ export class MobileInput {
     // Jika Gyro HP diaktifkan, terapkan akumulasi rotasi secara presisi & instan tanpa lag/ketahan
     if (settings.mobileGyroEnabled) {
       // Sensitivitas responsif ala mobile shooter (0.035 rad/deg ~ 2.0x perputaran alami)
-      const gyroSens = 0.035 * settings.touchSensitivity * cameraMult;
+      const gyroSensMultiplier = settings.gyroSensitivity ?? 1.0;
+      const gyroSens = 0.035 * gyroSensMultiplier * settings.touchSensitivity * cameraMult;
       lookDeltaX += this.gyroAccumX * gyroSens;
       lookDeltaY += this.gyroAccumY * gyroSens;
     } else {

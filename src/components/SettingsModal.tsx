@@ -613,7 +613,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                       <div>
                         <div className="flex justify-between text-xs font-bold mb-1.5">
-                          <span className="text-slate-200">SENSITIVITAS SENTUH / GYRO</span>
+                          <span className="text-slate-200">SENSITIVITAS SENTUH / LOOK</span>
                           <span className="text-cyan-400 tabular-nums">
                             {Math.round(settings.touchSensitivity * 100)}%
                           </span>
@@ -655,6 +655,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           {settings.mobileGyroEnabled ? 'AKTIF' : 'MATI'}
                         </button>
                       </div>
+
+                      {settings.mobileGyroEnabled && (
+                        <div className="pt-2 border-t border-white/8 space-y-1.5 animate-fadeIn">
+                          <div className="flex justify-between text-xs font-bold mb-1.5">
+                            <span className="text-slate-200">KECEPATAN / SENSITIVITAS GYRO</span>
+                            <span className="text-cyan-400 tabular-nums">
+                              {Math.round((settings.gyroSensitivity ?? 1.0) * 100)}%
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.2"
+                            max="3.0"
+                            step="0.1"
+                            value={settings.gyroSensitivity ?? 1.0}
+                            onChange={(e) =>
+                              onUpdateSettings({
+                                ...settings,
+                                gyroSensitivity: parseFloat(e.target.value),
+                              })
+                            }
+                            className="w-full accent-cyan-400 cursor-pointer"
+                          />
+                        </div>
+                      )}
 
                       <div className="flex items-center justify-between pt-2 border-t border-white/8">
                         <span className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
