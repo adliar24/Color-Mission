@@ -338,6 +338,30 @@ test('InputManager mendukung toggle Gyro HP dan Haptic Feedback tanpa error di b
   assert.equal(cmdGyroOn.lookDeltaX, 0);
   assert.equal(cmdGyroOn.lookDeltaY, 0);
 
+  // Simulasi DeviceMotionEvent: Verifikasi arah rotasi konsisten & tidak terbalik
+  // Di Landscape (angle 90 default):
+  im.mobile.setScreenOrientationAngle(90);
+  // 1. Miring ke atas (pitch up / ceiling) -> lookDeltaY > 0
+  im.mobile.onDeviceMotion({
+    rotationRate: { alpha: 0, beta: 0, gamma: -30 }, // rGamma negatif = tilt up di landscape 90
+    interval: 16,
+  } as unknown as DeviceMotionEvent);
+  const cmdPitchUp = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true }, 0.016);
+  assert.ok(cmdPitchUp.lookDeltaY > 0, 'Miring ke atas harus menghasilkan lookDeltaY > 0');
+
+  // 2. Putar ke kanan (yaw right) -> lookDeltaX < 0 (memutar kamera ke kanan)
+  im.mobile.onDeviceMotion({
+    rotationRate: { alpha: -20, beta: -20, gamma: 0 }, // rBeta & rAlpha negatif = putar kanan
+    interval: 16,
+  } as unknown as DeviceMotionEvent);
+  const cmdYawRight = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true }, 0.016);
+  assert.ok(cmdYawRight.lookDeltaX < 0, 'Putar HP ke kanan harus menghasilkan lookDeltaX < 0');
+
+  // 3. Saat HP diam, delta gyro harus langsung 0 (bebas lag / drifting)
+  const cmdRest = im.poll({ ...TEST_SETTINGS, mobileGyroEnabled: true }, 0.016);
+  assert.equal(cmdRest.lookDeltaX, 0, 'Saat HP diam, lookDeltaX harus langsung 0');
+  assert.equal(cmdRest.lookDeltaY, 0, 'Saat HP diam, lookDeltaY harus langsung 0');
+
   // Panggilan triggerHaptic aman saat hapticsEnabled true maupun false
   assert.doesNotThrow(() => {
     im.triggerHaptic('shoot', { ...TEST_SETTINGS, hapticsEnabled: true }, null);

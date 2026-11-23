@@ -484,8 +484,10 @@ export class MobileInput {
   private smoothLookY = 0;
   private gyroAccumX = 0;
   private gyroAccumY = 0;
-  private smoothGyroX = 0;
-  private smoothGyroY = 0;
+  private filteredYawRate = 0;
+  private filteredPitchRate = 0;
+  private currentTiltBeta = 60; // Derajat kemiringan HP saat digenggam (default 60°)
+  private currentTiltGamma = 0;
   private lastMotionTimestamp = 0;
   private hasDeviceMotionRate = false;
   private lastGyroAlpha: number | null = null;
@@ -550,8 +552,15 @@ export class MobileInput {
     this.gyroListenerAttached = false;
   }
 
+  private forcedScreenAngle: number | null = null;
+
+  public setScreenOrientationAngle(angle: number | null) {
+    this.forcedScreenAngle = angle;
+  }
+
   private getScreenOrientationAngle(): number {
-    if (typeof window === 'undefined') return 0;
+    if (this.forcedScreenAngle !== null) return this.forcedScreenAngle;
+    if (typeof window === 'undefined') return 90;
     const scrAngle = window.screen?.orientation?.angle;
     if (typeof scrAngle === 'number') return scrAngle;
     const legacyAngle = (window as unknown as { orientation?: number }).orientation;
@@ -561,9 +570,10 @@ export class MobileInput {
 
   /**
    * Gyroscope Utama berbasis kecepatan sudut hardware (DeviceMotionEvent.rotationRate).
-   * Bebas gimbal-lock, bebas drift kompas, dan otomatis menyesuaikan orientasi layar (Landscape / Portrait).
+   * Bebas gimbal-lock, bebas drift kompas, responsif instan tanpa lag/stuck,
+   * dan otomatis menyesuaikan orientasi layar (Landscape 90/270 & Portrait).
    */
-  private onDeviceMotion = (e: DeviceMotionEvent) => {
+  public onDeviceMotion = (e: DeviceMotionEvent) => {
     const rate = e.rotationRate;
     if (!rate || (rate.alpha === null && rate.beta === null && rate.gamma === null)) return;
 
@@ -584,43 +594,64 @@ export class MobileInput {
     const rGamma = rate.gamma ?? 0;
     const rAlpha = rate.alpha ?? 0;
 
-    const angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
-    let yawRateDeg = 0;
-    let pitchRateDeg = 0;
-
-    if (angle === 90) {
-      // Landscape Primary (bagian atas HP di sisi kiri)
-      yawRateDeg = -rBeta + rAlpha * 0.25;
-      pitchRateDeg = -rGamma;
-    } else if (angle === 270) {
-      // Landscape Secondary (bagian atas HP di sisi kanan)
-      yawRateDeg = rBeta + rAlpha * 0.25;
-      pitchRateDeg = rGamma;
-    } else {
-      // Portrait (0 derajat)
-      yawRateDeg = rGamma + rAlpha * 0.35;
-      pitchRateDeg = rBeta;
+    let angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
+    // Deteksi jika viewport horizontal (landscape) namun orientation angle belum berganti
+    if (angle === 0 && typeof window !== 'undefined' && window.innerWidth > window.innerHeight) {
+      angle = 90;
     }
 
-    // Deadzone micro-tremor agar crosshair diam stabil saat HP dipegang tenang
-    const deadzone = 1.15; // deg/s
-    const cleanYaw =
-      Math.abs(yawRateDeg) < deadzone
-        ? 0
-        : Math.sign(yawRateDeg) * (Math.abs(yawRateDeg) - deadzone);
-    const cleanPitch =
-      Math.abs(pitchRateDeg) < deadzone
-        ? 0
-        : Math.sign(pitchRateDeg) * (Math.abs(pitchRateDeg) - deadzone);
+    // Sudut kemiringan HP saat digenggam (default ~60° dari posisi horizontal)
+    const tiltRad =
+      Math.max(15, Math.min(85, Math.abs(this.currentTiltBeta))) * (Math.PI / 180);
+    const sinTilt = Math.sin(tiltRad);
+    const cosTilt = Math.cos(tiltRad);
 
-    this.gyroAccumX += THREE.MathUtils.clamp(cleanYaw * dt, -8, 8);
-    this.gyroAccumY += THREE.MathUtils.clamp(cleanPitch * dt, -8, 8);
+    let rawYaw = 0;
+    let rawPitch = 0;
+
+    if (angle === 90) {
+      // Landscape Primary (bagian atas HP di sisi kiri, port charger di kanan)
+      // Miring ke atas (pitch up) = rGamma negatif -> rawPitch positif -> cameraRot.pitch bertambah (melihat ke atas)
+      rawPitch = -rGamma;
+      // Putar ke kanan (yaw right) = rBeta negatif & rAlpha negatif -> rawYaw negatif -> cameraRot.yaw berkurang (melihat ke kanan)
+      rawYaw = rBeta * sinTilt + rAlpha * cosTilt;
+    } else if (angle === 270) {
+      // Landscape Secondary (bagian atas HP di sisi kanan, port charger di kiri)
+      rawPitch = rGamma;
+      rawYaw = -(rBeta * sinTilt - rAlpha * cosTilt);
+    } else {
+      // Portrait (0 derajat)
+      rawPitch = rBeta;
+      rawYaw = rGamma * sinTilt + rAlpha * cosTilt;
+    }
+
+    // Deadzone mikro (0.08 deg/s) untuk menyaring getaran sensor statis tanpa mematikan bidikan mikro
+    const deadzone = 0.08;
+    const cleanYaw =
+      Math.abs(rawYaw) < deadzone ? 0 : Math.sign(rawYaw) * (Math.abs(rawYaw) - deadzone);
+    const cleanPitch =
+      Math.abs(rawPitch) < deadzone ? 0 : Math.sign(rawPitch) * (Math.abs(rawPitch) - deadzone);
+
+    // Filter peredam frekuensi tinggi pada kecepatan sudut (80% nilai baru, 20% nilai lama)
+    // agar bidikan halus tanpa delay atau sensasi ketahan
+    this.filteredYawRate = this.filteredYawRate * 0.2 + cleanYaw * 0.8;
+    this.filteredPitchRate = this.filteredPitchRate * 0.2 + cleanPitch * 0.8;
+
+    this.gyroAccumX += THREE.MathUtils.clamp(this.filteredYawRate * dt, -12, 12);
+    this.gyroAccumY += THREE.MathUtils.clamp(this.filteredPitchRate * dt, -12, 12);
   };
 
   /**
    * Fallback DeviceOrientationEvent jika browser tidak menyediakan DeviceMotionEvent.rotationRate.
    */
-  private onDeviceOrientation = (e: DeviceOrientationEvent) => {
+  public onDeviceOrientation = (e: DeviceOrientationEvent) => {
+    if (e.beta !== null && typeof e.beta === 'number') {
+      this.currentTiltBeta = e.beta;
+    }
+    if (e.gamma !== null && typeof e.gamma === 'number') {
+      this.currentTiltGamma = e.gamma;
+    }
+
     if (this.hasDeviceMotionRate) return;
     if (e.alpha === null || e.beta === null || e.gamma === null) return;
 
@@ -646,17 +677,36 @@ export class MobileInput {
     this.lastGyroBeta = e.beta;
     this.lastGyroGamma = e.gamma;
 
-    // Abaikan lonjakan gimbal-lock (> 12 derajat dalam 1 sampel)
-    if (Math.abs(dAlpha) > 12 || Math.abs(dBeta) > 12 || Math.abs(dGamma) > 12) {
+    // Abaikan lonjakan gimbal-lock (> 15 derajat dalam 1 sampel)
+    if (Math.abs(dAlpha) > 15 || Math.abs(dBeta) > 15 || Math.abs(dGamma) > 15) {
       return;
     }
 
-    const angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
-    const rawYaw = dAlpha;
-    const rawPitch = angle === 90 ? -dGamma : angle === 270 ? dGamma : dBeta;
+    let angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
+    if (angle === 0 && typeof window !== 'undefined' && window.innerWidth > window.innerHeight) {
+      angle = 90;
+    }
 
-    // Deadzone getaran halus sensor
-    const dz = 0.04;
+    const tiltRad =
+      Math.max(15, Math.min(85, Math.abs(this.currentTiltBeta))) * (Math.PI / 180);
+    const sinTilt = Math.sin(tiltRad);
+    const cosTilt = Math.cos(tiltRad);
+
+    let rawYaw = 0;
+    let rawPitch = 0;
+
+    if (angle === 90) {
+      rawPitch = -dGamma;
+      rawYaw = dBeta * sinTilt + dAlpha * cosTilt;
+    } else if (angle === 270) {
+      rawPitch = dGamma;
+      rawYaw = -(dBeta * sinTilt - dAlpha * cosTilt);
+    } else {
+      rawPitch = dBeta;
+      rawYaw = dGamma * sinTilt + dAlpha * cosTilt;
+    }
+
+    const dz = 0.03;
     if (Math.abs(rawYaw) > dz) {
       this.gyroAccumX += rawYaw;
     }
@@ -727,8 +777,8 @@ export class MobileInput {
     this.smoothLookY = 0;
     this.gyroAccumX = 0;
     this.gyroAccumY = 0;
-    this.smoothGyroX = 0;
-    this.smoothGyroY = 0;
+    this.filteredYawRate = 0;
+    this.filteredPitchRate = 0;
     this.lastMotionTimestamp = 0;
     this.lastGyroAlpha = null;
     this.lastGyroBeta = null;
@@ -751,20 +801,15 @@ export class MobileInput {
     this.lookAccumX = 0;
     this.lookAccumY = 0;
 
-    // Jika Gyro HP diaktifkan, gunakan low-pass filter eksponensial agar bidikan gyro mulus & presisi
+    // Jika Gyro HP diaktifkan, terapkan akumulasi rotasi secara presisi & instan tanpa lag/ketahan
     if (settings.mobileGyroEnabled) {
-      const gyroSens = 0.0155 * settings.touchSensitivity * cameraMult;
-      const rawGyroX = this.gyroAccumX * gyroSens;
-      const rawGyroY = this.gyroAccumY * gyroSens;
-      this.smoothGyroX = this.smoothGyroX * 0.38 + rawGyroX * 0.62;
-      this.smoothGyroY = this.smoothGyroY * 0.38 + rawGyroY * 0.62;
-      if (Math.abs(this.smoothGyroX) < 1e-5) this.smoothGyroX = 0;
-      if (Math.abs(this.smoothGyroY) < 1e-5) this.smoothGyroY = 0;
-      lookDeltaX += this.smoothGyroX;
-      lookDeltaY += this.smoothGyroY;
+      // Rasio 1:1 antara pergerakan fisik perangkat dengan perputaran kamera in-game (~0.0175 rad/deg)
+      const gyroSens = 0.0175 * settings.touchSensitivity * cameraMult;
+      lookDeltaX += this.gyroAccumX * gyroSens;
+      lookDeltaY += this.gyroAccumY * gyroSens;
     } else {
-      this.smoothGyroX = 0;
-      this.smoothGyroY = 0;
+      this.filteredYawRate = 0;
+      this.filteredPitchRate = 0;
       this.lastMotionTimestamp = 0;
       this.lastGyroAlpha = null;
       this.lastGyroBeta = null;
