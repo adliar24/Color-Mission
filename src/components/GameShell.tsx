@@ -3417,9 +3417,9 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
           MAIN MENU MINIMALIS & KONTRAS TINGGI (BERLATAR ARENA 3D)
          ==================================================================== */}
       {gameState === 'title' &&
+        !isVRActive &&
         !(platformMode === 'mobile' && !mobileFullscreenConfirmed) &&
-        !(platformMode === 'desktop' && !desktopFullscreenConfirmed) &&
-        !(platformMode === 'vr' && !isVRActive) && (
+        !(platformMode === 'desktop' && !desktopFullscreenConfirmed) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 overflow-y-auto">
             {/* Tombol Ikon Pojok Kanan Atas: Orientasi (Mobile) & Fullscreen */}
             <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
@@ -3764,7 +3764,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       </AnimatedPresence>
 
       {/* === MODAL CARA BERMAIN (TUTORIAL) === */}
-      <AnimatedPresence show={showTutorial}>
+      <AnimatedPresence show={showTutorial && !isVRActive}>
         <TutorialModal
           platformMode={platformMode}
           isGamepadConnected={isGamepadConnected}
@@ -3777,7 +3777,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       </AnimatedPresence>
 
       {/* === MODAL PENGATURAN (SETTINGS) === */}
-      <AnimatedPresence show={showSettings}>
+      <AnimatedPresence show={showSettings && !isVRActive}>
         <SettingsModal
           settings={settings}
           onUpdateSettings={setSettings}
@@ -3794,7 +3794,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       </AnimatedPresence>
 
       {/* === MODAL PERINGATAN LKPD TERKUNCI === */}
-      <AnimatedPresence show={showLKPDLockedAlert}>
+      <AnimatedPresence show={showLKPDLockedAlert && !isVRActive}>
         <div className="fixed inset-0 bg-[#050811]/85 backdrop-blur-md flex items-center justify-center p-4 z-50 font-sans text-white ui-backdrop-enter">
           <div
             data-ui-board="true"
@@ -3850,7 +3850,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       </AnimatedPresence>
 
       {/* === MODAL LKPD EVALUASI INTERAKTIF === */}
-      <AnimatedPresence show={showLKPD}>
+      <AnimatedPresence show={showLKPD && !isVRActive}>
         <LKPDModal
           progress={lkpdProgress}
           onClose={() => setShowLKPD(false)}

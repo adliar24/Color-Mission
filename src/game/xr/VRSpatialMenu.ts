@@ -372,15 +372,25 @@ export class VRSpatialMenu {
     this.buttons = [];
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Backdrop papan rounded persis seperti versi Desktop & Mobile (#090d18 + border putih halus)
-    ctx.fillStyle = '#090d18';
-    ctx.beginPath();
-    ctx.roundRect(14, 14, CANVAS_W - 28, CANVAS_H - 28, 44);
-    ctx.fill();
+    const isMainMenu =
+      state.gameState === 'title' &&
+      (!state.vrSetupStep || state.vrSetupStep === 'none') &&
+      !state.showSettings &&
+      !state.showTutorial &&
+      (!state.vrLkpdStep || state.vrLkpdStep === 'none');
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
-    ctx.lineWidth = 3.5;
-    ctx.stroke();
+    // Hanya gambar backdrop kanvas penuh untuk layar multi-kolom yang membutuhkan bidang lebar.
+    // Pada Menu Utama VR, jangan gambar backdrop luar agar papan kartu tampil melayang tunggal (tidak dobel).
+    if (!isMainMenu) {
+      ctx.fillStyle = '#090d18';
+      ctx.beginPath();
+      ctx.roundRect(14, 14, CANVAS_W - 28, CANVAS_H - 28, 44);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+    }
 
     if (state.showSettings) {
       this.drawSettingsBoard(ctx, state);
