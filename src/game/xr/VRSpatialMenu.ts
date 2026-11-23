@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import {
   CharacterId,
+  DifficultyLevel,
   GameSettings,
   GameState,
   RunSummary,
+  RYBColorId,
   resolveAudioSettings,
   resolveSpeedSettings,
 } from '../types';
@@ -13,11 +15,23 @@ import {
   DIFFICULTY_REGISTRY,
   getColorsByCategory,
 } from '../rules';
+import {
+  LKPD_LAB_INGREDIENTS,
+  LKPD_LAB_CHALLENGES,
+  LKPD_QUIZ_QUESTIONS,
+  LKPD_REFLECTION_PROMPTS,
+  LKPDScoreBreakdown,
+  mixRYBColors,
+} from '../lkpd';
+import { getColorDef } from '../colors';
 
 export type VRMenuAction =
   | 'start_mission'
   | 'cycle_character'
   | 'cycle_difficulty'
+  | 'set_difficulty_easy'
+  | 'set_difficulty_normal'
+  | 'set_difficulty_hard'
   | 'open_tutorial'
   | 'open_settings'
   | 'open_lkpd'
@@ -52,6 +66,23 @@ export type VRMenuAction =
   | 'vr_setup_pick_raka'
   | 'vr_setup_pick_rana'
   | 'vr_setup_confirm_start'
+  // In-Game VR LKPD Actions
+  | 'vr_lkpd_open_lab'
+  | 'vr_lkpd_open_quiz'
+  | 'vr_lkpd_open_reflection'
+  | 'vr_lkpd_open_result'
+  | 'vr_lkpd_lab_select_slot_a'
+  | 'vr_lkpd_lab_select_slot_b'
+  | 'vr_lkpd_lab_mix'
+  | 'vr_lkpd_lab_reset'
+  | 'vr_lkpd_quiz_next'
+  | 'vr_lkpd_quiz_prev'
+  | 'vr_lkpd_submit'
+  | 'vr_lkpd_exit'
+  | `vr_lkpd_lab_pick_${string}`
+  | `vr_lkpd_quiz_ans_${string}`
+  | `vr_lkpd_reflection_select_${string}`
+  | `vr_lkpd_quick_${string}`
   | `kb_${string}`;
 
 interface MenuButtonRect {
@@ -86,6 +117,18 @@ export interface VRSpatialMenuState {
   studentClass?: string;
   activeInputField?: 'name' | 'class';
   selectedCharacterId?: CharacterId;
+
+  // In-Game WebXR LKPD Evaluasi
+  vrLkpdStep?: 'none' | 'lab' | 'quiz' | 'reflection' | 'result';
+  vrLkpdLabSlotA?: RYBColorId | null;
+  vrLkpdLabSlotB?: RYBColorId | null;
+  vrLkpdLabActiveSlot?: 'a' | 'b';
+  vrLkpdLabSolvedIds?: RYBColorId[];
+  vrLkpdQuizIndex?: number;
+  vrLkpdQuizAnswers?: Record<string, string>;
+  vrLkpdReflectionAnswers?: Record<string, string>;
+  vrLkpdActiveReflectionPrompt?: string;
+  vrLkpdScore?: LKPDScoreBreakdown;
 }
 
 const BOARD_WIDTH = 2.24;
@@ -310,6 +353,17 @@ export class VRSpatialMenu {
       sClass: state.studentClass || '',
       actIn: state.activeInputField || 'name',
       selChar: state.selectedCharacterId || state.settings.characterId || 'raka',
+      // In-Game LKPD Signature
+      lkpdStep: state.vrLkpdStep || 'none',
+      lkpdSlotA: state.vrLkpdLabSlotA || '',
+      lkpdSlotB: state.vrLkpdLabSlotB || '',
+      lkpdActSlot: state.vrLkpdLabActiveSlot || 'a',
+      lkpdSolved: (state.vrLkpdLabSolvedIds || []).join(','),
+      lkpdQIdx: state.vrLkpdQuizIndex ?? 0,
+      lkpdQAns: JSON.stringify(state.vrLkpdQuizAnswers || {}),
+      lkpdRefAns: JSON.stringify(state.vrLkpdReflectionAnswers || {}),
+      lkpdRefPrompt: state.vrLkpdActiveReflectionPrompt || 'ref_1_kategori',
+      lkpdScore: state.vrLkpdScore ? state.vrLkpdScore.objectiveScore : 0,
     });
     if (sig === this.lastSignature || !this.ctx) return;
     this.lastSignature = sig;
@@ -332,6 +386,16 @@ export class VRSpatialMenu {
       this.drawSettingsBoard(ctx, state);
     } else if (state.showTutorial) {
       this.drawTutorialBoard(ctx);
+    } else if (state.vrLkpdStep && state.vrLkpdStep !== 'none') {
+      if (state.vrLkpdStep === 'lab') {
+        this.drawVRLkpdLabBoard(ctx, state);
+      } else if (state.vrLkpdStep === 'quiz') {
+        this.drawVRLkpdQuizBoard(ctx, state);
+      } else if (state.vrLkpdStep === 'reflection') {
+        this.drawVRLkpdReflectionBoard(ctx, state);
+      } else if (state.vrLkpdStep === 'result') {
+        this.drawVRLkpdResultBoard(ctx, state);
+      }
     } else if (state.gameState === 'title') {
       if (state.vrSetupStep === 'identity') {
         this.drawVRIdentityBoard(ctx, state);
@@ -437,138 +501,365 @@ export class VRSpatialMenu {
     ctx.restore();
   }
 
-  private drawMainMenuBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
-    // Tiga kotak warna primer RYB persis seperti Main Menu Desktop & Mobile
-    const swatchColors = ['#EF233C', '#FFD60A', '#1D6FFF'];
-    const swSize = 30;
-    const swGap = 16;
-    const totalSwW = swatchColors.length * swSize + (swatchColors.length - 1) * swGap;
-    const swStartX = (CANVAS_W - totalSwW) / 2;
-    swatchColors.forEach((hex, idx) => {
-      const sx = swStartX + idx * (swSize + swGap);
-      ctx.fillStyle = hex;
-      ctx.beginPath();
-      ctx.roundRect(sx, 50, swSize, swSize, 8);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
+  /**
+   * Render input field teks VR yang mulus, stabil, dan bebas dari glitch hover.
+   */
+  private drawVRInputField(
+    ctx: CanvasRenderingContext2D,
+    config: {
+      id: VRMenuAction;
+      label: string;
+      value: string;
+      placeholder: string;
+      badgeText: string;
+      badgeVariant: 'cyan' | 'emerald' | 'slate';
+      isActive: boolean;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }
+  ) {
+    this.buttons.push({
+      id: config.id,
+      label: '',
+      x: config.x,
+      y: config.y,
+      w: config.w,
+      h: config.h,
+      variant: 'secondary',
     });
 
-    // Logo COLOR MISSION (Putih + Cyan)
-    ctx.font = '900 70px Inter, system-ui, -apple-system, sans-serif';
-    ctx.textBaseline = 'alphabetic';
-    const part1 = 'COLOR ';
-    const part2 = 'MISSION';
-    const w1 = ctx.measureText(part1).width;
-    const w2 = ctx.measureText(part2).width;
-    const titleStartX = (CANVAS_W - (w1 + w2)) / 2;
+    const isHover = this.hoveredId === config.id;
+    const isFocused = config.isActive;
+    const radius = 16;
 
+    // Background input box
+    ctx.fillStyle = isFocused ? '#0c1527' : isHover ? '#0f172a' : '#080d19';
+    ctx.beginPath();
+    ctx.roundRect(config.x, config.y, config.w, config.h, radius);
+    ctx.fill();
+
+    // Border with neon cyan glow if active / hover
+    if (isFocused || isHover) {
+      ctx.save();
+      ctx.shadowColor = isFocused ? 'rgba(34, 211, 238, 0.75)' : 'rgba(34, 211, 238, 0.35)';
+      ctx.shadowBlur = isFocused ? 18 : 10;
+      ctx.beginPath();
+      ctx.roundRect(config.x, config.y, config.w, config.h, radius);
+      ctx.strokeStyle = isFocused ? '#22d3ee' : 'rgba(34, 211, 238, 0.6)';
+      ctx.lineWidth = isFocused ? 3 : 2;
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // Top Label
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(part1, titleStartX, 162);
-    ctx.fillStyle = '#22d3ee';
-    ctx.fillText(part2, titleStartX + w1, 162);
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = isFocused ? '#38bdf8' : isHover ? '#94a3b8' : '#64748b';
+    ctx.font = '700 12px Inter, system-ui, sans-serif';
+    ctx.fillText(config.label, config.x + 18, config.y + 22);
 
+    // Top Right Pill Badge (WAJIB / ✔ TERISI / OPSIONAL)
+    const badgeW = config.badgeVariant === 'emerald' ? 76 : config.badgeVariant === 'cyan' ? 56 : 74;
+    const badgeH = 20;
+    const badgeX = config.x + config.w - badgeW - 14;
+    const badgeY = config.y + 8;
+    ctx.fillStyle =
+      config.badgeVariant === 'emerald'
+        ? 'rgba(16, 185, 129, 0.16)'
+        : config.badgeVariant === 'cyan'
+          ? 'rgba(34, 211, 238, 0.16)'
+          : 'rgba(100, 116, 139, 0.16)';
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 10);
+    ctx.fill();
+    ctx.strokeStyle =
+      config.badgeVariant === 'emerald'
+        ? 'rgba(16, 185, 129, 0.5)'
+        : config.badgeVariant === 'cyan'
+          ? 'rgba(34, 211, 238, 0.5)'
+          : 'rgba(100, 116, 139, 0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.font = '800 11px Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle =
+      config.badgeVariant === 'emerald'
+        ? '#34d399'
+        : config.badgeVariant === 'cyan'
+          ? '#22d3ee'
+          : '#94a3b8';
+    ctx.fillText(config.badgeText, badgeX + badgeW / 2, badgeY + badgeH / 2);
+
+    // Text content
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '700 20px Inter, system-ui, sans-serif';
+    if (config.value) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(config.value + (isFocused ? '|' : ''), config.x + 18, config.y + 50);
+    } else {
+      ctx.fillStyle = '#475569';
+      ctx.fillText(isFocused ? '| ' + config.placeholder : config.placeholder, config.x + 18, config.y + 50);
+    }
+  }
+
+  /**
+   * Main Menu VR persis 1:1 sesuai gambar referensi pengguna:
+   * - Rounded Card gelap (#080d19)
+   * - 3 titik warna primer RYB
+   * - COLOR (putih) & MISSION (cyan)
+   * - Tombol cyan pill ▶ MULAI MISI
+   * - Segmented Difficulty pill (MUDAH | NORMAL | SULIT) dengan indikator aktif solid putih teks hitam
+   * - Grid 2 kolom [ 📖 CARA MAIN ] & [ 🎛 PENGATURAN ]
+   * - Card LKPD Evaluasi dengan icon gembok & badge status (TERKUNCI / TERBUKA)
+   * - Tombol Keluar Mode VR
+   */
+  private drawMainMenuBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
+    const cardW = 540;
+    const cardH = 600;
+    const cardX = (CANVAS_W - cardW) / 2;
+    const cardY = 20;
+    const cardRadius = 32;
+
+    // Latar belakang kartu gelap
+    ctx.fillStyle = '#080d19';
+    ctx.beginPath();
+    ctx.roundRect(cardX, cardY, cardW, cardH, cardRadius);
+    ctx.fill();
+
+    // Border kartu halus
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 1. Tiga titik rounded RYB di bagian atas (Merah, Kuning, Biru)
+    const dots = ['#EF233C', '#FFD60A', '#1D6FFF'];
+    const dotW = 28;
+    const dotH = 22;
+    const dotGap = 14;
+    const totalDotsW = dots.length * dotW + (dots.length - 1) * dotGap;
+    const dotStartX = cardX + (cardW - totalDotsW) / 2;
+    const dotY = cardY + 28;
+
+    dots.forEach((hex, idx) => {
+      const dx = dotStartX + idx * (dotW + dotGap);
+      ctx.fillStyle = hex;
+      ctx.beginPath();
+      ctx.roundRect(dx, dotY, dotW, dotH, 7);
+      ctx.fill();
+    });
+
+    // 2. Logo / Judul: COLOR (Putih) & MISSION (Cyan)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '900 52px Inter, system-ui, -apple-system, sans-serif';
+
+    // Baris 1: COLOR
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('COLOR', CANVAS_W / 2, cardY + 104);
+
+    // Baris 2: MISSION
+    ctx.fillStyle = '#00e5ff';
+    ctx.fillText('MISSION', CANVAS_W / 2, cardY + 158);
+
+    // Subtitle
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '600 21px Inter, system-ui, -apple-system, sans-serif';
-    ctx.fillText('Kuasai Warna. Selesaikan Misi.', CANVAS_W / 2, 202);
+    ctx.font = '600 15px Inter, system-ui, -apple-system, sans-serif';
+    ctx.fillText('Kuasai Warna. Selesaikan Misi.', CANVAS_W / 2, cardY + 190);
 
-    const bw = 540;
-    const bx = (CANVAS_W - bw) / 2;
-    const halfW = (bw - 18) / 2;
-    const activeChar = CHARACTER_REGISTRY[state.settings.characterId ?? 'raka'] || CHARACTER_REGISTRY.raka;
-    const activeDiff = DIFFICULTY_REGISTRY[state.settings.difficulty ?? 'normal'] || DIFFICULTY_REGISTRY.normal;
+    const innerW = 440;
+    const innerX = cardX + (cardW - innerW) / 2;
 
+    // 3. Tombol Utama Cyan: ▶ MULAI MISI
     this.drawButton(ctx, {
       id: 'vr_setup_start',
-      label: 'MULAI MISI',
-      x: bx,
-      y: 222,
-      w: bw,
-      h: 64,
+      label: '▶  MULAI MISI',
+      x: innerX,
+      y: cardY + 214,
+      w: innerW,
+      h: 56,
       variant: 'primary',
     });
 
-    this.drawButton(ctx, {
-      id: 'cycle_character',
-      label: `AGEN: ${activeChar.name.toUpperCase()}`,
-      x: bx,
-      y: 298,
-      w: halfW,
-      h: 52,
-      variant: 'secondary',
+    // 4. Segmented Control Tingkat Kesulitan: MUDAH | NORMAL | SULIT
+    const segH = 50;
+    const segY = cardY + 284;
+    const segRadius = 25;
+    const currentDiff = state.settings.difficulty ?? 'normal';
+
+    // Container Bar Segmented
+    ctx.fillStyle = '#111827';
+    ctx.beginPath();
+    ctx.roundRect(innerX, segY, innerW, segH, segRadius);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    const segBtnW = (innerW - 12) / 3;
+    const segDiffs: { id: VRMenuAction; key: DifficultyLevel; label: string }[] = [
+      { id: 'set_difficulty_easy', key: 'easy', label: 'MUDAH' },
+      { id: 'set_difficulty_normal', key: 'normal', label: 'NORMAL' },
+      { id: 'set_difficulty_hard', key: 'hard', label: 'SULIT' },
+    ];
+
+    segDiffs.forEach((seg, idx) => {
+      const sx = innerX + 6 + idx * segBtnW;
+      const sy = segY + 4;
+      const sh = segH - 8;
+      const isActive = currentDiff === seg.key;
+      const isHover = this.hoveredId === seg.id;
+
+      this.buttons.push({
+        id: seg.id,
+        label: seg.label,
+        x: sx,
+        y: sy,
+        w: segBtnW,
+        h: sh,
+        variant: 'secondary',
+      });
+
+      if (isActive) {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.roundRect(sx, sy, segBtnW, sh, 20);
+        ctx.fill();
+        ctx.fillStyle = '#000000';
+        ctx.font = '900 16px Inter, system-ui, sans-serif';
+      } else {
+        if (isHover) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+          ctx.beginPath();
+          ctx.roundRect(sx, sy, segBtnW, sh, 20);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+        } else {
+          ctx.fillStyle = '#94a3b8';
+        }
+        ctx.font = '700 15px Inter, system-ui, sans-serif';
+      }
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(seg.label, sx + segBtnW / 2, sy + sh / 2);
     });
 
-    this.drawButton(ctx, {
-      id: 'cycle_difficulty',
-      label: `MODE: ${activeDiff.label}`,
-      x: bx + halfW + 18,
-      y: 298,
-      w: halfW,
-      h: 52,
-      variant: 'secondary',
-    });
+    // 5. Dua Kolom Tombol: [ 📖 CARA MAIN ] & [ 🎛 PENGATURAN ]
+    const gridY = cardY + 348;
+    const gridGap = 14;
+    const gridBtnW = (innerW - gridGap) / 2;
+    const gridH = 50;
 
     this.drawButton(ctx, {
       id: 'open_tutorial',
-      label: 'CARA MAIN',
-      x: bx,
-      y: 362,
-      w: halfW,
-      h: 54,
+      label: '📖 CARA MAIN',
+      x: innerX,
+      y: gridY,
+      w: gridBtnW,
+      h: gridH,
       variant: 'secondary',
     });
 
     this.drawButton(ctx, {
       id: 'open_settings',
-      label: 'PENGATURAN',
-      x: bx + halfW + 18,
-      y: 362,
-      w: halfW,
-      h: 54,
+      label: '🎛 PENGATURAN',
+      x: innerX + gridBtnW + gridGap,
+      y: gridY,
+      w: gridBtnW,
+      h: gridH,
       variant: 'secondary',
     });
 
-    this.drawButton(ctx, {
+    // 6. Kartu LKPD Evaluasi (Gembok di kiri + Badge Status di kanan)
+    const lkpdY = cardY + 412;
+    const lkpdH = 54;
+    const isLkpdUnlocked = Boolean(state.lkpdUnlocked);
+    const isLkpdHover = this.hoveredId === 'open_lkpd';
+
+    this.buttons.push({
       id: 'open_lkpd',
-      label: state.lkpdUnlocked ? 'LKPD EVALUASI · TERBUKA' : '🔒 LKPD EVALUASI · TERKUNCI',
-      x: bx,
-      y: 428,
-      w: bw,
-      h: 54,
+      label: '',
+      x: innerX,
+      y: lkpdY,
+      w: innerW,
+      h: lkpdH,
       variant: 'secondary',
     });
 
+    ctx.fillStyle = isLkpdHover ? '#131e36' : '#0e1526';
+    ctx.beginPath();
+    ctx.roundRect(innerX, lkpdY, innerW, lkpdH, 18);
+    ctx.fill();
+    ctx.strokeStyle = isLkpdHover ? 'rgba(34, 211, 238, 0.6)' : 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // Label LKPD di kiri
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = '800 15px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('🔒  LKPD EVALUASI', innerX + 20, lkpdY + lkpdH / 2);
+
+    // Badge Pill di kanan (TERKUNCI / TERBUKA)
+    const badgeW = 96;
+    const badgeH = 26;
+    const badgeX = innerX + innerW - badgeW - 14;
+    const badgeY = lkpdY + (lkpdH - badgeH) / 2;
+
+    ctx.fillStyle = isLkpdUnlocked ? 'rgba(16, 185, 129, 0.16)' : 'rgba(245, 158, 11, 0.16)';
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 13);
+    ctx.fill();
+    ctx.strokeStyle = isLkpdUnlocked ? 'rgba(16, 185, 129, 0.45)' : 'rgba(245, 158, 11, 0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.font = '800 12px Inter, system-ui, sans-serif';
+    ctx.fillStyle = isLkpdUnlocked ? '#34d399' : '#f59e0b';
+    ctx.fillText(isLkpdUnlocked ? 'TERBUKA' : 'TERKUNCI', badgeX + badgeW / 2, badgeY + badgeH / 2);
+
+    // 7. Tombol Keluar VR di bagian bawah
     this.drawButton(ctx, {
       id: 'exit_vr',
-      label: 'KELUAR MODE VR',
-      x: bx,
-      y: 494,
-      w: bw,
-      h: 50,
+      label: '✕  KELUAR MODE VR',
+      x: innerX,
+      y: cardY + 480,
+      w: innerW,
+      h: 44,
       variant: 'danger',
     });
 
+    // Banner Pesan Peringatan jika LKPD belum terbuka
     if (state.vrWarningMsg) {
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.18)';
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
       ctx.beginPath();
-      ctx.roundRect(112, 554, CANVAS_W - 224, 44, 14);
+      ctx.roundRect(cardX + 20, cardY + 536, cardW - 40, 42, 12);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(251, 191, 36, 0.65)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
+      ctx.lineWidth = 1.8;
       ctx.stroke();
 
       ctx.fillStyle = '#fde68a';
-      ctx.font = '700 19px Inter, system-ui, -apple-system, sans-serif';
+      ctx.font = '700 14px Inter, system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(state.vrWarningMsg, CANVAS_W / 2, 576);
+      ctx.fillText(state.vrWarningMsg, CANVAS_W / 2, cardY + 557);
     }
   }
 
   /**
    * Papan Setup Misi Langkah 1: Input Identitas Siswa + Virtual Keyboard QWERTY 3D di VR
+   * (Diperbarui dengan drawVRInputField agar raycast hover mulus & teks tidak tertutup)
    */
   private drawVRIdentityBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
     const studentName = state.studentName || '';
@@ -597,83 +888,33 @@ export class VRSpatialMenu {
     ctx.fillText('Masukkan nama dan kelas sebelum memulai misi penyelamatan', CANVAS_W / 2, 122);
 
     // Input Field 1: NAMA SISWA (WAJIB)
-    const nameX = 64;
-    const nameY = 140;
-    const nameW = 560;
-    const nameH = 64;
-    const isNameActive = activeField === 'name';
-
-    ctx.fillStyle = isNameActive ? '#0f172a' : '#080e1a';
-    ctx.beginPath();
-    ctx.roundRect(nameX, nameY, nameW, nameH, 14);
-    ctx.fill();
-
-    ctx.strokeStyle = isNameActive ? '#22d3ee' : 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = isNameActive ? 3 : 1.5;
-    ctx.stroke();
-
-    ctx.textAlign = 'left';
-    ctx.fillStyle = isNameActive ? '#38bdf8' : '#64748b';
-    ctx.font = '700 12px Inter, system-ui, sans-serif';
-    ctx.fillText('NAMA SISWA (WAJIB)', nameX + 16, nameY + 22);
-
-    ctx.font = '700 20px Inter, system-ui, sans-serif';
-    if (studentName) {
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillText(studentName + (isNameActive ? '|' : ''), nameX + 16, nameY + 49);
-    } else {
-      ctx.fillStyle = '#475569';
-      ctx.fillText(isNameActive ? '| Ketik nama siswa...' : 'Ketik nama siswa...', nameX + 16, nameY + 49);
-    }
-
-    this.drawButton(ctx, {
+    this.drawVRInputField(ctx, {
       id: 'vr_setup_select_name_input',
-      label: '',
-      x: nameX,
-      y: nameY,
-      w: nameW,
-      h: nameH,
-      variant: 'secondary',
+      label: 'NAMA SISWA',
+      value: studentName,
+      placeholder: 'Ketik nama siswa...',
+      badgeText: isNameValid ? '✔ TERISI' : 'WAJIB',
+      badgeVariant: isNameValid ? 'emerald' : 'cyan',
+      isActive: activeField === 'name',
+      x: 64,
+      y: 140,
+      w: 560,
+      h: 64,
     });
 
     // Input Field 2: KELAS (OPSIONAL)
-    const classX = 640;
-    const classY = 140;
-    const classW = 320;
-    const classH = 64;
-    const isClassActive = activeField === 'class';
-
-    ctx.fillStyle = isClassActive ? '#0f172a' : '#080e1a';
-    ctx.beginPath();
-    ctx.roundRect(classX, classY, classW, classH, 14);
-    ctx.fill();
-
-    ctx.strokeStyle = isClassActive ? '#22d3ee' : 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = isClassActive ? 3 : 1.5;
-    ctx.stroke();
-
-    ctx.textAlign = 'left';
-    ctx.fillStyle = isClassActive ? '#38bdf8' : '#64748b';
-    ctx.font = '700 12px Inter, system-ui, sans-serif';
-    ctx.fillText('KELAS (OPSIONAL)', classX + 16, classY + 22);
-
-    ctx.font = '700 20px Inter, system-ui, sans-serif';
-    if (studentClass) {
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillText(studentClass + (isClassActive ? '|' : ''), classX + 16, classY + 49);
-    } else {
-      ctx.fillStyle = '#475569';
-      ctx.fillText(isClassActive ? '| Contoh: 7A' : 'Contoh: 7A', classX + 16, classY + 49);
-    }
-
-    this.drawButton(ctx, {
+    this.drawVRInputField(ctx, {
       id: 'vr_setup_select_class_input',
-      label: '',
-      x: classX,
-      y: classY,
-      w: classW,
-      h: classH,
-      variant: 'secondary',
+      label: 'KELAS',
+      value: studentClass,
+      placeholder: 'Contoh: 7A / 8B...',
+      badgeText: 'OPSIONAL',
+      badgeVariant: 'slate',
+      isActive: activeField === 'class',
+      x: 640,
+      y: 140,
+      w: 320,
+      h: 64,
     });
 
     // In-Game Virtual Keyboard (QWERTY + Angka)
@@ -926,6 +1167,939 @@ export class VRSpatialMenu {
       y: navY,
       w: 550,
       h: 52,
+      variant: 'primary',
+    });
+  }
+
+  /**
+   * Papan Evaluasi LKPD Langkah 1: Laboratorium Campur Warna di VR
+   */
+  private drawVRLkpdLabBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
+    // Header Badge
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.roundRect((CANVAS_W - 240) / 2, 28, 240, 28, 14);
+    ctx.fill();
+    ctx.fillStyle = '#f0f9ff';
+    ctx.font = '800 13px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('LKPD TAHAP 1 DARI 3 · LAB WARNA', CANVAS_W / 2, 47);
+
+    // Title & Subtitle
+    ctx.font = '900 32px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('LABORATORIUM CAMPUR WARNA (VR)', CANVAS_W / 2, 88);
+
+    ctx.font = '500 14px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Pilih 2 tabung warna di kanan lalu tekan CAMPUR untuk menguji teori!', CANVAS_W / 2, 114);
+
+    const slotA = state.vrLkpdLabSlotA;
+    const slotB = state.vrLkpdLabSlotB;
+    const activeSlot = state.vrLkpdLabActiveSlot || 'a';
+    const solvedIds = new Set(state.vrLkpdLabSolvedIds || []);
+
+    // === PANEL KIRI: MEJA PENCAMPURAN (MIXING BENCH) ===
+    const benchX = 54;
+    const benchY = 132;
+    const benchW = 430;
+    const benchH = 412;
+    const benchRadius = 22;
+
+    ctx.fillStyle = 'rgba(11, 18, 32, 0.94)';
+    ctx.beginPath();
+    ctx.roundRect(benchX, benchY, benchW, benchH, benchRadius);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label Meja
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '800 13px Inter, system-ui, sans-serif';
+    ctx.fillText('MEJA CAMPUR WARNA', benchX + 22, benchY + 28);
+
+    // Slot 1 (Tabung A)
+    const slotW = 168;
+    const slotH = 74;
+    const slot1X = benchX + 20;
+    const slot1Y = benchY + 42;
+    const isSlot1Active = activeSlot === 'a';
+
+    this.buttons.push({
+      id: 'vr_lkpd_lab_select_slot_a',
+      label: '',
+      x: slot1X,
+      y: slot1Y,
+      w: slotW,
+      h: slotH,
+      variant: 'secondary',
+    });
+
+    ctx.fillStyle = isSlot1Active ? '#0f172a' : '#080e1a';
+    ctx.beginPath();
+    ctx.roundRect(slot1X, slot1Y, slotW, slotH, 14);
+    ctx.fill();
+    ctx.strokeStyle = isSlot1Active ? '#22d3ee' : 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = isSlot1Active ? 3 : 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = isSlot1Active ? '#38bdf8' : '#64748b';
+    ctx.font = '700 11px Inter, system-ui, sans-serif';
+    ctx.fillText('TABUNG 1 ' + (isSlot1Active ? '(AKTIF)' : ''), slot1X + 14, slot1Y + 20);
+
+    if (slotA) {
+      const defA = getColorDef(slotA);
+      ctx.fillStyle = defA.hex;
+      ctx.beginPath();
+      ctx.roundRect(slot1X + 14, slot1Y + 28, 32, 32, 8);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '800 16px Inter, system-ui, sans-serif';
+      ctx.fillText(defA.nameId, slot1X + 54, slot1Y + 50);
+    } else {
+      ctx.fillStyle = '#475569';
+      ctx.font = '600 14px Inter, system-ui, sans-serif';
+      ctx.fillText('Pilih Warna 1...', slot1X + 14, slot1Y + 48);
+    }
+
+    // Tanda Plus (+)
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '900 24px Inter, system-ui, sans-serif';
+    ctx.fillText('+', benchX + 203, slot1Y + 44);
+
+    // Slot 2 (Tabung B)
+    const slot2X = benchX + 222;
+    const slot2Y = slot1Y;
+    const isSlot2Active = activeSlot === 'b';
+
+    this.buttons.push({
+      id: 'vr_lkpd_lab_select_slot_b',
+      label: '',
+      x: slot2X,
+      y: slot2Y,
+      w: slotW,
+      h: slotH,
+      variant: 'secondary',
+    });
+
+    ctx.fillStyle = isSlot2Active ? '#0f172a' : '#080e1a';
+    ctx.beginPath();
+    ctx.roundRect(slot2X, slot2Y, slotW, slotH, 14);
+    ctx.fill();
+    ctx.strokeStyle = isSlot2Active ? '#22d3ee' : 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = isSlot2Active ? 3 : 1.5;
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = isSlot2Active ? '#38bdf8' : '#64748b';
+    ctx.font = '700 11px Inter, system-ui, sans-serif';
+    ctx.fillText('TABUNG 2 ' + (isSlot2Active ? '(AKTIF)' : ''), slot2X + 14, slot2Y + 20);
+
+    if (slotB) {
+      const defB = getColorDef(slotB);
+      ctx.fillStyle = defB.hex;
+      ctx.beginPath();
+      ctx.roundRect(slot2X + 14, slot2Y + 28, 32, 32, 8);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '800 16px Inter, system-ui, sans-serif';
+      ctx.fillText(defB.nameId, slot2X + 54, slot2Y + 50);
+    } else {
+      ctx.fillStyle = '#475569';
+      ctx.font = '600 14px Inter, system-ui, sans-serif';
+      ctx.fillText('Pilih Warna 2...', slot2X + 14, slot2Y + 48);
+    }
+
+    // Tombol Campur & Reset
+    const btnY = benchY + 128;
+    this.drawButton(ctx, {
+      id: 'vr_lkpd_lab_mix',
+      label: '🧪 CAMPUR WARNA',
+      x: benchX + 20,
+      y: btnY,
+      w: 248,
+      h: 48,
+      variant: 'primary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'vr_lkpd_lab_reset',
+      label: '↺ RESET',
+      x: benchX + 280,
+      y: btnY,
+      w: 130,
+      h: 48,
+      variant: 'secondary',
+    });
+
+    // Kotak Hasil Campuran
+    const resY = benchY + 190;
+    const resH = 200;
+    const resW = benchW - 40;
+    const resX = benchX + 20;
+
+    const mixedDef = slotA && slotB ? mixRYBColors(slotA, slotB) : null;
+
+    ctx.fillStyle = '#080e1a';
+    ctx.beginPath();
+    ctx.roundRect(resX, resY, resW, resH, 16);
+    ctx.fill();
+    ctx.strokeStyle = mixedDef ? 'rgba(34, 211, 238, 0.45)' : 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    if (mixedDef) {
+      // Swatch besar
+      ctx.fillStyle = mixedDef.hex;
+      ctx.beginPath();
+      ctx.roundRect(resX + 24, resY + 28, 72, 72, 14);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Judul Hasil
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#22d3ee';
+      ctx.font = '900 22px Inter, system-ui, sans-serif';
+      ctx.fillText(mixedDef.nameId.toUpperCase(), resX + 112, resY + 54);
+
+      // Klasifikasi
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '700 14px Inter, system-ui, sans-serif';
+      const catLabel =
+        mixedDef.category === 'primer'
+          ? 'Kategori: Warna Primer'
+          : mixedDef.category === 'sekunder'
+            ? 'Kategori: Warna Sekunder'
+            : 'Kategori: Warna Tersier';
+      ctx.fillText(catLabel, resX + 112, resY + 80);
+
+      // Rumus Campuran
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '500 13px Inter, system-ui, sans-serif';
+      const ingText = mixedDef.ingredients
+        ? `Dibentuk dari: ${getColorDef(mixedDef.ingredients[0]).nameId} + ${getColorDef(mixedDef.ingredients[1]).nameId}`
+        : 'Warna murni dasar';
+      ctx.fillText(ingText, resX + 24, resY + 134);
+
+      ctx.fillStyle = '#34d399';
+      ctx.font = '700 13px Inter, system-ui, sans-serif';
+      ctx.fillText('✔ Hasil pencampuran terverifikasi!', resX + 24, resY + 164);
+    } else {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 15px Inter, system-ui, sans-serif';
+      ctx.fillText('Pilih 2 bahan warna di sebelah kanan,', resX + resW / 2, resY + 84);
+      ctx.fillText('lalu tekan tombol CAMPUR WARNA di atas.', resX + resW / 2, resY + 112);
+    }
+
+    // === PANEL KANAN: PALET BAHAN & STATUS TANTANGAN ===
+    const palX = 514;
+    const palY = 132;
+    const palW = 456;
+    const palH = 412;
+    const palRadius = 22;
+
+    ctx.fillStyle = 'rgba(11, 18, 32, 0.94)';
+    ctx.beginPath();
+    ctx.roundRect(palX, palY, palW, palH, palRadius);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Header Palet
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '800 13px Inter, system-ui, sans-serif';
+    ctx.fillText('PILIH TABUNG BAHAN (KLIK WARNA)', palX + 22, palY + 28);
+
+    // 6 Tabung Warna Bahan (3 Primer + 3 Sekunder)
+    const tubes = LKPD_LAB_INGREDIENTS;
+    const tubeW = 128;
+    const tubeH = 46;
+    const tubeGapX = 14;
+    const tubeGapY = 10;
+    const tubeStartX = palX + 20;
+    const tubeStartY = palY + 42;
+
+    tubes.forEach((tId, idx) => {
+      const col = idx % 3;
+      const row = Math.floor(idx / 3);
+      const tx = tubeStartX + col * (tubeW + tubeGapX);
+      const ty = tubeStartY + row * (tubeH + tubeGapY);
+      const def = getColorDef(tId);
+
+      this.buttons.push({
+        id: `vr_lkpd_lab_pick_${tId}` as VRMenuAction,
+        label: '',
+        x: tx,
+        y: ty,
+        w: tubeW,
+        h: tubeH,
+        variant: 'secondary',
+      });
+
+      const isHover = this.hoveredId === `vr_lkpd_lab_pick_${tId}`;
+      ctx.fillStyle = isHover ? '#1e293b' : '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(tx, ty, tubeW, tubeH, 12);
+      ctx.fill();
+      ctx.strokeStyle = isHover ? '#22d3ee' : 'rgba(255, 255, 255, 0.16)';
+      ctx.lineWidth = isHover ? 2.5 : 1.2;
+      ctx.stroke();
+
+      // Mini Swatch
+      ctx.fillStyle = def.hex;
+      ctx.beginPath();
+      ctx.roundRect(tx + 8, ty + 10, 26, 26, 6);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '700 13px Inter, system-ui, sans-serif';
+      ctx.fillText(def.nameId, tx + 40, ty + 28);
+    });
+
+    // Checklist Target Tantangan
+    const chY = palY + 160;
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '800 13px Inter, system-ui, sans-serif';
+    ctx.fillText('TARGET TANTANGAN PENCAMPURAN (5):', palX + 22, chY);
+
+    LKPD_LAB_CHALLENGES.forEach((ch, idx) => {
+      const rowY = chY + 22 + idx * 42;
+      const isSolved = solvedIds.has(ch.targetColorId);
+      const targetDef = getColorDef(ch.targetColorId);
+
+      ctx.fillStyle = isSolved ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.04)';
+      ctx.beginPath();
+      ctx.roundRect(palX + 20, rowY, palW - 40, 36, 10);
+      ctx.fill();
+      ctx.strokeStyle = isSolved ? 'rgba(16, 185, 129, 0.5)' : 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Swatch Target
+      ctx.fillStyle = targetDef.hex;
+      ctx.beginPath();
+      ctx.roundRect(palX + 28, rowY + 7, 22, 22, 5);
+      ctx.fill();
+
+      // Nama Target
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '700 13px Inter, system-ui, sans-serif';
+      ctx.fillText(targetDef.nameId, palX + 58, rowY + 23);
+
+      // Status Badge
+      ctx.textAlign = 'right';
+      ctx.fillStyle = isSolved ? '#34d399' : '#64748b';
+      ctx.font = '800 12px Inter, system-ui, sans-serif';
+      ctx.fillText(isSolved ? '✔ TERCAPAI' : '○ BELUM', palX + palW - 32, rowY + 23);
+      ctx.textAlign = 'left';
+    });
+
+    // === BARIS NAVIGASI BAWAH ===
+    const navY = 562;
+    this.drawButton(ctx, {
+      id: 'vr_lkpd_exit',
+      label: '⬅ KEMBALI KE MENU',
+      x: 54,
+      y: navY,
+      w: 260,
+      h: 52,
+      variant: 'secondary',
+    });
+
+    const solvedCount = state.vrLkpdLabSolvedIds?.length || 0;
+    this.drawButton(ctx, {
+      id: 'vr_lkpd_open_quiz',
+      label: `LANJUT KE KUIS TEORI (${solvedCount}/5 SELESAI) ➔`,
+      x: 334,
+      y: navY,
+      w: 636,
+      h: 52,
+      variant: 'primary',
+    });
+  }
+
+  /**
+   * Papan Evaluasi LKPD Langkah 2: Kuis Pemahaman Teori Warna di VR
+   */
+  private drawVRLkpdQuizBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
+    const qIdx = state.vrLkpdQuizIndex ?? 0;
+    const totalQ = LKPD_QUIZ_QUESTIONS.length;
+    const q = LKPD_QUIZ_QUESTIONS[qIdx] || LKPD_QUIZ_QUESTIONS[0];
+    const userAnswers = state.vrLkpdQuizAnswers || {};
+    const selectedOptId = userAnswers[q.id];
+
+    // Header Badge
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.roundRect((CANVAS_W - 240) / 2, 28, 240, 28, 14);
+    ctx.fill();
+    ctx.fillStyle = '#f0f9ff';
+    ctx.font = '800 13px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(`LKPD TAHAP 2 DARI 3 · SOAL ${qIdx + 1}/${totalQ}`, CANVAS_W / 2, 47);
+
+    // Title
+    ctx.font = '900 32px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('KUIS PEMAHAMAN TEORI WARNA', CANVAS_W / 2, 88);
+
+    // Kotak Pertanyaan
+    const qBoxX = 54;
+    const qBoxY = 114;
+    const qBoxW = 916;
+    const qBoxH = 104;
+
+    ctx.fillStyle = 'rgba(11, 18, 32, 0.94)';
+    ctx.beginPath();
+    ctx.roundRect(qBoxX, qBoxY, qBoxW, qBoxH, 20);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '800 13px Inter, system-ui, sans-serif';
+    ctx.fillText(`PERTANYAAN ${qIdx + 1}:`, qBoxX + 24, qBoxY + 30);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '700 20px Inter, system-ui, sans-serif';
+    ctx.fillText(q.question, qBoxX + 24, qBoxY + 62);
+
+    // Kotak Swatch Preview Pertanyaan jika ada
+    if (q.previewColorIds && q.previewColorIds.length > 0) {
+      q.previewColorIds.forEach((pCol, pIdx) => {
+        const def = getColorDef(pCol as RYBColorId);
+        const px = qBoxX + 24 + pIdx * 42;
+        ctx.fillStyle = def.hex;
+        ctx.beginPath();
+        ctx.roundRect(px, qBoxY + 72, 32, 22, 6);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      });
+    }
+
+    // 4 Kartu Opsi Pilihan (Grid 2 Kolom x 2 Baris)
+    const optW = 444;
+    const optH = 76;
+    const optGapX = 28;
+    const optGapY = 16;
+    const optStartX = 54;
+    const optStartY = 236;
+
+    q.options.forEach((opt, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const ox = optStartX + col * (optW + optGapX);
+      const oy = optStartY + row * (optH + optGapY);
+      const isSelected = selectedOptId === opt.id;
+      const isHover = this.hoveredId === `vr_lkpd_quiz_ans_${opt.id}`;
+
+      this.buttons.push({
+        id: `vr_lkpd_quiz_ans_${opt.id}` as VRMenuAction,
+        label: '',
+        x: ox,
+        y: oy,
+        w: optW,
+        h: optH,
+        variant: isSelected ? 'primary' : 'secondary',
+      });
+
+      ctx.fillStyle = isSelected ? '#0f243c' : isHover ? '#131e36' : '#080e1a';
+      ctx.beginPath();
+      ctx.roundRect(ox, oy, optW, optH, 16);
+      ctx.fill();
+
+      if (isSelected || isHover) {
+        ctx.save();
+        ctx.shadowColor = isSelected ? 'rgba(34, 211, 238, 0.7)' : 'rgba(34, 211, 238, 0.3)';
+        ctx.shadowBlur = isSelected ? 16 : 8;
+        ctx.beginPath();
+        ctx.roundRect(ox, oy, optW, optH, 16);
+        ctx.strokeStyle = isSelected ? '#22d3ee' : 'rgba(34, 211, 238, 0.6)';
+        ctx.lineWidth = isSelected ? 3 : 1.8;
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // Huruf Opsi [ A ]
+      const optLetter = opt.id.toUpperCase();
+      ctx.fillStyle = isSelected ? '#22d3ee' : '#64748b';
+      ctx.beginPath();
+      ctx.roundRect(ox + 16, oy + 18, 40, 40, 10);
+      ctx.fill();
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = isSelected ? '#020617' : '#f8fafc';
+      ctx.font = '900 18px Inter, system-ui, sans-serif';
+      ctx.fillText(optLetter, ox + 36, oy + 38);
+
+      // Label Opsi
+      ctx.textAlign = 'left';
+      ctx.fillStyle = isSelected ? '#f8fafc' : '#cbd5e1';
+      ctx.font = '700 17px Inter, system-ui, sans-serif';
+      ctx.fillText(opt.label, ox + 68, oy + 38);
+
+      // Swatches Opsi jika ada
+      if (opt.swatchHexes && opt.swatchHexes.length > 0) {
+        opt.swatchHexes.forEach((hex, hIdx) => {
+          const sx = ox + optW - 32 - hIdx * 28;
+          ctx.fillStyle = hex;
+          ctx.beginPath();
+          ctx.roundRect(sx, oy + 26, 24, 24, 6);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        });
+      }
+    });
+
+    // Indikator Titik Soal (Progress Dots 1-6)
+    const dotY = 442;
+    const dotSize = 16;
+    const dotGap = 20;
+    const totalDotsW = totalQ * dotSize + (totalQ - 1) * dotGap;
+    const dotStartX = (CANVAS_W - totalDotsW) / 2;
+
+    for (let i = 0; i < totalQ; i++) {
+      const qItem = LKPD_QUIZ_QUESTIONS[i];
+      const isAnswered = Boolean(userAnswers[qItem.id]);
+      const isCurrent = i === qIdx;
+      const dx = dotStartX + i * (dotSize + dotGap);
+
+      ctx.fillStyle = isCurrent ? '#22d3ee' : isAnswered ? '#10b981' : '#334155';
+      ctx.beginPath();
+      ctx.roundRect(dx, dotY, dotSize, dotSize, 8);
+      ctx.fill();
+      if (isCurrent) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    // === BARIS NAVIGASI BAWAH ===
+    const navY = 562;
+    if (qIdx === 0) {
+      this.drawButton(ctx, {
+        id: 'vr_lkpd_open_lab',
+        label: '⬅ KEMBALI KE LAB',
+        x: 54,
+        y: navY,
+        w: 260,
+        h: 52,
+        variant: 'secondary',
+      });
+    } else {
+      this.drawButton(ctx, {
+        id: 'vr_lkpd_quiz_prev',
+        label: '⬅ SOAL SEBELUMNYA',
+        x: 54,
+        y: navY,
+        w: 260,
+        h: 52,
+        variant: 'secondary',
+      });
+    }
+
+    const isLastQ = qIdx === totalQ - 1;
+    this.drawButton(ctx, {
+      id: isLastQ ? 'vr_lkpd_open_reflection' : 'vr_lkpd_quiz_next',
+      label: isLastQ ? 'LANJUT KE LEMBAR REFLEKSI ➔' : 'SOAL BERIKUTNYA ➔',
+      x: 334,
+      y: navY,
+      w: 636,
+      h: 52,
+      variant: 'primary',
+    });
+  }
+
+  /**
+   * Papan Evaluasi LKPD Langkah 3: Lembar Refleksi & Analisis Siswa di VR
+   */
+  private drawVRLkpdReflectionBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
+    const activePromptId = state.vrLkpdActiveReflectionPrompt || 'ref_1_kategori';
+    const activePrompt =
+      LKPD_REFLECTION_PROMPTS.find((p) => p.id === activePromptId) || LKPD_REFLECTION_PROMPTS[0];
+    const refAnswers = state.vrLkpdReflectionAnswers || {};
+    const curAnswer = refAnswers[activePrompt.id] || '';
+
+    // Header Badge
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.roundRect((CANVAS_W - 240) / 2, 28, 240, 28, 14);
+    ctx.fill();
+    ctx.fillStyle = '#f0f9ff';
+    ctx.font = '800 13px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('LKPD TAHAP 3 DARI 3 · REFLEKSI', CANVAS_W / 2, 47);
+
+    // Title
+    ctx.font = '900 32px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('LEMBAR REFLEKSI & ANALISIS SISWA', CANVAS_W / 2, 88);
+
+    // 3 Tab Pilihan Pertanyaan Refleksi
+    const tabY = 104;
+    const tabW = 296;
+    const tabH = 38;
+    const tabGap = 14;
+    const tabStartX = (CANVAS_W - (3 * tabW + 2 * tabGap)) / 2;
+
+    LKPD_REFLECTION_PROMPTS.forEach((p, idx) => {
+      const tx = tabStartX + idx * (tabW + tabGap);
+      const isTabActive = activePromptId === p.id;
+      const isAnswered = (refAnswers[p.id] || '').trim().length >= 8;
+
+      this.buttons.push({
+        id: `vr_lkpd_reflection_select_${p.id}` as VRMenuAction,
+        label: '',
+        x: tx,
+        y: tabY,
+        w: tabW,
+        h: tabH,
+        variant: isTabActive ? 'primary' : 'secondary',
+      });
+
+      ctx.fillStyle = isTabActive ? '#0284c7' : isAnswered ? '#0f291e' : '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(tx, tabY, tabW, tabH, 12);
+      ctx.fill();
+      ctx.strokeStyle = isTabActive ? '#38bdf8' : isAnswered ? '#10b981' : 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = isTabActive ? 2.5 : 1.2;
+      ctx.stroke();
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '800 13px Inter, system-ui, sans-serif';
+      ctx.fillStyle = isTabActive ? '#ffffff' : isAnswered ? '#34d399' : '#94a3b8';
+      const shortLabels = ['1. Kategori Warna', '2. Strategi Main', '3. Refleksi Belajar'];
+      ctx.fillText(
+        `${shortLabels[idx]} ${isAnswered ? '✔' : ''}`,
+        tx + tabW / 2,
+        tabY + tabH / 2
+      );
+    });
+
+    // Box Pertanyaan Aktif
+    const pBoxX = 54;
+    const pBoxY = 152;
+    const pBoxW = 916;
+    const pBoxH = 46;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(pBoxX, pBoxY, pBoxW, pBoxH, 12);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '700 14px Inter, system-ui, sans-serif';
+    ctx.fillText(activePrompt.question, pBoxX + 16, pBoxY + pBoxH / 2);
+
+    // Box Input Respon Siswa
+    const inBoxY = 206;
+    const inBoxH = 56;
+    ctx.fillStyle = '#080e1a';
+    ctx.beginPath();
+    ctx.roundRect(pBoxX, inBoxY, pBoxW, inBoxH, 14);
+    ctx.fill();
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.font = '700 18px Inter, system-ui, sans-serif';
+    if (curAnswer) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(curAnswer + '|', pBoxX + 18, inBoxY + inBoxH / 2 + 2);
+    } else {
+      ctx.fillStyle = '#475569';
+      ctx.fillText('| ' + activePrompt.placeholder, pBoxX + 18, inBoxY + inBoxH / 2 + 2);
+    }
+
+    // Chip Kata Kunci Cepat (1-Tap Suggestion Chips untuk kemudahan di VR)
+    const chips = ['Merah, Kuning, Biru', 'Warna Primer', 'Warna Sekunder', 'Warna Tersier', 'Sangat seru & jelas'];
+    const chipY = 270;
+    const chipH = 30;
+    let curChipX = 54;
+    chips.forEach((phrase) => {
+      ctx.font = '700 12px Inter, system-ui, sans-serif';
+      const cW = ctx.measureText(phrase).width + 24;
+      this.drawButton(ctx, {
+        id: `vr_lkpd_quick_${phrase}` as VRMenuAction,
+        label: phrase,
+        x: curChipX,
+        y: chipY,
+        w: cW,
+        h: chipH,
+        variant: 'secondary',
+      });
+      curChipX += cW + 12;
+    });
+
+    // Virtual Keyboard (QWERTY + Angka)
+    const kbRows = [
+      ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+      ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+      ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+      ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+    ];
+
+    const startY = 308;
+    const rowHeight = 44;
+    const rowGap = 6;
+
+    kbRows.forEach((row, rIdx) => {
+      const keyW = 78;
+      const keyGap = 8;
+      const totalRowW = row.length * keyW + (row.length - 1) * keyGap;
+      const rowStartX = (CANVAS_W - totalRowW) / 2;
+      const y = startY + rIdx * (rowHeight + rowGap);
+
+      row.forEach((char, cIdx) => {
+        const x = rowStartX + cIdx * (keyW + keyGap);
+        this.drawButton(ctx, {
+          id: `kb_${char}` as VRMenuAction,
+          label: char,
+          x,
+          y,
+          w: keyW,
+          h: rowHeight,
+          variant: 'secondary',
+        });
+      });
+    });
+
+    // Baris Aksi Keyboard (Spasi, Hapus, Bersihkan)
+    const actY = startY + 4 * (rowHeight + rowGap);
+    const spaceW = 380;
+    const bsW = 160;
+    const clrW = 160;
+    const actGap = 12;
+    const totalActW = spaceW + bsW + clrW + 2 * actGap;
+    const actStartX = (CANVAS_W - totalActW) / 2;
+
+    this.drawButton(ctx, {
+      id: 'kb_space',
+      label: 'SPASI',
+      x: actStartX,
+      y: actY,
+      w: spaceW,
+      h: rowHeight,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'kb_backspace',
+      label: '⌫ HAPUS',
+      x: actStartX + spaceW + actGap,
+      y: actY,
+      w: bsW,
+      h: rowHeight,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'kb_clear',
+      label: 'BERSIHKAN',
+      x: actStartX + spaceW + actGap + bsW + actGap,
+      y: actY,
+      w: clrW,
+      h: rowHeight,
+      variant: 'secondary',
+    });
+
+    // === BARIS NAVIGASI BAWAH ===
+    const navY = 562;
+    this.drawButton(ctx, {
+      id: 'vr_lkpd_open_quiz',
+      label: '⬅ KEMBALI KE KUIS',
+      x: 54,
+      y: navY,
+      w: 260,
+      h: 52,
+      variant: 'secondary',
+    });
+
+    this.drawButton(ctx, {
+      id: 'vr_lkpd_submit',
+      label: '🚀 KIRIM & SELESAIKAN EVALUASI LKPD',
+      x: 334,
+      y: navY,
+      w: 636,
+      h: 52,
+      variant: 'primary',
+    });
+  }
+
+  /**
+   * Papan Evaluasi LKPD Langkah 4: Rekapitulasi Nilai & Konfirmasi Sinkronisasi Cloud
+   */
+  private drawVRLkpdResultBoard(ctx: CanvasRenderingContext2D, state: VRSpatialMenuState) {
+    const cardW = 760;
+    const cardH = 550;
+    const cardX = (CANVAS_W - cardW) / 2;
+    const cardY = 45;
+    const cardRadius = 32;
+
+    ctx.fillStyle = '#080d19';
+    ctx.beginPath();
+    ctx.roundRect(cardX, cardY, cardW, cardH, cardRadius);
+    ctx.fill();
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(34, 211, 238, 0.4)';
+    ctx.shadowBlur = 24;
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(cardX, cardY, cardW, cardH, cardRadius);
+    ctx.stroke();
+    ctx.restore();
+
+    // Celebration Header
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '900 38px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#34d399';
+    ctx.fillText('🎉 EVALUASI LKPD SELESAI!', CANVAS_W / 2, cardY + 70);
+
+    ctx.font = '600 16px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText(
+      `Agen: ${state.studentName || 'Siswa'}  ·  Kelas: ${state.studentClass || '-'}`,
+      CANVAS_W / 2,
+      cardY + 104
+    );
+
+    const score = state.vrLkpdScore ? state.vrLkpdScore.objectiveScore : 100;
+    const predicate = state.vrLkpdScore ? state.vrLkpdScore.predicate : 'Sangat Baik';
+
+    // Big Score Display Box
+    const scoreBoxW = 440;
+    const scoreBoxH = 100;
+    const scoreBoxX = (CANVAS_W - scoreBoxW) / 2;
+    const scoreBoxY = cardY + 128;
+
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(scoreBoxX, scoreBoxY, scoreBoxW, scoreBoxH, 20);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(52, 211, 153, 0.6)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#34d399';
+    ctx.font = '900 44px Inter, system-ui, sans-serif';
+    ctx.fillText(`NILAI: ${score}/100`, CANVAS_W / 2, scoreBoxY + 56);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '800 16px Inter, system-ui, sans-serif';
+    ctx.fillText(`PREDIKAT: ${predicate.toUpperCase()}`, CANVAS_W / 2, scoreBoxY + 86);
+
+    // 3 Metric Cards
+    const labCorrect = state.vrLkpdScore ? state.vrLkpdScore.labCorrect : 5;
+    const labTotal = state.vrLkpdScore ? state.vrLkpdScore.labTotal : 5;
+    const quizCorrect = state.vrLkpdScore ? state.vrLkpdScore.quizCorrect : 6;
+    const quizTotal = state.vrLkpdScore ? state.vrLkpdScore.quizTotal : 6;
+    const refCount = state.vrLkpdScore ? state.vrLkpdScore.reflectionAnswered : 3;
+    const refTotal = state.vrLkpdScore ? state.vrLkpdScore.reflectionTotal : 3;
+
+    const metrics = [
+      { label: 'LAB CAMPUR WARNA', val: `${labCorrect}/${labTotal} Selesai` },
+      { label: 'KUIS TEORI', val: `${quizCorrect}/${quizTotal} Benar` },
+      { label: 'REFLEKSI SISWA', val: `${refCount}/${refTotal} Terisi` },
+    ];
+
+    const mBoxW = 200;
+    const mBoxH = 68;
+    const mGap = 16;
+    const mStartX = (CANVAS_W - (3 * mBoxW + 2 * mGap)) / 2;
+    const mY = cardY + 246;
+
+    metrics.forEach((m, idx) => {
+      const mx = mStartX + idx * (mBoxW + mGap);
+      ctx.fillStyle = '#0d1527';
+      ctx.beginPath();
+      ctx.roundRect(mx, mY, mBoxW, mBoxH, 14);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '700 11px Inter, system-ui, sans-serif';
+      ctx.fillText(m.label, mx + mBoxW / 2, mY + 24);
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '800 18px Inter, system-ui, sans-serif';
+      ctx.fillText(m.val, mx + mBoxW / 2, mY + 52);
+    });
+
+    // Cloud Sync Badge
+    const syncBoxW = 632;
+    const syncBoxH = 46;
+    const syncBoxX = (CANVAS_W - syncBoxW) / 2;
+    const syncBoxY = cardY + 332;
+
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.14)';
+    ctx.beginPath();
+    ctx.roundRect(syncBoxX, syncBoxY, syncBoxW, syncBoxH, 14);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#34d399';
+    ctx.font = '700 14px Inter, system-ui, sans-serif';
+    ctx.fillText('☁️ Data otomatis tersinkronisasi ke Cloud Supabase & LocalStorage', CANVAS_W / 2, syncBoxY + syncBoxH / 2);
+
+    // Tombol Selesai & Kembali
+    this.drawButton(ctx, {
+      id: 'vr_lkpd_exit',
+      label: '✔ KEMBALI KE MENU UTAMA',
+      x: (CANVAS_W - 440) / 2,
+      y: cardY + 412,
+      w: 440,
+      h: 58,
       variant: 'primary',
     });
   }
@@ -1339,7 +2513,7 @@ export class VRSpatialMenu {
     if (isVictory) {
       this.drawButton(ctx, {
         id: 'open_lkpd',
-        label: 'BUKA LKPD EVALUASI (KELUAR VR)',
+        label: 'BUKA LKPD EVALUASI (VR)',
         x: bx,
         y: 308,
         w: bw,

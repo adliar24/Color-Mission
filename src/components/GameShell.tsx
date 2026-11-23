@@ -29,10 +29,18 @@ import {
   saveGameCompletionProgress,
   loadLKPDSubmission,
   saveLKPDSubmission,
+  calculateLKPDScore,
+  LKPDSubmissionState,
+  LKPDScoreBreakdown,
+  LKPD_QUIZ_QUESTIONS,
+  LKPD_DEFAULT_SCHOOL,
+  LKPD_DEFAULT_TEACHER,
+  mixRYBColors,
 } from '../game/lkpd';
 import {
   recordGameSessionAsync,
   recordInitialSessionStartAsync,
+  recordLKPDSubmissionAsync,
 } from '../lib/syncService';
 import {
   PlayerStats,
@@ -339,6 +347,27 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
   const [vrActiveInput, setVrActiveInput] = useState<'name' | 'class'>('name');
   const [vrSelectedChar, setVrSelectedChar] = useState<CharacterId>('raka');
 
+  // In-Game WebXR LKPD Evaluasi di Mode 360° VR
+  const [vrLkpdStep, setVrLkpdStep] = useState<'none' | 'lab' | 'quiz' | 'reflection' | 'result'>('none');
+  const [vrLkpdLabSlotA, setVrLkpdLabSlotA] = useState<RYBColorId | null>(null);
+  const [vrLkpdLabSlotB, setVrLkpdLabSlotB] = useState<RYBColorId | null>(null);
+  const [vrLkpdLabActiveSlot, setVrLkpdLabActiveSlot] = useState<'a' | 'b'>('a');
+  const [vrLkpdLabSolvedIds, setVrLkpdLabSolvedIds] = useState<RYBColorId[]>(() => {
+    return loadLKPDSubmission().labSolvedIds || [];
+  });
+  const [vrLkpdQuizIndex, setVrLkpdQuizIndex] = useState<number>(0);
+  const [vrLkpdQuizAnswers, setVrLkpdQuizAnswers] = useState<Record<string, string>>(() => {
+    return loadLKPDSubmission().quizAnswers || {};
+  });
+  const [vrLkpdReflectionAnswers, setVrLkpdReflectionAnswers] = useState<Record<string, string>>(() => {
+    return loadLKPDSubmission().reflectionAnswers || {};
+  });
+  const [vrLkpdActiveReflectionPrompt, setVrLkpdActiveReflectionPrompt] = useState<string>('ref_1_kategori');
+  const [vrLkpdScore, setVrLkpdScore] = useState<LKPDScoreBreakdown | undefined>(() => {
+    const sub = loadLKPDSubmission();
+    return sub.completedAt ? calculateLKPDScore(sub) : undefined;
+  });
+
   // Pengaturan yang disimpan di localStorage
   const [settings, setSettings] = useState<GameSettings>(() => {
     try {
@@ -450,6 +479,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
     vrStudentClass,
     vrActiveInput,
     vrSelectedChar,
+    vrLkpdStep,
+    vrLkpdLabSlotA,
+    vrLkpdLabSlotB,
+    vrLkpdLabActiveSlot,
+    vrLkpdLabSolvedIds,
+    vrLkpdQuizIndex,
+    vrLkpdQuizAnswers,
+    vrLkpdReflectionAnswers,
+    vrLkpdActiveReflectionPrompt,
+    vrLkpdScore,
   });
 
   useEffect(() => {
@@ -467,6 +506,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
       vrStudentClass,
       vrActiveInput,
       vrSelectedChar,
+      vrLkpdStep,
+      vrLkpdLabSlotA,
+      vrLkpdLabSlotB,
+      vrLkpdLabActiveSlot,
+      vrLkpdLabSolvedIds,
+      vrLkpdQuizIndex,
+      vrLkpdQuizAnswers,
+      vrLkpdReflectionAnswers,
+      vrLkpdActiveReflectionPrompt,
+      vrLkpdScore,
     };
   }, [
     stageModalMode,
@@ -482,6 +531,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
     vrStudentClass,
     vrActiveInput,
     vrSelectedChar,
+    vrLkpdStep,
+    vrLkpdLabSlotA,
+    vrLkpdLabSlotB,
+    vrLkpdLabActiveSlot,
+    vrLkpdLabSolvedIds,
+    vrLkpdQuizIndex,
+    vrLkpdQuizAnswers,
+    vrLkpdReflectionAnswers,
+    vrLkpdActiveReflectionPrompt,
+    vrLkpdScore,
   ]);
 
   useEffect(() => {
@@ -1446,6 +1505,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             studentClass: vrInfo.vrStudentClass,
             activeInputField: vrInfo.vrActiveInput,
             selectedCharacterId: vrInfo.vrSelectedChar,
+            vrLkpdStep: vrInfo.vrLkpdStep,
+            vrLkpdLabSlotA: vrInfo.vrLkpdLabSlotA,
+            vrLkpdLabSlotB: vrInfo.vrLkpdLabSlotB,
+            vrLkpdLabActiveSlot: vrInfo.vrLkpdLabActiveSlot,
+            vrLkpdLabSolvedIds: vrInfo.vrLkpdLabSolvedIds,
+            vrLkpdQuizIndex: vrInfo.vrLkpdQuizIndex,
+            vrLkpdQuizAnswers: vrInfo.vrLkpdQuizAnswers,
+            vrLkpdReflectionAnswers: vrInfo.vrLkpdReflectionAnswers,
+            vrLkpdActiveReflectionPrompt: vrInfo.vrLkpdActiveReflectionPrompt,
+            vrLkpdScore: vrInfo.vrLkpdScore,
           },
           vrManager.rightController,
           vrManager.currentSession,
@@ -1463,7 +1532,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
         if (action) {
           sound.playUiClick();
           const dispatchVRMenuAction = (act: VRMenuAction) => {
-            if (act === 'vr_setup_start' || act === 'start_mission') {
+            if (act === 'set_difficulty_easy') {
+              setSettings((prev) => ({ ...prev, difficulty: 'easy' }));
+            } else if (act === 'set_difficulty_normal') {
+              setSettings((prev) => ({ ...prev, difficulty: 'normal' }));
+            } else if (act === 'set_difficulty_hard') {
+              setSettings((prev) => ({ ...prev, difficulty: 'hard' }));
+            } else if (act === 'vr_setup_start' || act === 'start_mission') {
               setVrSetupStep('identity');
               setVrActiveInput('name');
             } else if (act === 'vr_setup_back_to_menu') {
@@ -1473,26 +1548,61 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             } else if (act === 'vr_setup_select_class_input') {
               setVrActiveInput('class');
             } else if (act === 'kb_space') {
-              if (vrMenuInfoRef.current.vrActiveInput === 'name') {
+              if (vrMenuInfoRef.current.vrLkpdStep === 'reflection') {
+                const curPId = vrMenuInfoRef.current.vrLkpdActiveReflectionPrompt;
+                setVrLkpdReflectionAnswers((prev) => {
+                  const existing = prev[curPId] || '';
+                  const next = { ...prev, [curPId]: existing + ' ' };
+                  const curSub = loadLKPDSubmission();
+                  saveLKPDSubmission({ ...curSub, reflectionAnswers: next });
+                  return next;
+                });
+              } else if (vrMenuInfoRef.current.vrActiveInput === 'name') {
                 setVrStudentName((prev) => (prev.length < 24 ? prev + ' ' : prev));
               } else {
                 setVrStudentClass((prev) => (prev.length < 12 ? prev + ' ' : prev));
               }
             } else if (act === 'kb_backspace') {
-              if (vrMenuInfoRef.current.vrActiveInput === 'name') {
+              if (vrMenuInfoRef.current.vrLkpdStep === 'reflection') {
+                const curPId = vrMenuInfoRef.current.vrLkpdActiveReflectionPrompt;
+                setVrLkpdReflectionAnswers((prev) => {
+                  const existing = prev[curPId] || '';
+                  const next = { ...prev, [curPId]: existing.slice(0, -1) };
+                  const curSub = loadLKPDSubmission();
+                  saveLKPDSubmission({ ...curSub, reflectionAnswers: next });
+                  return next;
+                });
+              } else if (vrMenuInfoRef.current.vrActiveInput === 'name') {
                 setVrStudentName((prev) => prev.slice(0, -1));
               } else {
                 setVrStudentClass((prev) => prev.slice(0, -1));
               }
             } else if (act === 'kb_clear') {
-              if (vrMenuInfoRef.current.vrActiveInput === 'name') {
+              if (vrMenuInfoRef.current.vrLkpdStep === 'reflection') {
+                const curPId = vrMenuInfoRef.current.vrLkpdActiveReflectionPrompt;
+                setVrLkpdReflectionAnswers((prev) => {
+                  const next = { ...prev, [curPId]: '' };
+                  const curSub = loadLKPDSubmission();
+                  saveLKPDSubmission({ ...curSub, reflectionAnswers: next });
+                  return next;
+                });
+              } else if (vrMenuInfoRef.current.vrActiveInput === 'name') {
                 setVrStudentName('');
               } else {
                 setVrStudentClass('');
               }
             } else if (act.startsWith('kb_')) {
               const char = act.slice(3);
-              if (vrMenuInfoRef.current.vrActiveInput === 'name') {
+              if (vrMenuInfoRef.current.vrLkpdStep === 'reflection') {
+                const curPId = vrMenuInfoRef.current.vrLkpdActiveReflectionPrompt;
+                setVrLkpdReflectionAnswers((prev) => {
+                  const existing = prev[curPId] || '';
+                  const next = { ...prev, [curPId]: existing.length < 240 ? existing + char : existing };
+                  const curSub = loadLKPDSubmission();
+                  saveLKPDSubmission({ ...curSub, reflectionAnswers: next });
+                  return next;
+                });
+              } else if (vrMenuInfoRef.current.vrActiveInput === 'name') {
                 setVrStudentName((prev) => (prev.length < 24 ? prev + char : prev));
               } else {
                 setVrStudentClass((prev) => (prev.length < 12 ? prev + char : prev));
@@ -1568,9 +1678,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             } else if (act === 'open_lkpd') {
               if (vrMenuInfoRef.current.lkpdUnlocked) {
                 setVrWarningMsg(null);
-                setShowLKPD(true);
-                menuCallbacksRef.current.returnToMenu();
-                vrManager.exitVR();
+                setVrLkpdStep('lab');
               } else {
                 setVrWarningMsg('Selesaikan Stage 1–3 & Boss dahulu untuk membuka LKPD!');
                 if (vrWarningTimerRef.current) {
@@ -1581,6 +1689,99 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
                   setVrWarningMsg(null);
                 }, 3500);
               }
+            } else if (act === 'vr_lkpd_open_lab') {
+              setVrLkpdStep('lab');
+            } else if (act === 'vr_lkpd_open_quiz') {
+              setVrLkpdStep('quiz');
+            } else if (act === 'vr_lkpd_open_reflection') {
+              setVrLkpdStep('reflection');
+            } else if (act === 'vr_lkpd_open_result') {
+              setVrLkpdStep('result');
+            } else if (act === 'vr_lkpd_exit') {
+              setVrLkpdStep('none');
+            } else if (act === 'vr_lkpd_lab_select_slot_a') {
+              setVrLkpdLabActiveSlot('a');
+            } else if (act === 'vr_lkpd_lab_select_slot_b') {
+              setVrLkpdLabActiveSlot('b');
+            } else if (act.startsWith('vr_lkpd_lab_pick_')) {
+              const colId = act.replace('vr_lkpd_lab_pick_', '') as RYBColorId;
+              if (vrMenuInfoRef.current.vrLkpdLabActiveSlot === 'a') {
+                setVrLkpdLabSlotA(colId);
+                setVrLkpdLabActiveSlot('b');
+              } else {
+                setVrLkpdLabSlotB(colId);
+              }
+            } else if (act === 'vr_lkpd_lab_mix') {
+              const a = vrMenuInfoRef.current.vrLkpdLabSlotA;
+              const b = vrMenuInfoRef.current.vrLkpdLabSlotB;
+              if (a && b) {
+                const mixed = mixRYBColors(a, b);
+                if (mixed) {
+                  setVrLkpdLabSolvedIds((prev) => {
+                    const mixId = mixed.id as RYBColorId;
+                    if (!prev.includes(mixId)) {
+                      const next = [...prev, mixId];
+                      const cur = loadLKPDSubmission();
+                      saveLKPDSubmission({ ...cur, labSolvedIds: next });
+                      return next;
+                    }
+                    return prev;
+                  });
+                }
+              }
+            } else if (act === 'vr_lkpd_lab_reset') {
+              setVrLkpdLabSlotA(null);
+              setVrLkpdLabSlotB(null);
+              setVrLkpdLabActiveSlot('a');
+            } else if (act === 'vr_lkpd_quiz_next') {
+              setVrLkpdQuizIndex((prev) => Math.min(prev + 1, LKPD_QUIZ_QUESTIONS.length - 1));
+            } else if (act === 'vr_lkpd_quiz_prev') {
+              setVrLkpdQuizIndex((prev) => Math.max(prev - 1, 0));
+            } else if (act.startsWith('vr_lkpd_quiz_ans_')) {
+              const optId = act.replace('vr_lkpd_quiz_ans_', '');
+              const curQ = LKPD_QUIZ_QUESTIONS[vrMenuInfoRef.current.vrLkpdQuizIndex];
+              if (curQ) {
+                setVrLkpdQuizAnswers((prev) => {
+                  const next = { ...prev, [curQ.id]: optId };
+                  const curSub = loadLKPDSubmission();
+                  saveLKPDSubmission({ ...curSub, quizAnswers: next });
+                  return next;
+                });
+              }
+            } else if (act.startsWith('vr_lkpd_reflection_select_')) {
+              const pId = act.replace('vr_lkpd_reflection_select_', '');
+              setVrLkpdActiveReflectionPrompt(pId);
+            } else if (act.startsWith('vr_lkpd_quick_')) {
+              const phrase = act.replace('vr_lkpd_quick_', '');
+              const curPId = vrMenuInfoRef.current.vrLkpdActiveReflectionPrompt;
+              setVrLkpdReflectionAnswers((prev) => {
+                const existing = prev[curPId] || '';
+                const nextText = existing ? `${existing} ${phrase}` : phrase;
+                const next = { ...prev, [curPId]: nextText };
+                const curSub = loadLKPDSubmission();
+                saveLKPDSubmission({ ...curSub, reflectionAnswers: next });
+                return next;
+              });
+            } else if (act === 'vr_lkpd_submit') {
+              const curSub = loadLKPDSubmission();
+              const finalSub: LKPDSubmissionState = {
+                ...curSub,
+                studentName: vrMenuInfoRef.current.vrStudentName.trim() || 'Siswa Anonim',
+                studentClass: vrMenuInfoRef.current.vrStudentClass.trim() || '-',
+                studentAbsent: curSub.studentAbsent || '-',
+                schoolName: curSub.schoolName || LKPD_DEFAULT_SCHOOL,
+                teacherName: curSub.teacherName || LKPD_DEFAULT_TEACHER,
+                labSolvedIds: vrMenuInfoRef.current.vrLkpdLabSolvedIds,
+                quizAnswers: vrMenuInfoRef.current.vrLkpdQuizAnswers,
+                quizChecked: true,
+                reflectionAnswers: vrMenuInfoRef.current.vrLkpdReflectionAnswers,
+                completedAt: new Date().toISOString(),
+              };
+              saveLKPDSubmission(finalSub);
+              const scoreBreakdown = calculateLKPDScore(finalSub);
+              setVrLkpdScore(scoreBreakdown);
+              recordLKPDSubmissionAsync(finalSub);
+              setVrLkpdStep('result');
             } else if (act === 'close_subpanel') {
               setShowTutorial(false);
               setShowSettings(false);
