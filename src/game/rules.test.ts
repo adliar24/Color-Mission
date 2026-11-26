@@ -49,7 +49,7 @@ import {
   calculateLKPDScore,
   mixRYBColors,
 } from './lkpd';
-import { getBgmProfile } from './audio';
+import { getBgmProfile, sound } from './audio';
 import * as THREE from 'three';
 import { EnemyManager } from './engine/enemies';
 
@@ -941,6 +941,18 @@ test('MobileInput Gyro otomatis menyesuaikan sumbu Pitch & Yaw antara mode Lands
   assert.ok(portYawCmd.lookDeltaX < 0, 'Di Portrait, putar ke kanan (rBeta/rGamma negatif) harus memutar kamera ke kanan (Yaw-)');
   assert.equal(portYawCmd.lookDeltaY, 0);
 });
+
+test('SoundEngine menyediakan suara item khusus Darah, Perisai, dan Peluru yang aman dipanggil di lingkungan headless', () => {
+  assert.equal(typeof sound.playPickupHealth, 'function');
+  assert.equal(typeof sound.playPickupShield, 'function');
+  assert.equal(typeof sound.playPickupAmmo, 'function');
+  assert.doesNotThrow(() => {
+    sound.playPickupHealth();
+    sound.playPickupShield();
+    sound.playPickupAmmo();
+  });
+});
+
 
 
 

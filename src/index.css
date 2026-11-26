@@ -87,6 +87,60 @@ canvas {
   animation: uiBannerIn 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes pickupScreenWash {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes pickupPlusFloat {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 26px, 0) scale(0.55);
+  }
+  20% {
+    opacity: 0.95;
+    transform: translate3d(0, 6px, 0) scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -68px, 0) scale(0.92);
+  }
+}
+
+@keyframes pickupHexPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  20% {
+    opacity: 0.92;
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.07);
+  }
+}
+
+.pickup-screen-wash {
+  animation: pickupScreenWash 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pickup-plus-float {
+  animation: pickupPlusFloat 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pickup-hex-pulse {
+  animation: pickupHexPulse 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @keyframes uiBackdropOut {
   from {
     opacity: 1;

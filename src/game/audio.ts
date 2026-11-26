@@ -408,6 +408,108 @@ class SoundManager {
     osc.stop(now + 0.3);
   }
 
+  /**
+   * Suara Item Darah (Health): arpeggio harmonik naik yang hangat & menyegarkan.
+   */
+  public playPickupHealth() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 -> E5 -> G5 -> C6
+    notes.forEach((freq, idx) => {
+      if (!this.ctx) return;
+      const start = now + idx * 0.055;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = idx === notes.length - 1 ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.18, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.24);
+
+      osc.connect(gain);
+      gain.connect(this.getSfxDest());
+      osc.start(start);
+      osc.stop(start + 0.25);
+    });
+  }
+
+  /**
+   * Suara Item Perisai (Shield): sapuan energi naik futuristik + dengung pelindung biru.
+   */
+  public playPickupShield() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const oscLow = this.ctx.createOscillator();
+    const gainLow = this.ctx.createGain();
+    oscLow.type = 'triangle';
+    oscLow.frequency.setValueAtTime(220, now);
+    oscLow.frequency.exponentialRampToValueAtTime(660, now + 0.28);
+
+    gainLow.gain.setValueAtTime(0.001, now);
+    gainLow.gain.linearRampToValueAtTime(0.22, now + 0.03);
+    gainLow.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+
+    oscLow.connect(gainLow);
+    gainLow.connect(this.getSfxDest());
+    oscLow.start(now);
+    oscLow.stop(now + 0.35);
+
+    const oscHigh = this.ctx.createOscillator();
+    const gainHigh = this.ctx.createGain();
+    oscHigh.type = 'sine';
+    oscHigh.frequency.setValueAtTime(880, now + 0.06);
+    oscHigh.frequency.exponentialRampToValueAtTime(1320, now + 0.32);
+
+    gainHigh.gain.setValueAtTime(0.001, now + 0.06);
+    gainHigh.gain.linearRampToValueAtTime(0.14, now + 0.1);
+    gainHigh.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+
+    oscHigh.connect(gainHigh);
+    gainHigh.connect(this.getSfxDest());
+    oscHigh.start(now + 0.06);
+    oscHigh.stop(now + 0.37);
+  }
+
+  /**
+   * Suara Item Peluru (Ammo): dua ketukan mekanis klik-klak pengisian magasin.
+   */
+  public playPickupAmmo() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const clicks = [
+      { offset: 0, startFreq: 210, endFreq: 420 },
+      { offset: 0.085, startFreq: 320, endFreq: 680 },
+    ];
+
+    clicks.forEach(({ offset, startFreq, endFreq }) => {
+      if (!this.ctx) return;
+      const t = now + offset;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(startFreq, t);
+      osc.frequency.exponentialRampToValueAtTime(endFreq, t + 0.045);
+
+      gain.gain.setValueAtTime(0.15, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+      osc.connect(gain);
+      gain.connect(this.getSfxDest());
+      osc.start(t);
+      osc.stop(t + 0.065);
+    });
+  }
+
   public playPlayerHurt() {
     if (this.isMuted) return;
     this.initContext();

@@ -320,10 +320,12 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
   const [hitmarkerCrit, setHitmarkerCrit] = useState<boolean>(false);
   const [hitmarkerWrong, setHitmarkerWrong] = useState<boolean>(false);
   const [playerDamageFlash, setPlayerDamageFlash] = useState<boolean>(false);
+  const [pickupFlash, setPickupFlash] = useState<{ type: 'health' | 'shield'; id: number } | null>(null);
   const [isPlayerDying, setIsPlayerDying] = useState<boolean>(false);
   const isPlayerDyingRef = useRef<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(sound.isMuted);
   const damageFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pickupFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bossVictoryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playerDeathTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1096,6 +1098,89 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
     vrDamageMesh.visible = false;
     scene.add(vrDamageMesh);
     let vrDamageFlash = 0;
+
+    // Efek layar penuh khusus mode VR saat mengambil Item Darah (Hijau + Plus) atau Perisai (Biru + Hexagon)
+    const vrPickupFxMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uIntensity: { value: 0 },
+        uMode: { value: 0 }, // 1 = health (+ hijau), 2 = shield (hexagon biru)
+        uTime: { value: 0 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uIntensity;
+        uniform float uMode;
+        uniform float uTime;
+        varying vec2 vUv;
+
+        float hexDist(vec2 p) {
+          p = abs(p);
+          float c = dot(p, normalize(vec2(1.0, 1.7320508)));
+          return max(c, p.x);
+        }
+
+        float hexGridEdge(vec2 uv, float scale) {
+          vec2 r = vec2(1.0, 1.7320508);
+          vec2 h = r * 0.5;
+          vec2 p = uv * scale;
+          vec2 a = mod(p, r) - h;
+          vec2 b = mod(p - h, r) - h;
+          vec2 gv = dot(a, a) < dot(b, b) ? a : b;
+          float d = 0.5 - hexDist(gv);
+          return 1.0 - smoothstep(0.015, 0.055, d);
+        }
+
+        float plusPattern(vec2 uv, float scale, float t) {
+          vec2 p = uv * scale;
+          float colId = floor(p.x);
+          p.y -= t * (0.9 + fract(sin(colId * 12.9898) * 43758.5453) * 0.7);
+          vec2 cell = fract(p) - 0.5;
+          float barH = max(abs(cell.x) - 0.19, abs(cell.y) - 0.055);
+          float barV = max(abs(cell.x) - 0.055, abs(cell.y) - 0.19);
+          float d = min(barH, barV);
+          return 1.0 - smoothstep(0.0, 0.035, d);
+        }
+
+        void main() {
+          vec2 centered = vUv * 2.0 - 1.0;
+          float dist = length(centered);
+          float baseWash = mix(0.24, 0.56, smoothstep(0.1, 1.15, dist));
+          if (uMode < 1.5) {
+            float plusMask = plusPattern(vUv, 7.5, uTime);
+            vec3 baseCol = vec3(0.04, 0.74, 0.45);
+            vec3 symCol = vec3(0.65, 1.0, 0.82);
+            vec3 col = mix(baseCol, symCol, plusMask * 0.85);
+            float alpha = uIntensity * clamp(baseWash + plusMask * 0.42, 0.0, 0.88);
+            gl_FragColor = vec4(col, alpha);
+          } else {
+            float hexEdge = hexGridEdge(vUv - 0.5, 9.5);
+            float pulseWave = 0.75 + 0.25 * sin(dist * 9.0 - uTime * 7.0);
+            vec3 baseCol = vec3(0.06, 0.52, 0.96);
+            vec3 lineCol = vec3(0.58, 0.90, 1.0);
+            vec3 col = mix(baseCol, lineCol, hexEdge * 0.9);
+            float alpha = uIntensity * clamp(baseWash * pulseWave + hexEdge * 0.5, 0.0, 0.88);
+            gl_FragColor = vec4(col, alpha);
+          }
+        }
+      `,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const vrPickupFxMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), vrPickupFxMat);
+    vrPickupFxMesh.frustumCulled = false;
+    vrPickupFxMesh.renderOrder = 9998;
+    vrPickupFxMesh.visible = false;
+    scene.add(vrPickupFxMesh);
+    let vrPickupFxIntensity = 0;
+    let vrPickupFxMode = 0;
+    let vrPickupFxTime = 0;
 
     const initialPixelRatio = getPixelRatioForQuality(stateRef.current.settings.graphicsQuality);
 
@@ -2201,10 +2286,16 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
                   : 8.0
               : 7.0;
 
-          sound.playOverdrive();
           particles.emit(p.position.clone().setY(1.2), 20, p.colorHex, 1.6);
 
           if (p.type === 'health') {
+            sound.playPickupHealth();
+            vrPickupFxMode = 1;
+            vrPickupFxIntensity = 1.0;
+            vrPickupFxTime = 0;
+            setPickupFlash({ type: 'health', id: performance.now() });
+            if (pickupFlashTimerRef.current) clearTimeout(pickupFlashTimerRef.current);
+            pickupFlashTimerRef.current = setTimeout(() => setPickupFlash(null), 860);
             setPlayer((prev) => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + 30) }));
             triggerShotBanner({
               type: 'pickup',
@@ -2214,6 +2305,13 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
               timestamp: performance.now(),
             });
           } else if (p.type === 'shield') {
+            sound.playPickupShield();
+            vrPickupFxMode = 2;
+            vrPickupFxIntensity = 1.0;
+            vrPickupFxTime = 0;
+            setPickupFlash({ type: 'shield', id: performance.now() });
+            if (pickupFlashTimerRef.current) clearTimeout(pickupFlashTimerRef.current);
+            pickupFlashTimerRef.current = setTimeout(() => setPickupFlash(null), 860);
             setPlayer((prev) => ({ ...prev, shield: Math.min(prev.maxShield, prev.shield + 25) }));
             triggerShotBanner({
               type: 'pickup',
@@ -2223,6 +2321,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
               timestamp: performance.now(),
             });
           } else {
+            sound.playPickupAmmo();
             const targetWeapon = p.weaponType ?? 'laser_rifle';
             const addedAmmo = weapons.addAmmoForWeapon(targetWeapon);
             ammoRef.current = weapons.ammoCount;
@@ -2751,6 +2850,19 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
         if (currentState !== 'playing') vrDamageFlash = 0;
       }
 
+      if (isPresentingVR && currentState === 'playing' && vrPickupFxIntensity > 0.01) {
+        vrPickupFxMesh.visible = true;
+        vrPickupFxTime += dt;
+        vrPickupFxMat.uniforms.uIntensity.value = vrPickupFxIntensity;
+        vrPickupFxMat.uniforms.uMode.value = vrPickupFxMode;
+        vrPickupFxMat.uniforms.uTime.value = vrPickupFxTime;
+        vrPickupFxIntensity = Math.max(0, vrPickupFxIntensity - dt * 1.25);
+      } else {
+        vrPickupFxMesh.visible = false;
+        vrPickupFxMat.uniforms.uIntensity.value = 0;
+        if (currentState !== 'playing') vrPickupFxIntensity = 0;
+      }
+
       if (
         isPresentingVR ||
         (currentState !== 'paused' && currentState !== 'stage_transition')
@@ -2762,6 +2874,8 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
     return () => {
       vrDamageMesh.geometry.dispose();
       vrDamageMat.dispose();
+      vrPickupFxMesh.geometry.dispose();
+      vrPickupFxMat.dispose();
       renderer.setAnimationLoop(null);
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('click', handleCanvasClick);
@@ -2832,6 +2946,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
     setBossHp(undefined);
     setShotFeedback(null);
     setPlayerDamageFlash(false);
+    setPickupFlash(null);
     setGameState('title');
   };
 
@@ -2892,6 +3007,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
     setBossHp(undefined);
     setShotFeedback(null);
     setPlayerDamageFlash(false);
+    setPickupFlash(null);
 
     if (stateRef.current.platformMode === 'mobile' && settings.mobileGyroEnabled) {
       inputManagerRef.current.mobile.requestGyroPermission();
@@ -3688,6 +3804,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             hitmarkerCrit={hitmarkerCrit}
             hitmarkerWrong={hitmarkerWrong}
             playerDamageFlash={playerDamageFlash}
+            pickupFlash={pickupFlash}
             difficulty={settings.difficulty ?? 'normal'}
             characterId={settings.characterId ?? 'raka'}
             onTriggerAbility={handleTriggerAbility}

@@ -63,6 +63,7 @@ interface PlayingHUDProps {
   hitmarkerCrit: boolean;
   hitmarkerWrong: boolean;
   playerDamageFlash?: boolean;
+  pickupFlash?: { type: 'health' | 'shield'; id: number } | null;
   difficulty?: DifficultyLevel;
   characterId?: CharacterId;
   onTriggerAbility?: () => void;
@@ -97,6 +98,7 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
   hitmarkerCrit,
   hitmarkerWrong,
   playerDamageFlash = false,
+  pickupFlash = null,
   difficulty = player.difficulty ?? 'normal',
   characterId = player.characterId ?? 'raka',
   onTriggerAbility,
@@ -173,6 +175,101 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
               'radial-gradient(circle, rgba(244,63,94,0.12) 25%, rgba(225,29,72,0.55) 100%)',
           }}
         />
+      )}
+
+      {/* Efek Layar Penuh Saat Mengambil Item Darah (Hijau + Tanda Plus) */}
+      {pickupFlash?.type === 'health' && (
+        <div
+          key={`hp_${pickupFlash.id}`}
+          className="absolute inset-0 pointer-events-none z-30 overflow-hidden pickup-screen-wash"
+          style={{
+            background:
+              'radial-gradient(circle at center, rgba(16,185,129,0.24) 0%, rgba(16,185,129,0.42) 68%, rgba(5,150,105,0.68) 100%)',
+            boxShadow: 'inset 0 0 60px rgba(52,211,153,0.55)',
+          }}
+        >
+          {[
+            { left: '10%', top: '68%', size: 32, delay: '0ms' },
+            { left: '22%', top: '34%', size: 24, delay: '70ms' },
+            { left: '34%', top: '76%', size: 36, delay: '40ms' },
+            { left: '48%', top: '24%', size: 28, delay: '90ms' },
+            { left: '62%', top: '72%', size: 34, delay: '20ms' },
+            { left: '76%', top: '38%', size: 26, delay: '80ms' },
+            { left: '86%', top: '66%', size: 32, delay: '50ms' },
+            { left: '16%', top: '18%', size: 22, delay: '110ms' },
+            { left: '82%', top: '16%', size: 24, delay: '60ms' },
+          ].map((item, idx) => (
+            <svg
+              key={idx}
+              viewBox="0 0 24 24"
+              className="absolute pickup-plus-float drop-shadow-[0_0_10px_rgba(52,211,153,0.95)]"
+              style={{
+                left: item.left,
+                top: item.top,
+                width: item.size,
+                height: item.size,
+                animationDelay: item.delay,
+              }}
+              aria-hidden="true"
+            >
+              <path
+                d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5V3z"
+                fill="#6ee7b7"
+                stroke="#ecfdf5"
+                strokeWidth="1.2"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ))}
+        </div>
+      )}
+
+      {/* Efek Layar Penuh Saat Mengambil Item Perisai (Biru + Pola Banyak Hexagon) */}
+      {pickupFlash?.type === 'shield' && (
+        <div
+          key={`sh_${pickupFlash.id}`}
+          className="absolute inset-0 pointer-events-none z-30 overflow-hidden pickup-screen-wash"
+          style={{
+            background:
+              'radial-gradient(circle at center, rgba(14,165,233,0.22) 0%, rgba(37,99,235,0.42) 68%, rgba(2,132,199,0.70) 100%)',
+            boxShadow: 'inset 0 0 64px rgba(56,189,248,0.6)',
+          }}
+        >
+          <svg
+            className="w-full h-full pickup-hex-pulse"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <pattern
+                id="shieldHexPattern"
+                width="56"
+                height="97"
+                patternUnits="userSpaceOnUse"
+              >
+                <polygon
+                  points="28,2 54,17 54,47 28,62 2,47 2,17"
+                  fill="rgba(56,189,248,0.14)"
+                  stroke="#7dd3fc"
+                  strokeWidth="1.6"
+                />
+                <polygon
+                  points="0,50.5 26,65.5 26,95.5 0,110.5 -26,95.5 -26,65.5"
+                  fill="rgba(56,189,248,0.10)"
+                  stroke="#38bdf8"
+                  strokeWidth="1.4"
+                />
+                <polygon
+                  points="56,50.5 82,65.5 82,95.5 56,110.5 30,95.5 30,65.5"
+                  fill="rgba(56,189,248,0.10)"
+                  stroke="#38bdf8"
+                  strokeWidth="1.4"
+                />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#shieldHexPattern)" />
+          </svg>
+        </div>
       )}
 
       {/* ====================================================================
