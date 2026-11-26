@@ -900,5 +900,48 @@ test('InputManager membaca input dari gamepad asli di slot 1+ meski slot 0 berup
   }
 });
 
+test('MobileInput Gyro otomatis menyesuaikan sumbu Pitch & Yaw antara mode Landscape (90°) dan Portrait (0°)', () => {
+  const im = new InputManager();
+  im.setMode('mobile');
+  const gyroSettings: GameSettings = {
+    ...TEST_SETTINGS,
+    mobileGyroEnabled: true,
+    gyroSensitivity: 1.0,
+  };
+
+  // 1. Mode Landscape (90°): rBeta menggerakkan Pitch (lookDeltaY), rGamma menggerakkan Yaw (lookDeltaX)
+  im.mobile.reset();
+  im.mobile.setScreenOrientationAngle(90);
+  im.mobile.onDeviceMotion({
+    rotationRate: { alpha: 0, beta: -40, gamma: 0 },
+    interval: 16,
+  } as DeviceMotionEvent);
+  const landPitchCmd = im.mobile.poll(gyroSettings);
+  assert.ok(landPitchCmd.lookDeltaY > 0, 'Di Landscape, rBeta negatif harus mengarahkan kamera ke atas (Pitch+)');
+  assert.equal(landPitchCmd.lookDeltaX, 0);
+
+  // 2. Mode Portrait (0°): sumbu berputar 90° -> rGamma menggerakkan Pitch (lookDeltaY), rBeta menggerakkan Yaw (lookDeltaX)
+  im.mobile.reset();
+  im.mobile.setScreenOrientationAngle(0);
+  im.mobile.onDeviceMotion({
+    rotationRate: { alpha: 0, beta: 0, gamma: 40 },
+    interval: 16,
+  } as DeviceMotionEvent);
+  const portPitchCmd = im.mobile.poll(gyroSettings);
+  assert.ok(portPitchCmd.lookDeltaY > 0, 'Di Portrait, rGamma positif harus mengarahkan kamera ke atas (Pitch+)');
+  assert.equal(portPitchCmd.lookDeltaX, 0);
+
+  im.mobile.reset();
+  im.mobile.setScreenOrientationAngle(0);
+  im.mobile.onDeviceMotion({
+    rotationRate: { alpha: 0, beta: 40, gamma: 0 },
+    interval: 16,
+  } as DeviceMotionEvent);
+  const portYawCmd = im.mobile.poll(gyroSettings);
+  assert.ok(portYawCmd.lookDeltaX > 0, 'Di Portrait, rBeta positif harus memutar kamera ke samping (Yaw+)');
+  assert.equal(portYawCmd.lookDeltaY, 0);
+});
+
+
 
 

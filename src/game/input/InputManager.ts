@@ -667,16 +667,36 @@ export class MobileInput {
     const rGamma = rate.gamma ?? 0;
     const rAlpha = rate.alpha ?? 0;
 
-    const angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
-    const isInverted = angle === 180 || angle === 270;
+    const rawAngle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
+    const isPortraitViewport =
+      this.forcedScreenAngle === null && typeof window !== 'undefined'
+        ? window.innerHeight >= window.innerWidth
+        : rawAngle === 0 || rawAngle === 180;
+    const isPortrait =
+      this.forcedScreenAngle !== null
+        ? rawAngle === 0 || rawAngle === 180
+        : isPortraitViewport;
 
-    // Sumbu Vertikal (Atas - Bawah / Pitch):
-    // Menggerakkan HP ke atas / bawah memutar sumbu rBeta -> kamera mengarah ke atas / bawah secara natural
-    let rawPitch = isInverted ? rBeta : -rBeta;
+    let rawPitch = 0;
+    let rawYaw = 0;
 
-    // Sumbu Horizontal (Kiri - Kanan / Yaw):
-    // Memutar HP ke samping kiri / kanan memutar sumbu rAlpha & rGamma -> kamera memutar ke samping
-    let rawYaw = isInverted ? -(rAlpha * 0.75 + rGamma * 0.75) : rAlpha * 0.75 + rGamma * 0.75;
+    if (isPortrait) {
+      // Mode Portrait (0° / 180°): sumbu dalam layar (beta & gamma) berputar 90° dibanding Landscape
+      // - Pitch (Atas - Bawah) memakai rGamma
+      // - Yaw (Kiri - Kanan) memakai rAlpha & rBeta
+      const isUpsideDown = rawAngle === 180;
+      rawPitch = isUpsideDown ? -rGamma : rGamma;
+      rawYaw = isUpsideDown
+        ? rAlpha * 0.75 - rBeta * 0.75
+        : rAlpha * 0.75 + rBeta * 0.75;
+    } else {
+      // Mode Landscape (90° / 270°) — kalibrasi teruji
+      const isInverted = rawAngle === 270;
+      rawPitch = isInverted ? rBeta : -rBeta;
+      rawYaw = isInverted
+        ? -(rAlpha * 0.75 + rGamma * 0.75)
+        : rAlpha * 0.75 + rGamma * 0.75;
+    }
 
     // Deadzone mikro (0.04 deg/s) untuk menyaring getaran sensor tanpa mengurangi responsivitas gerakan halus
     if (Math.abs(rawPitch) < 0.04) rawPitch = 0;
@@ -728,11 +748,32 @@ export class MobileInput {
       return;
     }
 
-    const angle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
-    const isInverted = angle === 180 || angle === 270;
+    const rawAngle = ((this.getScreenOrientationAngle() % 360) + 360) % 360;
+    const isPortraitViewport =
+      this.forcedScreenAngle === null && typeof window !== 'undefined'
+        ? window.innerHeight >= window.innerWidth
+        : rawAngle === 0 || rawAngle === 180;
+    const isPortrait =
+      this.forcedScreenAngle !== null
+        ? rawAngle === 0 || rawAngle === 180
+        : isPortraitViewport;
 
-    let rawPitch = isInverted ? dBeta : -dBeta;
-    let rawYaw = isInverted ? -(dAlpha * 0.75 + dGamma * 0.75) : dAlpha * 0.75 + dGamma * 0.75;
+    let rawPitch = 0;
+    let rawYaw = 0;
+
+    if (isPortrait) {
+      const isUpsideDown = rawAngle === 180;
+      rawPitch = isUpsideDown ? -dGamma : dGamma;
+      rawYaw = isUpsideDown
+        ? dAlpha * 0.75 - dBeta * 0.75
+        : dAlpha * 0.75 + dBeta * 0.75;
+    } else {
+      const isInverted = rawAngle === 270;
+      rawPitch = isInverted ? dBeta : -dBeta;
+      rawYaw = isInverted
+        ? -(dAlpha * 0.75 + dGamma * 0.75)
+        : dAlpha * 0.75 + dGamma * 0.75;
+    }
 
     if (Math.abs(rawPitch) < 0.03) rawPitch = 0;
     if (Math.abs(rawYaw) < 0.03) rawYaw = 0;
