@@ -681,14 +681,14 @@ export class MobileInput {
     let rawYaw = 0;
 
     if (isPortrait) {
-      // Mode Portrait (0° / 180°): sumbu dalam layar (beta & gamma) berputar 90° dibanding Landscape
-      // - Pitch (Atas - Bawah) memakai rGamma
-      // - Yaw (Kiri - Kanan) memakai rAlpha & rBeta
+      // Mode Portrait (0° / 180°):
+      // - Pitch (Atas - Bawah) memakai rBeta (miring atas -> rBeta negatif -> Pitch+)
+      // - Yaw (Kiri - Kanan) memakai rGamma (dominan saat HP tegak) + rAlpha (saat HP agak miring)
       const isUpsideDown = rawAngle === 180;
-      rawPitch = isUpsideDown ? -rGamma : rGamma;
+      rawPitch = isUpsideDown ? rBeta : -rBeta;
       rawYaw = isUpsideDown
-        ? rAlpha * 0.75 - rBeta * 0.75
-        : rAlpha * 0.75 + rBeta * 0.75;
+        ? -(rAlpha * 0.8 + rGamma * 0.95)
+        : rAlpha * 0.8 + rGamma * 0.95;
     } else {
       // Mode Landscape (90° / 270°) — kalibrasi teruji
       const isInverted = rawAngle === 270;
@@ -763,10 +763,10 @@ export class MobileInput {
 
     if (isPortrait) {
       const isUpsideDown = rawAngle === 180;
-      rawPitch = isUpsideDown ? -dGamma : dGamma;
+      rawPitch = isUpsideDown ? dBeta : -dBeta;
       rawYaw = isUpsideDown
-        ? dAlpha * 0.75 - dBeta * 0.75
-        : dAlpha * 0.75 + dBeta * 0.75;
+        ? -(dAlpha * 0.8 + dGamma * 0.95)
+        : dAlpha * 0.8 + dGamma * 0.95;
     } else {
       const isInverted = rawAngle === 270;
       rawPitch = isInverted ? dBeta : -dBeta;

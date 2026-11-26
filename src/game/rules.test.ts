@@ -920,25 +920,25 @@ test('MobileInput Gyro otomatis menyesuaikan sumbu Pitch & Yaw antara mode Lands
   assert.ok(landPitchCmd.lookDeltaY > 0, 'Di Landscape, rBeta negatif harus mengarahkan kamera ke atas (Pitch+)');
   assert.equal(landPitchCmd.lookDeltaX, 0);
 
-  // 2. Mode Portrait (0°): sumbu berputar 90° -> rGamma menggerakkan Pitch (lookDeltaY), rBeta menggerakkan Yaw (lookDeltaX)
+  // 2. Mode Portrait (0°): rBeta menggerakkan Pitch (lookDeltaY), rAlpha & rGamma menggerakkan Yaw (lookDeltaX)
   im.mobile.reset();
   im.mobile.setScreenOrientationAngle(0);
   im.mobile.onDeviceMotion({
-    rotationRate: { alpha: 0, beta: 0, gamma: 40 },
+    rotationRate: { alpha: 0, beta: -40, gamma: 0 },
     interval: 16,
   } as DeviceMotionEvent);
   const portPitchCmd = im.mobile.poll(gyroSettings);
-  assert.ok(portPitchCmd.lookDeltaY > 0, 'Di Portrait, rGamma positif harus mengarahkan kamera ke atas (Pitch+)');
+  assert.ok(portPitchCmd.lookDeltaY > 0, 'Di Portrait, rBeta negatif harus mengarahkan kamera ke atas (Pitch+)');
   assert.equal(portPitchCmd.lookDeltaX, 0);
 
   im.mobile.reset();
   im.mobile.setScreenOrientationAngle(0);
   im.mobile.onDeviceMotion({
-    rotationRate: { alpha: 0, beta: 40, gamma: 0 },
+    rotationRate: { alpha: -20, beta: 0, gamma: -40 },
     interval: 16,
   } as DeviceMotionEvent);
   const portYawCmd = im.mobile.poll(gyroSettings);
-  assert.ok(portYawCmd.lookDeltaX > 0, 'Di Portrait, rBeta positif harus memutar kamera ke samping (Yaw+)');
+  assert.ok(portYawCmd.lookDeltaX < 0, 'Di Portrait, putar ke kanan (rAlpha/rGamma negatif) harus memutar kamera ke kanan (Yaw-)');
   assert.equal(portYawCmd.lookDeltaY, 0);
 });
 
