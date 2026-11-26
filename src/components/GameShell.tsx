@@ -1368,7 +1368,24 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
         stateRef.current.showLKPDLockedAlert
       ) {
         const menuGp = inputManagerRef.current.pollMenuGamepad();
-        if (menuGp.back || menuGp.start) {
+        const activeBoardForKbd = getActiveUiBoard();
+        if (activeBoardForKbd?.getAttribute('data-gamepad-keyboard') === 'true') {
+          if (
+            menuGp.confirm ||
+            menuGp.back ||
+            menuGp.tutorial ||
+            menuGp.settings ||
+            menuGp.start ||
+            menuGp.up ||
+            menuGp.down ||
+            menuGp.left ||
+            menuGp.right
+          ) {
+            window.dispatchEvent(
+              new CustomEvent('color-mission:gamepad-keyboard', { detail: menuGp })
+            );
+          }
+        } else if (menuGp.back || menuGp.start) {
           if (stateRef.current.showLKPD) {
             setShowLKPD(false);
           } else if (stateRef.current.showLKPDLockedAlert) {
