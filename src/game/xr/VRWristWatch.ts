@@ -26,13 +26,14 @@ export class VRWristWatch {
   private texture: THREE.CanvasTexture;
   private screenMesh: THREE.Mesh;
   private lastSignature = '';
+
   private isHandTrackingPose = false;
 
   constructor() {
     this.group = new THREE.Group();
-    // Posisikan lebih ke atas di tangan kiri agar langsung terbaca tanpa memutar pergelangan terlalu jauh
-    this.group.position.set(0.014, 0.088, 0.02);
-    this.group.rotation.set(-0.56, 0.25, -0.14);
+    // Posisikan lebih rendah & miring menghadap wajah (+rotation.x) agar saat controller dipegang biasa layar jam langsung terbaca jelas
+    this.group.position.set(0.018, 0.042, 0.045);
+    this.group.rotation.set(0.58, 0.18, -0.1);
     this.group.scale.setScalar(1.38);
 
     // Strap / Body Jam
@@ -97,8 +98,8 @@ export class VRWristWatch {
       this.group.rotation.set(-0.18, 0.08, -0.35);
       this.group.scale.setScalar(1.22);
     } else {
-      this.group.position.set(0.014, 0.088, 0.02);
-      this.group.rotation.set(-0.56, 0.25, -0.14);
+      this.group.position.set(0.018, 0.042, 0.045);
+      this.group.rotation.set(0.58, 0.18, -0.1);
       this.group.scale.setScalar(1.38);
     }
   }
@@ -143,12 +144,14 @@ export class VRWristWatch {
     ctx.textAlign = 'left';
     ctx.fillText(`STAGE ${state.stage}`, 28, 49);
 
-    // Kotak Target Warna di kanan header
+    // Kotak Target Warna di kanan header (rounded)
     ctx.fillStyle = targetColor.hex;
-    ctx.fillRect(w - 196, 22, 38, 38);
+    ctx.beginPath();
+    ctx.roundRect(w - 196, 22, 38, 38, 9);
+    ctx.fill();
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2.5;
-    ctx.strokeRect(w - 196, 22, 38, 38);
+    ctx.stroke();
 
     ctx.fillStyle = '#f8fafc';
     ctx.font = '800 20px system-ui, sans-serif';
