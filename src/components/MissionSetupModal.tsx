@@ -513,7 +513,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
            ==================================================================== */
         <div
           data-ui-board="true"
-          className="max-w-3xl w-full overflow-hidden bg-[#090d18]/98 border border-white/15 rounded-3xl p-3.5 sm:p-5 md:p-6 shadow-2xl flex flex-col gap-3 sm:gap-4 ui-panel-enter"
+          className="max-w-xl w-full overflow-hidden bg-[#090d18]/98 border border-white/15 rounded-3xl p-3.5 sm:p-5 md:p-6 shadow-2xl flex flex-col gap-3 sm:gap-4 ui-panel-enter"
         >
           {/* Header Papan 2 */}
           <div className="flex items-center justify-between pb-2.5 border-b border-white/10 shrink-0">
