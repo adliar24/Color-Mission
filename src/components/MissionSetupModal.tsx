@@ -509,24 +509,24 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
         </div>
       ) : (
         /* ====================================================================
-           PAPAN 2: PEMILIHAN KARAKTER (UKURAN BESAR & NYAMAN DI DESKTOP & MOBILE)
+           PAPAN 2: PEMILIHAN KARAKTER (BESAR, FULL PAS TANPA SCROLL DI DESKTOP & MOBILE)
            ==================================================================== */
         <div
           data-ui-board="true"
-          className="max-w-3xl w-full max-h-[94dvh] overflow-y-auto bg-[#090d18]/98 border border-white/15 rounded-3xl p-4 sm:p-6 md:p-7 shadow-2xl flex flex-col gap-4 ui-panel-enter"
+          className="max-w-3xl w-full overflow-hidden bg-[#090d18]/98 border border-white/15 rounded-3xl p-3.5 sm:p-5 md:p-6 shadow-2xl flex flex-col gap-3 sm:gap-4 ui-panel-enter"
         >
           {/* Header Papan 2 */}
-          <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+          <div className="flex items-center justify-between pb-2.5 border-b border-white/10 shrink-0">
             <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="text-lg sm:text-2xl font-black uppercase tracking-tight text-white leading-tight">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base sm:text-xl md:text-2xl font-black uppercase tracking-tight text-white leading-tight">
                   Pilih Karakter Agen
                 </h2>
-                <span className="px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-xs font-bold">
+                <span className="px-2 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] sm:text-xs font-bold">
                   {studentName}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
                 Langkah 2 dari 2 · Pilih agen tempur sebelum bertanding
               </p>
             </div>
@@ -535,14 +535,14 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Tutup"
-              className="p-2 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-400 hover:text-white cursor-pointer shrink-0"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-400 hover:text-white cursor-pointer shrink-0"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
 
-          {/* 2 Kartu Karakter Berukuran Besar (Desktop & Mobile) */}
-          <div className="grid grid-cols-2 gap-3.5 sm:gap-5">
+          {/* 2 Kartu Karakter Berukuran Besar & Adaptif (Tanpa Scroll) */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-5">
             {CHARACTER_LIST.map((charId) => {
               const profile = CHARACTER_REGISTRY[charId];
               const isSelected = selectedCharacter === charId;
@@ -554,14 +554,14 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                   key={charId}
                   type="button"
                   onClick={() => onSelectCharacter(charId)}
-                  className={`group text-left rounded-2xl p-3 sm:p-4 md:p-5 border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                  className={`group text-left rounded-2xl p-2.5 sm:p-3.5 md:p-4 border-2 transition-all cursor-pointer flex flex-col justify-between ${
                     isSelected
                       ? 'bg-[#0e1e3e]/90 border-cyan-400 shadow-lg shadow-cyan-500/15'
                       : 'bg-[#0b101e] hover:bg-[#0f172a] border-white/12 hover:border-white/25'
                   }`}
                 >
-                  {/* Gambar Karakter Besar */}
-                  <div className="relative w-full h-44 sm:h-60 md:h-72 rounded-xl overflow-hidden bg-[#050811] border border-white/10 p-1.5 flex items-center justify-center">
+                  {/* Gambar Karakter Besar (Adaptif dvh agar tidak pernah scroll) */}
+                  <div className="relative w-full h-[clamp(145px,36dvh,275px)] rounded-xl overflow-hidden bg-[#050811] border border-white/10 p-1.5 flex items-center justify-center">
                     {!imgFailed ? (
                       <img
                         src={profile.imagePath}
