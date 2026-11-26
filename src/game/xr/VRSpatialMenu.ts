@@ -2195,7 +2195,9 @@ export class VRSpatialMenu {
     stages.forEach((st, idx) => {
       const y = 172 + idx * 98;
       ctx.fillStyle = 'rgba(255,255,255,0.05)';
-      ctx.fillRect(80, y, CANVAS_W - 160, 82);
+      ctx.beginPath();
+      ctx.roundRect(80, y, CANVAS_W - 160, 82, 16);
+      ctx.fill();
 
       ctx.textAlign = 'left';
       ctx.fillStyle = '#f8fafc';
@@ -2205,10 +2207,12 @@ export class VRSpatialMenu {
       st.colors.slice(0, 6).forEach((col, cIdx) => {
         const cx = 560 + cIdx * 56;
         ctx.fillStyle = col.hex;
-        ctx.fillRect(cx, y + 21, 40, 40);
+        ctx.beginPath();
+        ctx.roundRect(cx, y + 21, 40, 40, 11);
+        ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
-        ctx.strokeRect(cx, y + 21, 40, 40);
+        ctx.stroke();
       });
     });
 
@@ -2491,10 +2495,12 @@ export class VRSpatialMenu {
     colors.forEach((col, i) => {
       const x = startX + i * (size + gap);
       ctx.fillStyle = col.hex;
-      ctx.fillRect(x, 240, size, size);
+      ctx.beginPath();
+      ctx.roundRect(x, 240, size, size, 16);
+      ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3;
-      ctx.strokeRect(x, 240, size, size);
+      ctx.stroke();
     });
 
     ctx.fillStyle = '#94a3b8';

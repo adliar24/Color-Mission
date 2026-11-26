@@ -245,9 +245,9 @@ export const LKPDModal: React.FC<LKPDModalProps> = ({ progress, onClose }) => {
         <div className="px-5 sm:px-6 py-4 bg-[#060912] border-b border-blue-500/20 flex items-center justify-between gap-3 shrink-0 lkpd-header">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="w-3.5 h-3.5 rounded-sm bg-[#EF233C] border border-white/85" />
-              <span className="w-3.5 h-3.5 rounded-sm bg-[#FFD60A] border border-white/85" />
-              <span className="w-3.5 h-3.5 rounded-sm bg-[#1D6FFF] border border-white/85" />
+              <span className="w-3.5 h-3.5 rounded-md bg-[#EF233C] border border-white/85" />
+              <span className="w-3.5 h-3.5 rounded-md bg-[#FFD60A] border border-white/85" />
+              <span className="w-3.5 h-3.5 rounded-md bg-[#1D6FFF] border border-white/85" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base sm:text-xl font-black tracking-tight uppercase text-white leading-tight">

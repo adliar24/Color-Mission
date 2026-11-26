@@ -1458,7 +1458,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
         weapons.attachToVRHand(vrManager.getRightWeaponMount(), vrManager.isHandTrackingRight);
         weapons.gunGroup.visible = true;
         vrManager.attachAimRayTo(
-          currentState === 'playing' && vrManager.isHandTrackingRight
+          currentState === 'playing'
             ? weapons.muzzleTipAnchor
             : null
         );
@@ -2264,11 +2264,11 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
         const isMoving = _scratchWishDir.lengthSq() > 0.01;
         weapons.update(dt, isMoving, now / 1000);
 
-        // Update Meta OS-style Laser Aim Ray saat gameplay VR
+        // Update Meta OS-style Laser Aim Ray saat gameplay VR (selalu tepat dari ujung moncong senjata untuk Controller maupun Hand Tracking)
         if (isPresentingVR && cmd.vrAimRay) {
-          if (vrManager.isHandTrackingRight) {
-            weapons.getMuzzleRay(_scratchAimOrigin, _scratchAimDir);
+          weapons.getMuzzleRay(_scratchAimOrigin, _scratchAimDir);
 
+          if (vrManager.isHandTrackingRight) {
             // Aim Assist magnetik ringan khusus mode tangan kosong agar tembakan cubit lebih akurat
             let bestDot = 0.9965; // ~4.8 derajat
             let bestDir: THREE.Vector3 | null = null;
@@ -2289,17 +2289,15 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             if (bestDir) {
               _scratchAimDir.lerp(bestDir, 0.65).normalize();
             }
-
-            cmd.vrAimRay.origin[0] = _scratchAimOrigin.x;
-            cmd.vrAimRay.origin[1] = _scratchAimOrigin.y;
-            cmd.vrAimRay.origin[2] = _scratchAimOrigin.z;
-            cmd.vrAimRay.direction[0] = _scratchAimDir.x;
-            cmd.vrAimRay.direction[1] = _scratchAimDir.y;
-            cmd.vrAimRay.direction[2] = _scratchAimDir.z;
-          } else {
-            _scratchAimOrigin.set(...cmd.vrAimRay.origin);
-            _scratchAimDir.set(...cmd.vrAimRay.direction).normalize();
           }
+
+          cmd.vrAimRay.origin[0] = _scratchAimOrigin.x;
+          cmd.vrAimRay.origin[1] = _scratchAimOrigin.y;
+          cmd.vrAimRay.origin[2] = _scratchAimOrigin.z;
+          cmd.vrAimRay.direction[0] = _scratchAimDir.x;
+          cmd.vrAimRay.direction[1] = _scratchAimDir.y;
+          cmd.vrAimRay.direction[2] = _scratchAimDir.z;
+
           _scratchRaycaster.set(_scratchAimOrigin, _scratchAimDir);
           const liveEnemyMeshes = enemies.enemies
             .filter((e) => e.state !== 'dead')
@@ -2327,10 +2325,10 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             );
 
             if (isPresentingVR && cmd.vrAimRay) {
-              _scratchAimOrigin.set(...cmd.vrAimRay.origin);
+              weapons.getMuzzleWorldPosition(_scratchMuzzlePos);
+              _scratchAimOrigin.copy(_scratchMuzzlePos);
               _scratchAimDir.set(...cmd.vrAimRay.direction).normalize();
               _scratchRaycaster.set(_scratchAimOrigin, _scratchAimDir);
-              _scratchMuzzlePos.copy(_scratchAimOrigin);
             } else {
               _scratchRaycaster.setFromCamera(_scratchScreenCenter, camera);
               weapons.getMuzzleWorldPosition(_scratchMuzzlePos);
