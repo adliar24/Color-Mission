@@ -682,13 +682,14 @@ export class MobileInput {
 
     if (isPortrait) {
       // Mode Portrait (0° / 180°):
-      // - Pitch (Atas - Bawah) memakai rBeta (miring atas -> rBeta negatif -> Pitch+)
-      // - Yaw (Kiri - Kanan) memakai rGamma (dominan saat HP tegak) + rAlpha (saat HP agak miring)
+      // Pada Android Chrome, rotationRate memetakan (alpha = sumbu X pendek, beta = sumbu Y panjang, gamma = sumbu Z layar):
+      // - Pitch (Atas - Bawah) memakai rAlpha
+      // - Yaw (Kiri - Kanan) memakai rBeta (saat HP tegak) + rGamma (saat HP agak miring)
       const isUpsideDown = rawAngle === 180;
-      rawPitch = isUpsideDown ? rBeta : -rBeta;
+      rawPitch = isUpsideDown ? -rAlpha : rAlpha;
       rawYaw = isUpsideDown
-        ? -(rAlpha * 0.8 + rGamma * 0.95)
-        : rAlpha * 0.8 + rGamma * 0.95;
+        ? -(rBeta * 0.85 + rGamma * 0.65)
+        : rBeta * 0.85 + rGamma * 0.65;
     } else {
       // Mode Landscape (90° / 270°) — kalibrasi teruji
       const isInverted = rawAngle === 270;
@@ -763,10 +764,10 @@ export class MobileInput {
 
     if (isPortrait) {
       const isUpsideDown = rawAngle === 180;
-      rawPitch = isUpsideDown ? dBeta : -dBeta;
+      rawPitch = isUpsideDown ? -dAlpha : dAlpha;
       rawYaw = isUpsideDown
-        ? -(dAlpha * 0.8 + dGamma * 0.95)
-        : dAlpha * 0.8 + dGamma * 0.95;
+        ? -(dBeta * 0.85 + dGamma * 0.65)
+        : dBeta * 0.85 + dGamma * 0.65;
     } else {
       const isInverted = rawAngle === 270;
       rawPitch = isInverted ? dBeta : -dBeta;
