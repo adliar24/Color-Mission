@@ -117,6 +117,7 @@ function getBoardControls(board: HTMLElement): HTMLElement[] {
 }
 
 function focusDefaultBoardControl(board: HTMLElement): void {
+  if (board.getAttribute('data-gamepad-keyboard') === 'true') return;
   const controls = getBoardControls(board);
   if (controls.length > 0 && !board.contains(document.activeElement)) {
     const defaultBtn =

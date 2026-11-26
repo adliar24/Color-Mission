@@ -35,8 +35,10 @@ const GAMEPAD_KEYBOARD_ROWS: string[][] = [
   ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
   ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', '-'],
   ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'SPASI', 'HAPUS'],
-  ['KOLOM', 'BATAL', 'LANJUT'],
+  ['CAPS', 'KOLOM', 'BATAL', 'LANJUT'],
 ];
+
+const SPECIAL_KEYS = new Set(['SPASI', 'HAPUS', 'CAPS', 'KOLOM', 'BATAL', 'LANJUT']);
 
 // Preload potret kedua karakter
 const preloadedCharacterImages: HTMLImageElement[] = [];
@@ -74,6 +76,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
 
   // State Keyboard Virtual Gamepad (Desktop & Mobile)
   const [activeField, setActiveField] = useState<'name' | 'class'>('name');
+  const [isUppercase, setIsUppercase] = useState<boolean>(true);
   const [cursorRow, setCursorRow] = useState<number>(1);
   const [cursorCol, setCursorCol] = useState<number>(0);
 
@@ -114,6 +117,10 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
         handleBackspace();
         return;
       }
+      if (key === 'CAPS') {
+        setIsUppercase((prev) => !prev);
+        return;
+      }
       if (key === 'KOLOM') {
         setActiveField((prev) => (prev === 'name' ? 'class' : 'name'));
         return;
@@ -126,7 +133,14 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
         handleNextToCharacter();
         return;
       }
-      const ch = key === 'SPASI' ? ' ' : key;
+      const ch =
+        key === 'SPASI'
+          ? ' '
+          : /^[A-Z]$/.test(key)
+            ? isUppercase
+              ? key
+              : key.toLowerCase()
+            : key;
       if (activeField === 'name') {
         setStudentName((prev) => (prev.length < 32 ? prev + ch : prev));
         if (validationError) setValidationError(null);
@@ -134,7 +148,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
         setStudentClass((prev) => (prev.length < 18 ? prev + ch : prev));
       }
     },
-    [activeField, handleBackspace, handleNextToCharacter, onClose, validationError]
+    [activeField, handleBackspace, handleNextToCharacter, isUppercase, onClose, validationError]
   );
 
   const stateHandlerRef = useRef({
@@ -153,6 +167,16 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
     handleNextToCharacter,
     onClose,
   };
+
+  // Bersihkan fokus DOM bawaan saat keyboard virtual gamepad aktif agar tidak ada sisa highlight di huruf Q / tombol lain
+  useEffect(() => {
+    if (step === 'identity' && isGamepadConnected && typeof document !== 'undefined') {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && el.tagName === 'BUTTON') {
+        el.blur();
+      }
+    }
+  }, [step, isGamepadConnected, cursorRow, cursorCol]);
 
   // Tangkap navigasi D-Pad / Analog & Tombol Gamepad saat Keyboard Virtual aktif
   useEffect(() => {
@@ -228,7 +252,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-[#050811]/90 backdrop-blur-md flex items-center justify-center p-2.5 sm:p-4 z-50 font-sans text-white ui-backdrop-enter">
+    <div className="fixed inset-0 bg-[#050811]/90 backdrop-blur-md flex items-center justify-center p-2.5 sm:p-5 z-50 font-sans text-white ui-backdrop-enter">
       {step === 'identity' ? (
         /* ====================================================================
            PAPAN 1: PENGISIAN IDENTITAS PEMAIN (NAMA & KELAS + KEYBOARD GAMEPAD)
@@ -237,20 +261,20 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
           data-ui-board="true"
           data-gamepad-keyboard={isGamepadConnected ? 'true' : undefined}
           className={`${
-            isGamepadConnected ? 'max-w-lg' : 'max-w-md'
-          } w-full max-h-[95dvh] overflow-y-auto bg-[#090d18]/98 border border-white/15 rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col gap-3 ui-panel-enter`}
+            isGamepadConnected ? 'max-w-2xl' : 'max-w-md'
+          } w-full max-h-[95dvh] overflow-y-auto bg-[#090d18]/98 border border-white/15 rounded-3xl p-4 sm:p-6 shadow-2xl flex flex-col gap-3.5 ui-panel-enter`}
         >
           {/* Header Papan 1 */}
-          <div className="flex items-center justify-between pb-2 border-b border-white/10">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-                <User className="w-4 h-4" />
+          <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                <User className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-white leading-tight">
+                <h2 className="text-base sm:text-lg font-black uppercase tracking-tight text-white leading-tight">
                   Identitas Pemain
                 </h2>
-                <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">
+                <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
                   Langkah 1 dari 2 · Masukkan nama sebelum bermain
                 </p>
               </div>
@@ -258,30 +282,31 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
 
             <button
               type="button"
+              tabIndex={isGamepadConnected ? -1 : 0}
               onClick={onClose}
               aria-label="Tutup"
-              className="p-1.5 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-400 hover:text-white cursor-pointer shrink-0"
+              className="p-2 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-400 hover:text-white cursor-pointer shrink-0 focus:outline-none"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Form Input Identitas */}
-          <form onSubmit={handleNextToCharacter} className="flex flex-col gap-2.5">
-            <div className={isGamepadConnected ? 'grid grid-cols-1 sm:grid-cols-2 gap-2' : 'flex flex-col gap-3'}>
+          <form onSubmit={handleNextToCharacter} className="flex flex-col gap-3">
+            <div className={isGamepadConnected ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : 'flex flex-col gap-3'}>
               <div>
-                <label className="text-[11px] font-bold text-slate-200 flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-200 flex items-center justify-between mb-1.5">
                   <span>
                     Nama Pemain <span className="text-cyan-400">*</span>
                   </span>
                   {isGamepadConnected && activeField === 'name' && (
-                    <span className="text-[9px] font-black uppercase tracking-wider text-cyan-300 bg-cyan-500/15 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded">
                       Aktif
                     </span>
                   )}
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     autoFocus={!isGamepadConnected}
@@ -293,7 +318,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                       if (validationError) setValidationError(null);
                     }}
                     placeholder="Ketik nama pemain..."
-                    className={`w-full h-9 sm:h-10 pl-9 pr-3 rounded-xl bg-[#060a14] border text-xs sm:text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors ${
+                    className={`w-full h-10 sm:h-11 pl-10 pr-3.5 rounded-xl bg-[#060a14] border text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors ${
                       isGamepadConnected && activeField === 'name'
                         ? 'border-cyan-400 ring-1 ring-cyan-400/50'
                         : 'border-white/15 focus:border-cyan-400'
@@ -303,18 +328,18 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-200 flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-200 flex items-center justify-between mb-1.5">
                   <span>
                     Kelas <span className="text-slate-500 font-normal">(Opsional)</span>
                   </span>
                   {isGamepadConnected && activeField === 'class' && (
-                    <span className="text-[9px] font-black uppercase tracking-wider text-cyan-300 bg-cyan-500/15 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded">
                       Aktif
                     </span>
                   )}
                 </label>
                 <div className="relative">
-                  <GraduationCap className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <GraduationCap className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={studentClass}
@@ -322,7 +347,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                     onClick={() => setActiveField('class')}
                     onChange={(e) => setStudentClass(e.target.value)}
                     placeholder="contoh: X RPL 1"
-                    className={`w-full h-9 sm:h-10 pl-9 pr-3 rounded-xl bg-[#060a14] border text-xs sm:text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors ${
+                    className={`w-full h-10 sm:h-11 pl-10 pr-3.5 rounded-xl bg-[#060a14] border text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors ${
                       isGamepadConnected && activeField === 'class'
                         ? 'border-cyan-400 ring-1 ring-cyan-400/50'
                         : 'border-white/15 focus:border-cyan-400'
@@ -333,61 +358,68 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
             </div>
 
             {validationError && (
-              <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+              <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{validationError}</span>
               </div>
             )}
 
-            {/* Keyboard Virtual Khusus Gamepad (Muncul otomatis saat Gamepad terhubung di Desktop/Mobile) */}
+            {/* Keyboard Virtual Khusus Gamepad (Lebih lebar, tanpa fokus sisa, & opsi Huruf Besar/Kecil) */}
             {isGamepadConnected && (
-              <div className="rounded-2xl bg-[#050914] border border-cyan-400/25 p-2.5 flex flex-col gap-1.5">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-300 px-0.5 pb-1 border-b border-white/8">
+              <div className="rounded-2xl bg-[#050914] border border-cyan-400/25 p-3 sm:p-3.5 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold text-slate-300 px-0.5 pb-1.5 border-b border-white/8">
                   <span className="flex items-center gap-1.5 text-cyan-300 uppercase tracking-wider">
-                    <Gamepad2 className="w-3.5 h-3.5" />
+                    <Gamepad2 className="w-4 h-4" />
                     Keyboard Gamepad
                   </span>
-                  <span className="text-slate-400">
-                    Mengetik di: <strong className="text-white">{activeField === 'name' ? 'Nama' : 'Kelas'}</strong>
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${
+                        isUppercase
+                          ? 'bg-amber-500/15 border-amber-400/40 text-amber-300'
+                          : 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
+                      }`}
+                    >
+                      {isUppercase ? 'HURUF BESAR (ABC)' : 'huruf kecil (abc)'}
+                    </span>
+                    <span className="text-slate-400">
+                      Kolom: <strong className="text-white">{activeField === 'name' ? 'Nama' : 'Kelas'}</strong>
+                    </span>
+                  </div>
                 </div>
 
                 {GAMEPAD_KEYBOARD_ROWS.map((row, rIdx) => (
                   <div
                     key={rIdx}
-                    className={`grid gap-1 ${
-                      rIdx === 4
-                        ? 'grid-cols-3 pt-0.5'
-                        : rIdx === 3
-                          ? 'grid-cols-10'
-                          : 'grid-cols-10'
+                    className={`grid gap-1.5 ${
+                      rIdx === 4 ? 'grid-cols-4 pt-1' : 'grid-cols-10'
                     }`}
                   >
                     {row.map((key, cIdx) => {
                       const isFocused = cursorRow === rIdx && cursorCol === cIdx;
                       const isSpace = key === 'SPASI';
                       const isBackspace = key === 'HAPUS';
+                      const isCaps = key === 'CAPS';
                       const isNext = key === 'LANJUT';
                       const isCancel = key === 'BATAL';
                       const isSwitch = key === 'KOLOM';
+                      const isLetter = !SPECIAL_KEYS.has(key) && /^[A-Z]$/.test(key);
+                      const displayLabel = isLetter ? (isUppercase ? key : key.toLowerCase()) : key;
 
-                      const colSpanClass = isSpace
-                        ? 'col-span-2'
-                        : isBackspace
-                          ? 'col-span-1'
-                          : '';
+                      const colSpanClass = isSpace ? 'col-span-2' : '';
 
                       return (
                         <button
                           key={`${rIdx}_${key}`}
                           type="button"
                           tabIndex={-1}
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
                             setCursorRow(rIdx);
                             setCursorCol(cIdx);
                             handleVirtualKeyPress(key);
                           }}
-                          className={`${colSpanClass} h-7 sm:h-8 rounded-lg text-[10px] sm:text-xs font-extrabold uppercase tracking-wide flex items-center justify-center gap-1 transition-all cursor-pointer select-none ${
+                          className={`${colSpanClass} h-9 sm:h-11 rounded-xl text-xs sm:text-sm font-extrabold tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none focus:outline-none focus:ring-0 ${
                             isFocused
                               ? 'bg-cyan-400 text-slate-950 ring-2 ring-white scale-[1.04] shadow-md shadow-cyan-400/30 z-10'
                               : isNext
@@ -396,30 +428,38 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                                   ? 'bg-rose-500/15 border border-rose-400/35 text-rose-200 hover:bg-rose-500/25'
                                   : isSwitch
                                     ? 'bg-indigo-500/20 border border-indigo-400/35 text-indigo-200 hover:bg-indigo-500/30'
-                                    : isBackspace
-                                      ? 'bg-amber-500/15 border border-amber-400/35 text-amber-200 hover:bg-amber-500/25'
-                                      : 'bg-white/7 border border-white/12 text-slate-100 hover:bg-white/15'
+                                    : isCaps
+                                      ? isUppercase
+                                        ? 'bg-amber-500/20 border border-amber-400/45 text-amber-200 hover:bg-amber-500/30'
+                                        : 'bg-emerald-500/20 border border-emerald-400/45 text-emerald-200 hover:bg-emerald-500/30'
+                                      : isBackspace
+                                        ? 'bg-amber-500/15 border border-amber-400/35 text-amber-200 hover:bg-amber-500/25'
+                                        : 'bg-white/7 border border-white/12 text-slate-100 hover:bg-white/15'
                           }`}
                         >
                           {isBackspace ? (
-                            <Delete className="w-3.5 h-3.5" />
+                            <Delete className="w-4 h-4" />
+                          ) : isCaps ? (
+                            <span className="text-[11px] sm:text-xs font-black">
+                              {isUppercase ? 'ABC ▾' : 'abc ▾'}
+                            </span>
                           ) : isSwitch ? (
                             <>
-                              <span>Ganti Kolom</span>
+                              <span className="text-[11px] sm:text-xs">KOLOM</span>
                               <GamepadBadge button="Y" visible size="sm" />
                             </>
                           ) : isCancel ? (
                             <>
-                              <span>Batal</span>
+                              <span className="text-[11px] sm:text-xs">BATAL</span>
                               <GamepadBadge button="B" visible size="sm" />
                             </>
                           ) : isNext ? (
                             <>
-                              <span>Lanjut</span>
+                              <span className="text-[11px] sm:text-xs">LANJUT</span>
                               <GamepadBadge button="START" visible size="sm" />
                             </>
                           ) : (
-                            <span>{key}</span>
+                            <span>{displayLabel}</span>
                           )}
                         </button>
                       );
@@ -428,7 +468,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                 ))}
 
                 {/* Panduan Singkat Tombol Gamepad */}
-                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-1 text-[10px] font-semibold text-slate-400">
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1 text-[10px] sm:text-[11px] font-semibold text-slate-400">
                   <span className="inline-flex items-center gap-1">
                     <GamepadBadge button="A" visible size="sm" /> Ketik
                   </span>
@@ -447,7 +487,7 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
 
             {/* Tombol Aksi Papan 1 (Sembunyikan duplikat saat keyboard gamepad sudah menyediakan BATAL/LANJUT) */}
             {!isGamepadConnected && (
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={onClose}
@@ -469,24 +509,24 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
         </div>
       ) : (
         /* ====================================================================
-           PAPAN 2: PEMILIHAN KARAKTER (PAS & TANPA SCROLL SAMA SEKALI)
+           PAPAN 2: PEMILIHAN KARAKTER (UKURAN BESAR & NYAMAN DI DESKTOP & MOBILE)
            ==================================================================== */
         <div
           data-ui-board="true"
-          className="max-w-xl w-full bg-[#090d18]/98 border border-white/15 rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col gap-3 ui-panel-enter"
+          className="max-w-3xl w-full max-h-[94dvh] overflow-y-auto bg-[#090d18]/98 border border-white/15 rounded-3xl p-4 sm:p-6 md:p-7 shadow-2xl flex flex-col gap-4 ui-panel-enter"
         >
           {/* Header Papan 2 */}
-          <div className="flex items-center justify-between pb-2 border-b border-white/10 shrink-0">
+          <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black uppercase tracking-tight text-white leading-tight">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="text-lg sm:text-2xl font-black uppercase tracking-tight text-white leading-tight">
                   Pilih Karakter Agen
                 </h2>
-                <span className="px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold">
+                <span className="px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-xs font-bold">
                   {studentName}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
                 Langkah 2 dari 2 · Pilih agen tempur sebelum bertanding
               </p>
             </div>
@@ -495,14 +535,14 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Tutup"
-              className="p-1.5 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-400 hover:text-white cursor-pointer shrink-0"
+              className="p-2 rounded-xl bg-white/6 hover:bg-white/12 border border-white/10 text-slate-400 hover:text-white cursor-pointer shrink-0"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* 2 Kartu Karakter (Tinggi Proporsional Tanpa Perlu Scroll) */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* 2 Kartu Karakter Berukuran Besar (Desktop & Mobile) */}
+          <div className="grid grid-cols-2 gap-3.5 sm:gap-5">
             {CHARACTER_LIST.map((charId) => {
               const profile = CHARACTER_REGISTRY[charId];
               const isSelected = selectedCharacter === charId;
@@ -514,14 +554,14 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                   key={charId}
                   type="button"
                   onClick={() => onSelectCharacter(charId)}
-                  className={`group text-left rounded-2xl p-2.5 sm:p-3 border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                  className={`group text-left rounded-2xl p-3 sm:p-4 md:p-5 border-2 transition-all cursor-pointer flex flex-col justify-between ${
                     isSelected
-                      ? 'bg-[#0e1e3e]/90 border-cyan-400 shadow-md shadow-cyan-500/10'
+                      ? 'bg-[#0e1e3e]/90 border-cyan-400 shadow-lg shadow-cyan-500/15'
                       : 'bg-[#0b101e] hover:bg-[#0f172a] border-white/12 hover:border-white/25'
                   }`}
                 >
-                  {/* Gambar Karakter */}
-                  <div className="relative w-full h-32 sm:h-40 md:h-44 rounded-xl overflow-hidden bg-[#050811] border border-white/10 p-1 flex items-center justify-center">
+                  {/* Gambar Karakter Besar */}
+                  <div className="relative w-full h-44 sm:h-60 md:h-72 rounded-xl overflow-hidden bg-[#050811] border border-white/10 p-1.5 flex items-center justify-center">
                     {!imgFailed ? (
                       <img
                         src={profile.imagePath}
@@ -532,42 +572,42 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                         onError={() =>
                           setFailedImages((prev) => ({ ...prev, [charId]: true }))
                         }
-                        className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-105 drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+                        className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-105 drop-shadow-[0_6px_16px_rgba(0,0,0,0.55)]"
                       />
                     ) : (
                       <div
-                        className={`w-12 h-12 rounded-xl border flex items-center justify-center ${
+                        className={`w-14 h-14 rounded-xl border flex items-center justify-center ${
                           isRaka
                             ? 'bg-cyan-500/15 border-cyan-400/40 text-cyan-300'
                             : 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
                         }`}
                       >
                         {isRaka ? (
-                          <Shield className="w-6 h-6" />
+                          <Shield className="w-7 h-7" />
                         ) : (
-                          <Heart className="w-6 h-6" />
+                          <Heart className="w-7 h-7" />
                         )}
                       </div>
                     )}
 
                     {isSelected && (
-                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-sm">
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <div className="absolute top-2.5 right-2.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center shadow-md">
+                        <Check className="w-4 h-4 stroke-[3]" />
                       </div>
                     )}
                   </div>
 
                   {/* Info Karakter */}
-                  <div className="mt-2">
-                    <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight text-white">
+                  <div className="mt-3">
+                    <h3 className="text-sm sm:text-lg font-black uppercase tracking-tight text-white">
                       {profile.name}
                     </h3>
-                    <div className="mt-1 px-2 py-1 rounded-lg bg-[#060913] border border-white/10 flex items-center justify-between gap-1 text-[10px] sm:text-[11px] font-semibold">
+                    <div className="mt-1.5 px-2.5 py-1.5 rounded-xl bg-[#060913] border border-white/10 flex items-center justify-between gap-1.5 text-[11px] sm:text-xs font-semibold">
                       <span className={isRaka ? 'text-cyan-300' : 'text-emerald-300'}>
                         {profile.abilityName}
                       </span>
                       <span className="text-slate-400">
-                        {profile.abilityCooldownSeconds / 60}m
+                        CD {profile.abilityCooldownSeconds / 60}m
                       </span>
                     </div>
                   </div>
@@ -577,13 +617,13 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
           </div>
 
           {/* Tombol Aksi Papan 2 */}
-          <div className="flex items-center gap-2 pt-2 border-t border-white/10 shrink-0">
+          <div className="flex items-center gap-3 pt-3 border-t border-white/10 shrink-0">
             <button
               type="button"
               onClick={() => setStep('identity')}
-              className="px-4 h-10 rounded-xl bg-white/6 hover:bg-white/12 border border-white/15 text-xs font-bold uppercase tracking-wide text-slate-200 flex items-center gap-1.5 cursor-pointer"
+              className="px-4 sm:px-5 h-11 sm:h-12 rounded-xl bg-white/6 hover:bg-white/12 border border-white/15 text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-200 flex items-center gap-2 cursor-pointer"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-4 h-4" />
               <span>Kembali</span>
             </button>
 
@@ -591,9 +631,9 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
               type="button"
               onClick={handleFinalStart}
               data-start="true"
-              className="flex-1 h-10 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
+              className="flex-1 h-11 sm:h-12 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs sm:text-sm font-black uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all"
             >
-              <Play className="w-3.5 h-3.5 fill-current text-slate-950" />
+              <Play className="w-4 h-4 fill-current text-slate-950" />
               <span>MULAI MISI</span>
               {isGamepadConnected && <GamepadBadge button="A" visible size="sm" />}
             </button>
