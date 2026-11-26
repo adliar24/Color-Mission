@@ -29,6 +29,7 @@ import {
 } from './rules';
 import { InputManager } from './input/InputManager';
 import { VRManager } from './xr/VRManager';
+import { VRHandGestures } from './xr/VRHandGestures';
 import {
   DEFAULT_MOBILE_HUD_LAYOUT,
   GameSettings,
@@ -793,5 +794,111 @@ test('resolveMobileHudLayout & clampMobileButtonConfig mengatur posisi, ukuran (
   assert.equal(resolvedLand.joystick.scalePercent, 115);
   assert.equal(resolvedPort.shoot.scalePercent, 100);
 });
+
+test('VRHandGestures mendukung ganti senjata gestur bahu kanan menggunakan VR controller fisik', () => {
+  const gestures = new VRHandGestures();
+  const camera = new THREE.PerspectiveCamera();
+  camera.position.set(0, 1.6, 0);
+  camera.updateMatrixWorld(true);
+
+  const rightGrip = new THREE.Group();
+  // Posisikan controller kanan di zona bahu kanan (kanan +0.26m, sejajar bahu -0.05m, sedikit ke belakang/samping +0.10m)
+  rightGrip.position.set(0.26, 1.55, -0.1);
+  rightGrip.updateMatrixWorld(true);
+
+  const enterRes = gestures.update(
+    null,
+    null,
+    camera,
+    0.06,
+    TEST_SETTINGS,
+    null,
+    false,
+    false,
+    false,
+    false,
+    rightGrip
+  );
+  assert.equal(enterRes.shoulderEntered, true, 'Controller di bahu kanan harus masuk zona holster');
+  assert.equal(enterRes.weaponSwitch, false);
+
+  // Tarik controller kembali ke depan posisi membidik
+  rightGrip.position.set(0.24, 1.45, -0.35);
+  rightGrip.updateMatrixWorld(true);
+
+  const swapRes = gestures.update(
+    null,
+    null,
+    camera,
+    0.016,
+    TEST_SETTINGS,
+    null,
+    false,
+    false,
+    false,
+    false,
+    rightGrip
+  );
+  assert.equal(swapRes.weaponSwitch, true, 'Menarik controller dari bahu kanan ke depan harus mengganti senjata');
+});
+
+test('InputManager membaca input dari gamepad asli di slot 1+ meski slot 0 berupa perangkat idle/virtual', () => {
+  const originalNavigator = globalThis.navigator;
+  const makeButtons = (pressedIndices: number[] = [], valueOverrides: Record<number, number> = {}) =>
+    Array.from({ length: 16 }, (_, idx) => ({
+      pressed: pressedIndices.includes(idx),
+      touched: pressedIndices.includes(idx),
+      value: valueOverrides[idx] ?? (pressedIndices.includes(idx) ? 1 : 0),
+    }));
+
+  const phantomSlot0 = {
+    id: 'Virtual HID Device',
+    index: 0,
+    connected: true,
+    mapping: 'standard',
+    axes: [0, 0, 0, 0],
+    buttons: makeButtons([]),
+  } as unknown as Gamepad;
+
+  const realControllerSlot1 = {
+    id: 'Xbox Wireless Controller',
+    index: 1,
+    connected: true,
+    mapping: 'standard',
+    axes: [0.85, -0.75, 0.5, 0],
+    buttons: makeButtons([0, 3], { 7: 0.9 }),
+  } as unknown as Gamepad;
+
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      maxTouchPoints: 0,
+      getGamepads: () => [phantomSlot0, realControllerSlot1],
+    },
+  });
+
+  try {
+    const im = new InputManager();
+    assert.equal(im.isGamepadConnected, true);
+
+    const cmd = im.poll(TEST_SETTINGS, 0.016);
+    assert.ok(cmd.moveX > 0.5, 'Analog kiri slot 1 harus menggerakkan karakter ke kanan');
+    assert.ok(cmd.moveZ < -0.5, 'Analog kiri slot 1 harus menggerakkan karakter maju');
+    assert.equal(cmd.jump, true, 'Tombol A slot 1 harus memicu lompat');
+    assert.equal(cmd.shoot, true, 'Trigger RT slot 1 harus memicu tembak');
+    assert.equal(cmd.weaponCycle, true, 'Tombol Y slot 1 harus memicu pergantian senjata');
+
+    const menuCmd = im.pollMenuGamepad();
+    assert.equal(menuCmd.confirm, true, 'Tombol A slot 1 harus memicu confirm di menu');
+    assert.equal(menuCmd.settings, true, 'Tombol Y slot 1 harus memicu settings di menu');
+  } finally {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: originalNavigator,
+    });
+  }
+});
+
 
 

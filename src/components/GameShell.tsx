@@ -1318,7 +1318,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
           vrManager.consumeLeftSelectPulse(),
           vrManager.isRightSelectActive,
           vrManager.consumeRightSelectPulse(),
-          vrManager.rightController
+          vrManager.isHandTrackingRight ? vrManager.rightController : vrManager.rightGrip
         )
         : null;
 
@@ -1377,11 +1377,32 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             setShowTutorial(false);
           } else if (stateRef.current.showSettings) {
             setShowSettings(false);
-          } else if (currentState === 'paused' && menuGp.back) {
+          } else if (currentState === 'paused' && (menuGp.back || menuGp.start)) {
             setGameState('playing');
           } else if ((currentState === 'gameover' || currentState === 'victory') && menuGp.back) {
             menuCallbacksRef.current.returnToMenu();
+          } else if (menuGp.start) {
+            const board = getActiveUiBoard();
+            if (board) activateBoardControl(board);
           }
+        } else if (
+          menuGp.tutorial &&
+          currentState === 'title' &&
+          !stateRef.current.showSettings &&
+          !stateRef.current.showTutorial &&
+          !stateRef.current.showLKPD &&
+          !stateRef.current.showLKPDLockedAlert
+        ) {
+          setShowTutorial(true);
+        } else if (
+          menuGp.settings &&
+          (currentState === 'title' || currentState === 'paused') &&
+          !stateRef.current.showSettings &&
+          !stateRef.current.showTutorial &&
+          !stateRef.current.showLKPD &&
+          !stateRef.current.showLKPDLockedAlert
+        ) {
+          setShowSettings(true);
         } else {
           const board = getActiveUiBoard();
           if (board) {
@@ -2059,15 +2080,17 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
 
         if (handGestures?.shoulderEntered) {
           sound.playHitmarker(false);
+          inputManagerRef.current.triggerHaptic('dash', curSettings, vrManager.currentSession);
         }
 
         const unlockedWeapons = getUnlockedWeaponsForStage(pStats.stage);
-        if (handGestures?.weaponSwitch && unlockedWeapons.length > 1) {
+        if ((handGestures?.weaponSwitch || cmd.weaponCycle) && unlockedWeapons.length > 1) {
           const curIdx = unlockedWeapons.indexOf(weapons.currentWeapon);
           const nextWeapon = unlockedWeapons[(curIdx + 1) % unlockedWeapons.length];
           weapons.switchWeapon(nextWeapon);
           setCurrentWeapon(nextWeapon);
           sound.playHitmarker(true);
+          inputManagerRef.current.triggerHaptic('shoot', curSettings, vrManager.currentSession);
         } else if (cmd.weaponSwitch && unlockedWeapons.includes(cmd.weaponSwitch)) {
           weapons.switchWeapon(cmd.weaponSwitch);
           setCurrentWeapon(cmd.weaponSwitch);

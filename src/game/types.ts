@@ -483,6 +483,7 @@ export interface GameplayInputCommand {
   pause: boolean;
   toggleHint?: boolean;
   weaponSwitch: WeaponType | null;
+  weaponCycle?: boolean;
   vrAimRay?: {
     origin: [number, number, number];
     direction: [number, number, number];

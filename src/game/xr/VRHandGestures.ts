@@ -60,6 +60,7 @@ export class VRHandGestures {
   private leftPauseFired = false;
   private rightInShoulderZone = false;
   private rightShoulderDwell = 0;
+  private shoulderEntryForward = 0;
   private shoulderSwapCooldown = 0;
   private teleportCooldown = 0;
   private abilityTapCooldown = 0;
@@ -150,40 +151,60 @@ export class VRHandGestures {
     }
 
     const shoulderJoint = rWrist ?? rIndexMcp ?? rightController;
+    const isControllerShoulder = !rWrist && !rIndexMcp && !!rightController;
     if (shoulderJoint) {
       shoulderJoint.getWorldPosition(_vRightHand);
-      _vDelta.subVectors(_vRightHand, _vCamPos);
-      const rightOffset = _vDelta.dot(_vCamRight);
-      const upOffset = _vDelta.y;
-      const forwardOffset = _vDelta.dot(_vCamFwd);
+      const isAtOrigin =
+        Math.abs(_vRightHand.x) < 1e-4 &&
+        Math.abs(_vRightHand.y) < 1e-4 &&
+        Math.abs(_vRightHand.z) < 1e-4;
+      if (!isAtOrigin) {
+        _vDelta.subVectors(_vRightHand, _vCamPos);
+        const rightOffset = _vDelta.dot(_vCamRight);
+        const upOffset = _vDelta.y;
+        const forwardOffset = _vDelta.dot(_vCamFwd);
 
-      const inShoulderZone =
-        rightOffset >= 0.14 &&
-        rightOffset <= 0.48 &&
-        upOffset >= -0.3 &&
-        upOffset <= 0.18 &&
-        forwardOffset >= -0.38 &&
-        forwardOffset <= 0.09;
+        // Zona bahu kanan sedikit lebih lega untuk controller fisik karena pegangan controller berada lebih maju dari pergelangan tangan kosong
+        const inShoulderZone = isControllerShoulder
+          ? rightOffset >= 0.08 &&
+            rightOffset <= 0.56 &&
+            upOffset >= -0.34 &&
+            upOffset <= 0.28 &&
+            forwardOffset >= -0.45 &&
+            forwardOffset <= 0.18
+          : rightOffset >= 0.12 &&
+            rightOffset <= 0.52 &&
+            upOffset >= -0.32 &&
+            upOffset <= 0.22 &&
+            forwardOffset >= -0.42 &&
+            forwardOffset <= 0.12;
 
-      if (!this.rightInShoulderZone) {
-        if (inShoulderZone && this.shoulderSwapCooldown <= 0) {
-          this.rightShoulderDwell += dt;
-          if (this.rightShoulderDwell >= 0.07) {
-            this.rightInShoulderZone = true;
-            shoulderEntered = true;
+        const dwellThreshold = isControllerShoulder ? 0.05 : 0.06;
+
+        if (!this.rightInShoulderZone) {
+          if (inShoulderZone && this.shoulderSwapCooldown <= 0) {
+            this.rightShoulderDwell += dt;
+            if (this.rightShoulderDwell >= dwellThreshold) {
+              this.rightInShoulderZone = true;
+              this.shoulderEntryForward = forwardOffset;
+              shoulderEntered = true;
+            }
+          } else {
+            this.rightShoulderDwell = 0;
           }
-        } else {
+        } else if (
+          !inShoulderZone &&
+          (forwardOffset > 0.22 || forwardOffset - this.shoulderEntryForward >= 0.16)
+        ) {
+          weaponSwitch = true;
+          this.rightInShoulderZone = false;
+          this.rightShoulderDwell = 0;
+          this.shoulderSwapCooldown = 0.45;
+        } else if (upOffset < -0.42) {
+          // Jika tangan/controller diturunkan ke bawah (bukan ditarik kembali ke depan), batalkan tanpa mengganti senjata
+          this.rightInShoulderZone = false;
           this.rightShoulderDwell = 0;
         }
-      } else if (!inShoulderZone && forwardOffset > 0.2) {
-        weaponSwitch = true;
-        this.rightInShoulderZone = false;
-        this.rightShoulderDwell = 0;
-        this.shoulderSwapCooldown = 0.45;
-      } else if (upOffset < -0.36) {
-        // Jika tangan diturunkan ke bawah (bukan ditarik maju), batalkan tanpa mengganti senjata
-        this.rightInShoulderZone = false;
-        this.rightShoulderDwell = 0;
       }
     }
 

@@ -4,6 +4,65 @@ import type { VRHandGestureResult } from '../xr/VRHandGestures';
 const _scratchVROrigin = new THREE.Vector3();
 const _scratchVRQuat = new THREE.Quaternion();
 const _scratchVRDir = new THREE.Vector3();
+
+function isValidGamepad(gp: Gamepad | null | undefined): gp is Gamepad {
+  return Boolean(
+    gp &&
+      gp.connected &&
+      ((gp.buttons?.length ?? 0) >= 4 || (gp.axes?.length ?? 0) >= 2)
+  );
+}
+
+function isGamepadBtnActive(
+  btn: GamepadButton | undefined,
+  threshold: number = 0.35
+): boolean {
+  return Boolean(
+    btn && (btn.pressed || (typeof btn.value === 'number' && btn.value >= threshold))
+  );
+}
+
+function readGamepadDpad(gp: Gamepad): {
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
+} {
+  let up = isGamepadBtnActive(gp.buttons[12], 0.5);
+  let down = isGamepadBtnActive(gp.buttons[13], 0.5);
+  let left = isGamepadBtnActive(gp.buttons[14], 0.5);
+  let right = isGamepadBtnActive(gp.buttons[15], 0.5);
+
+  // Dukungan D-Pad HAT Switch untuk gamepad USB / DirectInput non-standard (axes[9])
+  if (gp.mapping !== 'standard' && gp.axes.length >= 10) {
+    const hat = gp.axes[9];
+    if (typeof hat === 'number' && Math.abs(hat) <= 1.05) {
+      if (hat <= -0.6 || hat >= 0.85) up = true;
+      if (hat >= -0.85 && hat <= -0.05) right = true;
+      if (hat >= -0.25 && hat <= 0.55) down = true;
+      if (hat >= 0.35 && hat <= 1.05) left = true;
+    }
+  }
+
+  return { up, down, left, right };
+}
+
+function readGamepadRightStick(gp: Gamepad): { rx: number; ry: number } {
+  if (gp.mapping === 'standard' || gp.axes.length < 6) {
+    return {
+      rx: gp.axes[2] || 0,
+      ry: gp.axes[3] || 0,
+    };
+  }
+  // Pada beberapa controller DirectInput (mis. DualShock/USB generic), axes[3] & axes[4] adalah trigger L2/R2 (-1 saat dilepas)
+  const a3 = gp.axes[3] || 0;
+  const a4 = gp.axes[4] || 0;
+  const looksLikeTriggerAxes = a3 < -0.85 && a4 < -0.85;
+  return {
+    rx: gp.axes[2] || 0,
+    ry: looksLikeTriggerAxes ? gp.axes[5] || 0 : a3,
+  };
+}
 import {
   GameSettings,
   GameplayInputCommand,
@@ -271,23 +330,30 @@ export class DesktopInput {
     }
     try {
       const gamepads = navigator.getGamepads();
-      for (const gp of gamepads) {
-        if (!gp || !gp.connected) continue;
+      let foundAny = false;
+      let moveX = 0;
+      let moveZ = 0;
+      let lookDeltaX = 0;
+      let lookDeltaY = 0;
+      let jump = false;
+      let shoot = false;
+      const reload = false;
+      const dash = false;
+      const emp = false;
+      const overdrive = false;
+      let useAbility = false;
+      let pause = false;
+      let toggleHint = false;
+      let weaponSwitch: WeaponType | null = null;
+      let weaponCycle = false;
 
-        let moveX = 0;
-        let moveZ = 0;
-        let lookDeltaX = 0;
-        let lookDeltaY = 0;
-        let jump = false;
-        let shoot = false;
-        let reload = false;
-        let dash = false;
-        let emp = false;
-        let overdrive = false;
-        let useAbility = false;
-        let pause = false;
-        let toggleHint = false;
-        let weaponSwitch: WeaponType | null = null;
+      const { cameraMult } = resolveSpeedSettings(settings);
+      const gpLookSpeed = 2.6 * settings.mouseSensitivity * cameraMult;
+
+      // Iterasi SEMUA gamepad yang terhubung agar slot 0 yang berupa perangkat virtual/HID tidak memblokir gamepad asli di slot 1+
+      for (const gp of gamepads) {
+        if (!isValidGamepad(gp)) continue;
+        foundAny = true;
 
         // Analog Kiri (Gerak)
         const lx = gp.axes[0] || 0;
@@ -295,66 +361,70 @@ export class DesktopInput {
         if (Math.abs(lx) > 0.16) moveX += lx;
         if (Math.abs(ly) > 0.16) moveZ += ly;
 
-        // D-Pad Gerak Cadangan
-        if (gp.buttons[14]?.pressed) moveX -= 1;
-        if (gp.buttons[15]?.pressed) moveX += 1;
-        if (gp.buttons[12]?.pressed) moveZ -= 1;
-        if (gp.buttons[13]?.pressed) moveZ += 1;
+        // D-Pad Gerak Cadangan (Standard + DirectInput HAT)
+        const dpad = readGamepadDpad(gp);
+        if (dpad.left) moveX -= 1;
+        if (dpad.right) moveX += 1;
+        if (dpad.up) moveZ -= 1;
+        if (dpad.down) moveZ += 1;
 
         // Analog Kanan (Kamera)
-        const rx = gp.axes[2] || 0;
-        const ry = gp.axes[3] || 0;
-        const { cameraMult } = resolveSpeedSettings(settings);
-        const gpLookSpeed = 2.6 * settings.mouseSensitivity * cameraMult;
+        const { rx, ry } = readGamepadRightStick(gp);
         if (Math.abs(rx) > 0.14) lookDeltaX -= rx * gpLookSpeed * dt;
         if (Math.abs(ry) > 0.14) lookDeltaY -= ry * gpLookSpeed * dt;
 
-        // RT / R2 (buttons[7]) -> Menembak
-        if (gp.buttons[7]?.pressed || (gp.buttons[7]?.value ?? 0) > 0.35) {
+        // RT / R2 (buttons[7]) atau Trigger Axis non-standard -> Menembak
+        const nonStdTriggerShoot =
+          gp.mapping !== 'standard' && gp.axes.length >= 5 && (gp.axes[4] ?? -1) > 0.25;
+        if (isGamepadBtnActive(gp.buttons[7], 0.25) || nonStdTriggerShoot) {
           shoot = true;
         }
         // A / Cross (buttons[0]) -> Lompat
-        if (gp.buttons[0]?.pressed) {
+        if (isGamepadBtnActive(gp.buttons[0], 0.35)) {
           jump = true;
         }
         // Y / Triangle (buttons[3]) -> Ganti Senjata
-        if (this.wasGamepadJustPressed(`gp_${gp.index}_b3`, gp.buttons[3]?.pressed)) {
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b3`, isGamepadBtnActive(gp.buttons[3], 0.35))) {
           this.gamepadWeaponIdx = (this.gamepadWeaponIdx + 1) % this.weaponsOrder.length;
           weaponSwitch = this.weaponsOrder[this.gamepadWeaponIdx];
+          weaponCycle = true;
         }
         // LB / L1 (buttons[4]) atau RB / R1 (buttons[5]) -> Ability Karakter
         if (
-          this.wasGamepadJustPressed(`gp_${gp.index}_b4`, gp.buttons[4]?.pressed) ||
-          this.wasGamepadJustPressed(`gp_${gp.index}_b5`, gp.buttons[5]?.pressed)
+          this.wasGamepadJustPressed(`gp_${gp.index}_b4`, isGamepadBtnActive(gp.buttons[4], 0.35)) ||
+          this.wasGamepadJustPressed(`gp_${gp.index}_b5`, isGamepadBtnActive(gp.buttons[5], 0.35))
         ) {
           useAbility = true;
         }
         // Back / Select (buttons[8]) -> Petunjuk
-        if (this.wasGamepadJustPressed(`gp_${gp.index}_b8`, gp.buttons[8]?.pressed)) {
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b8`, isGamepadBtnActive(gp.buttons[8], 0.35))) {
           toggleHint = true;
         }
         // Start / Options (buttons[9]) -> Pause
-        if (this.wasGamepadJustPressed(`gp_${gp.index}_b9`, gp.buttons[9]?.pressed)) {
+        if (this.wasGamepadJustPressed(`gp_${gp.index}_b9`, isGamepadBtnActive(gp.buttons[9], 0.35))) {
           pause = true;
         }
-
-        return {
-          moveX: Math.max(-1, Math.min(1, moveX)),
-          moveZ: Math.max(-1, Math.min(1, moveZ)),
-          lookDeltaX,
-          lookDeltaY,
-          jump,
-          shoot,
-          reload,
-          dash,
-          emp,
-          overdrive,
-          useAbility,
-          pause,
-          toggleHint,
-          weaponSwitch,
-        };
       }
+
+      if (!foundAny) return null;
+
+      return {
+        moveX: Math.max(-1, Math.min(1, moveX)),
+        moveZ: Math.max(-1, Math.min(1, moveZ)),
+        lookDeltaX,
+        lookDeltaY,
+        jump,
+        shoot,
+        reload,
+        dash,
+        emp,
+        overdrive,
+        useAbility,
+        pause,
+        toggleHint,
+        weaponSwitch,
+        weaponCycle,
+      };
     } catch {}
     return null;
   }
@@ -416,6 +486,7 @@ export class DesktopInput {
     let pause = this.pendingPause;
     let toggleHint = this.pendingToggleHint;
     let weaponSwitch = this.pendingWeapon;
+    let weaponCycle = false;
 
     // Poll Gamepad (Xbox / PlayStation / Standard Gamepad)
     const gpCmd = this.pollGamepadOnly(settings, dt);
@@ -434,6 +505,7 @@ export class DesktopInput {
       if (gpCmd.toggleHint) toggleHint = true;
       if (gpCmd.pause) pause = true;
       if (gpCmd.weaponSwitch) weaponSwitch = gpCmd.weaponSwitch;
+      if (gpCmd.weaponCycle) weaponCycle = true;
     }
 
     moveX = Math.max(-1, Math.min(1, moveX));
@@ -454,6 +526,7 @@ export class DesktopInput {
       pause,
       toggleHint,
       weaponSwitch,
+      weaponCycle,
       vrAimRay: null,
     };
 
@@ -855,6 +928,7 @@ export class VRInput {
     let jump = false;
     let vrTeleportRequest = false;
     let weaponSwitch: WeaponType | null = null;
+    let weaponCycle = false;
 
     for (const source of session.inputSources) {
       if (source.hand) continue;
@@ -872,6 +946,7 @@ export class VRInput {
         if (this.wasJustPressed('left_btn4', gp.buttons[4]?.pressed)) {
           this.currentWeaponIndex = (this.currentWeaponIndex + 1) % this.weaponsOrder.length;
           weaponSwitch = this.weaponsOrder[this.currentWeaponIndex];
+          weaponCycle = true;
         }
         if (this.wasJustPressed('left_btn5', gp.buttons[5]?.pressed)) {
           pause = true;
@@ -966,6 +1041,7 @@ export class VRInput {
       useAbility: overdrive || dash,
       pause,
       weaponSwitch,
+      weaponCycle,
       vrAimRay,
       vrTeleportRequest,
     };
@@ -1003,7 +1079,7 @@ export class InputManager {
   private onModeChangeCallback?: (mode: PlatformMode) => void;
   private onGamepadChangeCallback?: (connected: boolean) => void;
   private autoDetectionAttached = false;
-  private menuPrevButtons: Record<number, boolean> = {};
+  private menuPrevButtons: Record<string, boolean> = {};
 
   constructor() {
     this.detectInitialMode();
@@ -1016,7 +1092,7 @@ export class InputManager {
       try {
         const gamepads = navigator.getGamepads();
         for (const gp of gamepads) {
-          if (gp && gp.connected) {
+          if (isValidGamepad(gp)) {
             connected = true;
             break;
           }
@@ -1204,7 +1280,9 @@ export class InputManager {
             overdrive: mobileCmd.overdrive || gpCmd.overdrive,
             pause: mobileCmd.pause || gpCmd.pause,
             toggleHint: mobileCmd.toggleHint || gpCmd.toggleHint,
+            useAbility: mobileCmd.useAbility || gpCmd.useAbility,
             weaponSwitch: gpCmd.weaponSwitch ?? mobileCmd.weaponSwitch,
+            weaponCycle: gpCmd.weaponCycle,
           };
         }
       }
@@ -1213,10 +1291,10 @@ export class InputManager {
     return this.desktop.poll(settings, dt);
   }
 
-  private wasMenuButtonJustPressed(idx: number, pressed: boolean | undefined): boolean {
+  private wasMenuButtonJustPressed(key: string, pressed: boolean | undefined): boolean {
     const now = !!pressed;
-    const prev = !!this.menuPrevButtons[idx];
-    this.menuPrevButtons[idx] = now;
+    const prev = !!this.menuPrevButtons[key];
+    this.menuPrevButtons[key] = now;
     return now && !prev;
   }
 
@@ -1228,26 +1306,27 @@ export class InputManager {
     try {
       const gamepads = navigator.getGamepads();
       for (const gp of gamepads) {
-        if (!gp || !gp.connected) continue;
+        if (!isValidGamepad(gp)) continue;
         const axisX = gp.axes[0] ?? 0;
         const axisY = gp.axes[1] ?? 0;
-        this.menuPrevButtons[0] = Boolean(gp.buttons[0]?.pressed);
-        this.menuPrevButtons[1] = Boolean(gp.buttons[1]?.pressed);
-        this.menuPrevButtons[2] = Boolean(gp.buttons[2]?.pressed);
-        this.menuPrevButtons[3] = Boolean(gp.buttons[3]?.pressed);
-        this.menuPrevButtons[9] = Boolean(gp.buttons[9]?.pressed);
-        this.menuPrevButtons[100] = Boolean(gp.buttons[12]?.pressed) || axisY < -0.55;
-        this.menuPrevButtons[101] = Boolean(gp.buttons[13]?.pressed) || axisY > 0.55;
-        this.menuPrevButtons[102] = Boolean(gp.buttons[14]?.pressed) || axisX < -0.55;
-        this.menuPrevButtons[103] = Boolean(gp.buttons[15]?.pressed) || axisX > 0.55;
-        break;
+        const dpad = readGamepadDpad(gp);
+        const p = `gp_${gp.index}_`;
+        this.menuPrevButtons[`${p}0`] = isGamepadBtnActive(gp.buttons[0], 0.35);
+        this.menuPrevButtons[`${p}1`] = isGamepadBtnActive(gp.buttons[1], 0.35);
+        this.menuPrevButtons[`${p}2`] = isGamepadBtnActive(gp.buttons[2], 0.35);
+        this.menuPrevButtons[`${p}3`] = isGamepadBtnActive(gp.buttons[3], 0.35);
+        this.menuPrevButtons[`${p}9`] = isGamepadBtnActive(gp.buttons[9], 0.35);
+        this.menuPrevButtons[`${p}up`] = dpad.up || axisY < -0.55;
+        this.menuPrevButtons[`${p}down`] = dpad.down || axisY > 0.55;
+        this.menuPrevButtons[`${p}left`] = dpad.left || axisX < -0.55;
+        this.menuPrevButtons[`${p}right`] = dpad.right || axisX > 0.55;
       }
     } catch {}
   }
 
   public pollMenuGamepad(): MenuGamepadCommand {
     this.syncGamepadConnection(true);
-    const empty: MenuGamepadCommand = {
+    const result: MenuGamepadCommand = {
       confirm: false,
       back: false,
       tutorial: false,
@@ -1259,32 +1338,32 @@ export class InputManager {
       right: false,
     };
     if (!this.isGamepadConnected || typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
-      return empty;
+      return result;
     }
     try {
       const gamepads = navigator.getGamepads();
       for (const gp of gamepads) {
-        if (!gp || !gp.connected) continue;
+        if (!isValidGamepad(gp)) continue;
         const axisX = gp.axes[0] ?? 0;
         const axisY = gp.axes[1] ?? 0;
-        const rawUp = Boolean(gp.buttons[12]?.pressed) || axisY < -0.55;
-        const rawDown = Boolean(gp.buttons[13]?.pressed) || axisY > 0.55;
-        const rawLeft = Boolean(gp.buttons[14]?.pressed) || axisX < -0.55;
-        const rawRight = Boolean(gp.buttons[15]?.pressed) || axisX > 0.55;
-        return {
-          confirm: this.wasMenuButtonJustPressed(0, gp.buttons[0]?.pressed),
-          back: this.wasMenuButtonJustPressed(1, gp.buttons[1]?.pressed),
-          tutorial: this.wasMenuButtonJustPressed(2, gp.buttons[2]?.pressed),
-          settings: this.wasMenuButtonJustPressed(3, gp.buttons[3]?.pressed),
-          start: this.wasMenuButtonJustPressed(9, gp.buttons[9]?.pressed),
-          up: this.wasMenuButtonJustPressed(100, rawUp),
-          down: this.wasMenuButtonJustPressed(101, rawDown),
-          left: this.wasMenuButtonJustPressed(102, rawLeft),
-          right: this.wasMenuButtonJustPressed(103, rawRight),
-        };
+        const dpad = readGamepadDpad(gp);
+        const rawUp = dpad.up || axisY < -0.55;
+        const rawDown = dpad.down || axisY > 0.55;
+        const rawLeft = dpad.left || axisX < -0.55;
+        const rawRight = dpad.right || axisX > 0.55;
+        const p = `gp_${gp.index}_`;
+        if (this.wasMenuButtonJustPressed(`${p}0`, isGamepadBtnActive(gp.buttons[0], 0.35))) result.confirm = true;
+        if (this.wasMenuButtonJustPressed(`${p}1`, isGamepadBtnActive(gp.buttons[1], 0.35))) result.back = true;
+        if (this.wasMenuButtonJustPressed(`${p}2`, isGamepadBtnActive(gp.buttons[2], 0.35))) result.tutorial = true;
+        if (this.wasMenuButtonJustPressed(`${p}3`, isGamepadBtnActive(gp.buttons[3], 0.35))) result.settings = true;
+        if (this.wasMenuButtonJustPressed(`${p}9`, isGamepadBtnActive(gp.buttons[9], 0.35))) result.start = true;
+        if (this.wasMenuButtonJustPressed(`${p}up`, rawUp)) result.up = true;
+        if (this.wasMenuButtonJustPressed(`${p}down`, rawDown)) result.down = true;
+        if (this.wasMenuButtonJustPressed(`${p}left`, rawLeft)) result.left = true;
+        if (this.wasMenuButtonJustPressed(`${p}right`, rawRight)) result.right = true;
       }
     } catch {}
-    return empty;
+    return result;
   }
 
   /**
