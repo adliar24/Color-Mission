@@ -818,11 +818,17 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
                   : 'bg-[#090d18]/95 border-emerald-400 text-emerald-300'
             }`}
           >
-            {shotFeedback.type !== 'wrong' && (
-              <span
-                className="w-3.5 h-3.5 rounded-sm border border-white shrink-0"
-                style={{ backgroundColor: shotFeedback.colorHex }}
-              />
+            {shotFeedback.weaponType ? (
+              <div className="px-1.5 py-0.5 rounded-lg bg-white/6 border border-white/10 flex items-center justify-center shrink-0">
+                <Weapon2DIcon weaponId={shotFeedback.weaponType} className="w-9 h-4.5 sm:w-11 sm:h-5" />
+              </div>
+            ) : (
+              shotFeedback.type !== 'wrong' && (
+                <span
+                  className="w-3.5 h-3.5 rounded-sm border border-white shrink-0"
+                  style={{ backgroundColor: shotFeedback.colorHex }}
+                />
+              )
             )}
             <span>
               {isBossActive || shotFeedback.type === 'pickup'

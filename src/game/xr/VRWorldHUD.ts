@@ -1,6 +1,47 @@
 import * as THREE from 'three';
-import { GameColorId, PlayerStats, ShotFeedback } from '../types';
-import { buildColorInstructionClue, STAGE_DEFINITIONS } from '../rules';
+import { GameColorId, PlayerStats, ShotFeedback, WeaponType } from '../types';
+import { WEAPON_REGISTRY, buildColorInstructionClue, STAGE_DEFINITIONS } from '../rules';
+
+function drawVRWeaponSilhouette(
+  ctx: CanvasRenderingContext2D,
+  weapon: WeaponType,
+  x: number,
+  y: number
+) {
+  const accent = WEAPON_REGISTRY[weapon].color;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#0f172a';
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2;
+
+  if (weapon === 'laser_rifle') {
+    ctx.beginPath();
+    ctx.roundRect(0, 6, 36, 10, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.fillRect(36, 8, 12, 4);
+    ctx.fillRect(10, 1, 10, 4);
+  } else if (weapon === 'cyber_shotgun') {
+    ctx.beginPath();
+    ctx.roundRect(0, 5, 34, 12, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.fillRect(34, 6, 12, 4);
+    ctx.fillRect(34, 12, 12, 4);
+  } else {
+    ctx.beginPath();
+    ctx.roundRect(0, 5, 36, 12, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.fillRect(28, 3, 20, 3);
+    ctx.fillRect(28, 16, 20, 3);
+  }
+  ctx.restore();
+}
 
 /**
  * HUD 3D Stereoskopik di dalam dunia WebXR (Meta Quest 3S)
@@ -140,10 +181,25 @@ export class VRWorldHUD {
     }
 
     // BARIS BAWAH: Stage / Boss / Feedback Singkat
-    if (feedback && nowMs - feedback.timestamp < 1100) {
-      ctx.fillStyle = feedback.type === 'wrong' ? '#fb7185' : '#34d399';
-      ctx.font = 'bold 22px sans-serif';
-      ctx.fillText(feedback.type === 'wrong' ? 'SALAH!' : 'TEPAT!', 36, 182);
+    if (feedback && nowMs - feedback.timestamp < 1400) {
+      if (feedback.type === 'pickup') {
+        ctx.fillStyle = '#22d3ee';
+        ctx.font = 'bold 20px sans-serif';
+        if (feedback.weaponType) {
+          drawVRWeaponSilhouette(ctx, feedback.weaponType, 36, 164);
+          ctx.fillText(
+            `${feedback.title} · ${WEAPON_REGISTRY[feedback.weaponType].name.toUpperCase()}`,
+            96,
+            182
+          );
+        } else {
+          ctx.fillText(feedback.title, 36, 182);
+        }
+      } else {
+        ctx.fillStyle = feedback.type === 'wrong' ? '#fb7185' : '#34d399';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.fillText(feedback.type === 'wrong' ? 'SALAH!' : 'TEPAT!', 36, 182);
+      }
     } else if (bossHp !== undefined) {
       ctx.fillStyle = '#f43f5e';
       ctx.font = 'bold 20px sans-serif';

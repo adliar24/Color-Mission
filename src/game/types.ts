@@ -463,6 +463,7 @@ export interface ShotFeedback {
   subtitle?: string;
   colorHex?: string;
   points?: number;
+  weaponType?: WeaponType;
   timestamp: number;
 }
 

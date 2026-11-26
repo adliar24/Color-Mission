@@ -2336,6 +2336,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
                   ? `${WEAPON_REGISTRY[targetWeapon].name} (+${addedAmmo} peluru)`
                   : `Kapasitas ${WEAPON_REGISTRY[targetWeapon].name} sudah maksimal`,
               colorHex: p.colorHex,
+              weaponType: targetWeapon,
               timestamp: performance.now(),
             });
           }

@@ -5,7 +5,7 @@ import {
   getColorsByCategory,
   getColorDef,
 } from '../game/rules';
-import { ArrowRight, CheckCircle2, Plus, Shield, Crosshair } from 'lucide-react';
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { GamepadBadge } from './GamepadBadge';
 import { Weapon2DIcon } from './Weapon2DIcon';
 
@@ -189,9 +189,15 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
               PETUNJUK ITEM ARENA
             </span>
             <div className="grid grid-cols-3 gap-2.5 text-left">
-              <div className="bg-emerald-500/10 border border-emerald-400/25 p-3 rounded-2xl flex flex-col items-center text-center gap-1.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                  <Plus className="w-5 h-5 stroke-[3]" />
+              <div className="bg-emerald-500/10 border border-emerald-400/25 p-2.5 sm:p-3 rounded-2xl flex flex-col items-center text-center gap-1.5">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center">
+                  <img
+                    src="/items/item-darah.png"
+                    alt="Item Darah 3D"
+                    loading="eager"
+                    decoding="sync"
+                    className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(16,185,129,0.45)]"
+                  />
                 </div>
                 <span className="text-xs font-black text-emerald-300 uppercase">DARAH</span>
                 <span className="text-[11px] text-slate-300 leading-tight">
@@ -199,9 +205,15 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
                 </span>
               </div>
 
-              <div className="bg-blue-500/10 border border-blue-400/25 p-3 rounded-2xl flex flex-col items-center text-center gap-1.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400">
-                  <Shield className="w-4 h-4" />
+              <div className="bg-blue-500/10 border border-blue-400/25 p-2.5 sm:p-3 rounded-2xl flex flex-col items-center text-center gap-1.5">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center">
+                  <img
+                    src="/items/item-perisai.png"
+                    alt="Item Perisai 3D"
+                    loading="eager"
+                    decoding="sync"
+                    className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(56,189,248,0.45)]"
+                  />
                 </div>
                 <span className="text-xs font-black text-blue-300 uppercase">PERISAI</span>
                 <span className="text-[11px] text-slate-300 leading-tight">
@@ -209,9 +221,15 @@ export const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
                 </span>
               </div>
 
-              <div className="bg-slate-400/10 border border-slate-400/25 p-3 rounded-2xl flex flex-col items-center text-center gap-1.5">
-                <div className="w-8 h-8 rounded-xl bg-slate-400/20 flex items-center justify-center text-slate-300">
-                  <Crosshair className="w-4 h-4" />
+              <div className="bg-slate-400/10 border border-slate-400/25 p-2.5 sm:p-3 rounded-2xl flex flex-col items-center text-center gap-1.5">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center">
+                  <img
+                    src="/items/item-peluru.png"
+                    alt="Item Peluru 3D"
+                    loading="eager"
+                    decoding="sync"
+                    className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(148,163,184,0.45)]"
+                  />
                 </div>
                 <span className="text-xs font-black text-slate-200 uppercase">PELURU</span>
                 <span className="text-[11px] text-slate-300 leading-tight">

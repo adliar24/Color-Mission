@@ -162,6 +162,9 @@ export class VRSpatialMenu {
   private prevTriggerPressed = false;
   private rakaImg: HTMLImageElement | null = null;
   private ranaImg: HTMLImageElement | null = null;
+  private itemDarahImg: HTMLImageElement | null = null;
+  private itemPerisaiImg: HTMLImageElement | null = null;
+  private itemPeluruImg: HTMLImageElement | null = null;
 
   private static readonly ORIGIN = new THREE.Vector3();
   private static readonly QUAT = new THREE.Quaternion();
@@ -196,17 +199,26 @@ export class VRSpatialMenu {
     );
     this.group.add(this.frameMesh);
 
-    // Preload gambar karakter PNG untuk Papan Pemilihan Karakter di VR
+    // Preload gambar karakter & item 3D PNG untuk papan VR
     if (typeof window !== 'undefined') {
       this.rakaImg = new Image();
       this.rakaImg.src = '/characters/agen-raka.png';
       this.ranaImg = new Image();
       this.ranaImg.src = '/characters/agen-naya.png';
+      this.itemDarahImg = new Image();
+      this.itemDarahImg.src = '/items/item-darah.png';
+      this.itemPerisaiImg = new Image();
+      this.itemPerisaiImg.src = '/items/item-perisai.png';
+      this.itemPeluruImg = new Image();
+      this.itemPeluruImg.src = '/items/item-peluru.png';
       const markTextureUpdate = () => {
         this.lastSignature = ''; // trigger kanvas redraw saat gambar selesai dimuat
       };
       this.rakaImg.onload = markTextureUpdate;
       this.ranaImg.onload = markTextureUpdate;
+      this.itemDarahImg.onload = markTextureUpdate;
+      this.itemPerisaiImg.onload = markTextureUpdate;
+      this.itemPeluruImg.onload = markTextureUpdate;
     }
 
     this.group.visible = false;
@@ -2479,39 +2491,114 @@ export class VRSpatialMenu {
     ctx.fillText(
       `STAGE ${state.stageNumber} · ${stageDef.targetEliminations} ELIMINASI${stageDef.hasBossAtEnd ? ' + BOSS' : ''}`,
       CANVAS_W / 2,
-      100
+      state.stageNumber === 1 ? 66 : 100
     );
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = '900 44px system-ui, sans-serif';
-    ctx.fillText(stageDef.subtitle.toUpperCase(), CANVAS_W / 2, 168);
+    ctx.font = '900 40px system-ui, sans-serif';
+    ctx.fillText(stageDef.subtitle.toUpperCase(), CANVAS_W / 2, state.stageNumber === 1 ? 116 : 168);
 
     // Swatch warna stage
     const count = colors.length;
-    const size = 64;
+    const size = state.stageNumber === 1 ? 56 : 64;
     const gap = 22;
     const totalW = count * size + (count - 1) * gap;
     const startX = (CANVAS_W - totalW) / 2;
+    const swatchY = state.stageNumber === 1 ? 142 : 240;
     colors.forEach((col, i) => {
       const x = startX + i * (size + gap);
       ctx.fillStyle = col.hex;
       ctx.beginPath();
-      ctx.roundRect(x, 240, size, size, 16);
+      ctx.roundRect(x, swatchY, size, size, 16);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3;
       ctx.stroke();
     });
 
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '600 20px system-ui, sans-serif';
-    ctx.fillText('Lihat Target Warna di Jam Tangan Kiri saat bertempur.', CANVAS_W / 2, 360);
+    if (state.stageNumber === 1) {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '800 17px system-ui, sans-serif';
+      ctx.fillText('PETUNJUK ITEM ARENA', CANVAS_W / 2, 232);
+
+      const itemCards = [
+        {
+          img: this.itemDarahImg,
+          title: 'DARAH',
+          desc: 'Pulihkan +30 HP',
+          bg: 'rgba(16, 185, 129, 0.12)',
+          border: 'rgba(52, 211, 153, 0.4)',
+          titleColor: '#6ee7b7',
+        },
+        {
+          img: this.itemPerisaiImg,
+          title: 'PERISAI',
+          desc: 'Tambah +25 Shield',
+          bg: 'rgba(59, 130, 246, 0.12)',
+          border: 'rgba(96, 165, 250, 0.4)',
+          titleColor: '#93c5fd',
+        },
+        {
+          img: this.itemPeluruImg,
+          title: 'PELURU',
+          desc: 'Isi Ulang Amunisi',
+          bg: 'rgba(148, 163, 184, 0.12)',
+          border: 'rgba(148, 163, 184, 0.4)',
+          titleColor: '#e2e8f0',
+        },
+      ];
+
+      const cardW = 264;
+      const cardH = 186;
+      const cardGap = 24;
+      const cardsStartX = (CANVAS_W - (cardW * 3 + cardGap * 2)) / 2;
+      const cardY = 250;
+
+      itemCards.forEach((card, idx) => {
+        const cx = cardsStartX + idx * (cardW + cardGap);
+        ctx.fillStyle = card.bg;
+        ctx.beginPath();
+        ctx.roundRect(cx, cardY, cardW, cardH, 20);
+        ctx.fill();
+        ctx.strokeStyle = card.border;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        if (card.img && card.img.complete && card.img.naturalWidth > 0) {
+          const maxBox = 96;
+          const iw = card.img.naturalWidth;
+          const ih = card.img.naturalHeight;
+          const scale = Math.min(maxBox / iw, maxBox / ih);
+          const dw = iw * scale;
+          const dh = ih * scale;
+          ctx.drawImage(
+            card.img,
+            cx + (cardW - dw) / 2,
+            cardY + 14 + (maxBox - dh) / 2,
+            dw,
+            dh
+          );
+        }
+
+        ctx.fillStyle = card.titleColor;
+        ctx.font = '900 22px system-ui, sans-serif';
+        ctx.fillText(card.title, cx + cardW / 2, cardY + 138);
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '600 17px system-ui, sans-serif';
+        ctx.fillText(card.desc, cx + cardW / 2, cardY + 165);
+      });
+    } else {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 20px system-ui, sans-serif';
+      ctx.fillText('Lihat Target Warna di Jam Tangan Kiri saat bertempur.', CANVAS_W / 2, 360);
+    }
 
     this.drawButton(ctx, {
       id: 'continue_stage',
       label: `MULAI STAGE ${state.stageNumber}`,
       x: 262,
-      y: 446,
+      y: state.stageNumber === 1 ? 464 : 446,
       w: 500,
       h: 80,
       variant: 'primary',
