@@ -560,8 +560,8 @@ export const MissionSetupModal: React.FC<MissionSetupModalProps> = ({
                       : 'bg-[#0b101e] hover:bg-[#0f172a] border-white/12 hover:border-white/25'
                   }`}
                 >
-                  {/* Gambar Karakter Besar (Adaptif dvh agar tidak pernah scroll) */}
-                  <div className="relative w-full h-[clamp(145px,36dvh,275px)] rounded-xl overflow-hidden bg-[#050811] border border-white/10 p-1.5 flex items-center justify-center">
+                  {/* Gambar Karakter Persegi 1:1 Besar & Adaptif (Tanpa Scroll) */}
+                  <div className="relative w-[min(100%,38dvh,280px)] aspect-square mx-auto rounded-xl overflow-hidden bg-[#050811] border border-white/10 p-1.5 flex items-center justify-center">
                     {!imgFailed ? (
                       <img
                         src={profile.imagePath}
