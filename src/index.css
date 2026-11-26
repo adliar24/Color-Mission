@@ -91,8 +91,11 @@ canvas {
   0% {
     opacity: 0;
   }
-  18% {
-    opacity: 1;
+  22% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.65;
   }
   100% {
     opacity: 0;
@@ -102,43 +105,43 @@ canvas {
 @keyframes pickupPlusFloat {
   0% {
     opacity: 0;
-    transform: translate3d(0, 26px, 0) scale(0.55);
+    transform: translate3d(0, 28px, 0) scale(0.6);
   }
-  20% {
-    opacity: 0.95;
-    transform: translate3d(0, 6px, 0) scale(1.08);
+  25% {
+    opacity: 0.88;
+    transform: translate3d(0, 4px, 0) scale(1.04);
   }
   100% {
     opacity: 0;
-    transform: translate3d(0, -68px, 0) scale(0.92);
+    transform: translate3d(0, -76px, 0) scale(0.92);
   }
 }
 
 @keyframes pickupHexPulse {
   0% {
     opacity: 0;
-    transform: scale(0.94);
+    transform: scale(0.96);
   }
-  20% {
-    opacity: 0.92;
-    transform: scale(1.01);
+  25% {
+    opacity: 0.55;
+    transform: scale(1.0);
   }
   100% {
     opacity: 0;
-    transform: scale(1.07);
+    transform: scale(1.06);
   }
 }
 
 .pickup-screen-wash {
-  animation: pickupScreenWash 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: pickupScreenWash 1450ms cubic-bezier(0.25, 0.8, 0.25, 1) both;
 }
 
 .pickup-plus-float {
-  animation: pickupPlusFloat 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: pickupPlusFloat 1450ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .pickup-hex-pulse {
-  animation: pickupHexPulse 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: pickupHexPulse 1450ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes uiBackdropOut {

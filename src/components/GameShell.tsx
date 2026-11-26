@@ -1150,21 +1150,23 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
         void main() {
           vec2 centered = vUv * 2.0 - 1.0;
           float dist = length(centered);
-          float baseWash = mix(0.24, 0.56, smoothstep(0.1, 1.15, dist));
+          float smoothAlpha = smoothstep(0.0, 0.25, uIntensity) * uIntensity;
           if (uMode < 1.5) {
-            float plusMask = plusPattern(vUv, 7.5, uTime);
+            float baseWash = mix(0.14, 0.40, smoothstep(0.1, 1.15, dist));
+            float plusMask = plusPattern(vUv, 6.5, uTime);
             vec3 baseCol = vec3(0.04, 0.74, 0.45);
             vec3 symCol = vec3(0.65, 1.0, 0.82);
-            vec3 col = mix(baseCol, symCol, plusMask * 0.85);
-            float alpha = uIntensity * clamp(baseWash + plusMask * 0.42, 0.0, 0.88);
+            vec3 col = mix(baseCol, symCol, plusMask * 0.8);
+            float alpha = uIntensity * clamp(baseWash + plusMask * 0.34, 0.0, 0.68);
             gl_FragColor = vec4(col, alpha);
           } else {
-            float hexEdge = hexGridEdge(vUv - 0.5, 9.5);
-            float pulseWave = 0.75 + 0.25 * sin(dist * 9.0 - uTime * 7.0);
+            float baseWash = mix(0.08, 0.28, smoothstep(0.15, 1.15, dist));
+            float hexEdge = hexGridEdge(vUv - 0.5, 4.2);
+            float pulseWave = 0.78 + 0.22 * sin(dist * 7.0 - uTime * 5.0);
             vec3 baseCol = vec3(0.06, 0.52, 0.96);
             vec3 lineCol = vec3(0.58, 0.90, 1.0);
-            vec3 col = mix(baseCol, lineCol, hexEdge * 0.9);
-            float alpha = uIntensity * clamp(baseWash * pulseWave + hexEdge * 0.5, 0.0, 0.88);
+            vec3 col = mix(baseCol, lineCol, hexEdge * 0.85);
+            float alpha = uIntensity * clamp(baseWash * pulseWave + hexEdge * 0.22, 0.0, 0.46);
             gl_FragColor = vec4(col, alpha);
           }
         }
@@ -2295,7 +2297,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             vrPickupFxTime = 0;
             setPickupFlash({ type: 'health', id: performance.now() });
             if (pickupFlashTimerRef.current) clearTimeout(pickupFlashTimerRef.current);
-            pickupFlashTimerRef.current = setTimeout(() => setPickupFlash(null), 860);
+            pickupFlashTimerRef.current = setTimeout(() => setPickupFlash(null), 1460);
             setPlayer((prev) => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + 30) }));
             triggerShotBanner({
               type: 'pickup',
@@ -2311,7 +2313,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
             vrPickupFxTime = 0;
             setPickupFlash({ type: 'shield', id: performance.now() });
             if (pickupFlashTimerRef.current) clearTimeout(pickupFlashTimerRef.current);
-            pickupFlashTimerRef.current = setTimeout(() => setPickupFlash(null), 860);
+            pickupFlashTimerRef.current = setTimeout(() => setPickupFlash(null), 1460);
             setPlayer((prev) => ({ ...prev, shield: Math.min(prev.maxShield, prev.shield + 25) }));
             triggerShotBanner({
               type: 'pickup',
@@ -2856,7 +2858,7 @@ export const GameShell: React.FC<GameShellProps> = ({ autostart = false, onOpenA
         vrPickupFxMat.uniforms.uIntensity.value = vrPickupFxIntensity;
         vrPickupFxMat.uniforms.uMode.value = vrPickupFxMode;
         vrPickupFxMat.uniforms.uTime.value = vrPickupFxTime;
-        vrPickupFxIntensity = Math.max(0, vrPickupFxIntensity - dt * 1.25);
+        vrPickupFxIntensity = Math.max(0, vrPickupFxIntensity - dt * 0.68);
       } else {
         vrPickupFxMesh.visible = false;
         vrPickupFxMat.uniforms.uIntensity.value = 0;

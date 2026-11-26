@@ -177,32 +177,32 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
         />
       )}
 
-      {/* Efek Layar Penuh Saat Mengambil Item Darah (Hijau + Tanda Plus) */}
+      {/* Efek Layar Penuh Saat Mengambil Item Darah (Hijau Halus + Tanda Plus) */}
       {pickupFlash?.type === 'health' && (
         <div
           key={`hp_${pickupFlash.id}`}
           className="absolute inset-0 pointer-events-none z-30 overflow-hidden pickup-screen-wash"
           style={{
             background:
-              'radial-gradient(circle at center, rgba(16,185,129,0.24) 0%, rgba(16,185,129,0.42) 68%, rgba(5,150,105,0.68) 100%)',
-            boxShadow: 'inset 0 0 60px rgba(52,211,153,0.55)',
+              'radial-gradient(circle at center, rgba(16,185,129,0.14) 0%, rgba(16,185,129,0.28) 68%, rgba(5,150,105,0.48) 100%)',
+            boxShadow: 'inset 0 0 54px rgba(52,211,153,0.42)',
           }}
         >
           {[
             { left: '10%', top: '68%', size: 32, delay: '0ms' },
-            { left: '22%', top: '34%', size: 24, delay: '70ms' },
-            { left: '34%', top: '76%', size: 36, delay: '40ms' },
-            { left: '48%', top: '24%', size: 28, delay: '90ms' },
-            { left: '62%', top: '72%', size: 34, delay: '20ms' },
-            { left: '76%', top: '38%', size: 26, delay: '80ms' },
-            { left: '86%', top: '66%', size: 32, delay: '50ms' },
-            { left: '16%', top: '18%', size: 22, delay: '110ms' },
-            { left: '82%', top: '16%', size: 24, delay: '60ms' },
+            { left: '22%', top: '34%', size: 24, delay: '90ms' },
+            { left: '34%', top: '76%', size: 36, delay: '50ms' },
+            { left: '48%', top: '24%', size: 28, delay: '120ms' },
+            { left: '62%', top: '72%', size: 34, delay: '30ms' },
+            { left: '76%', top: '38%', size: 26, delay: '100ms' },
+            { left: '86%', top: '66%', size: 32, delay: '70ms' },
+            { left: '16%', top: '18%', size: 22, delay: '140ms' },
+            { left: '82%', top: '16%', size: 24, delay: '80ms' },
           ].map((item, idx) => (
             <svg
               key={idx}
               viewBox="0 0 24 24"
-              className="absolute pickup-plus-float drop-shadow-[0_0_10px_rgba(52,211,153,0.95)]"
+              className="absolute pickup-plus-float drop-shadow-[0_0_8px_rgba(52,211,153,0.75)]"
               style={{
                 left: item.left,
                 top: item.top,
@@ -224,15 +224,15 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
         </div>
       )}
 
-      {/* Efek Layar Penuh Saat Mengambil Item Perisai (Biru + Pola Banyak Hexagon) */}
+      {/* Efek Layar Penuh Saat Mengambil Item Perisai (Biru Transparan + Pola Hexagon Besar & Jarang) */}
       {pickupFlash?.type === 'shield' && (
         <div
           key={`sh_${pickupFlash.id}`}
           className="absolute inset-0 pointer-events-none z-30 overflow-hidden pickup-screen-wash"
           style={{
             background:
-              'radial-gradient(circle at center, rgba(14,165,233,0.22) 0%, rgba(37,99,235,0.42) 68%, rgba(2,132,199,0.70) 100%)',
-            boxShadow: 'inset 0 0 64px rgba(56,189,248,0.6)',
+              'radial-gradient(circle at center, rgba(14,165,233,0.10) 0%, rgba(37,99,235,0.20) 68%, rgba(2,132,199,0.36) 100%)',
+            boxShadow: 'inset 0 0 52px rgba(56,189,248,0.32)',
           }}
         >
           <svg
@@ -243,27 +243,27 @@ export const PlayingHUD: React.FC<PlayingHUDProps> = ({
             <defs>
               <pattern
                 id="shieldHexPattern"
-                width="56"
-                height="97"
+                width="120"
+                height="208"
                 patternUnits="userSpaceOnUse"
               >
                 <polygon
-                  points="28,2 54,17 54,47 28,62 2,47 2,17"
-                  fill="rgba(56,189,248,0.14)"
-                  stroke="#7dd3fc"
-                  strokeWidth="1.6"
+                  points="60,4 116,36 116,100 60,132 4,100 4,36"
+                  fill="rgba(56,189,248,0.06)"
+                  stroke="rgba(125,211,252,0.34)"
+                  strokeWidth="1.5"
                 />
                 <polygon
-                  points="0,50.5 26,65.5 26,95.5 0,110.5 -26,95.5 -26,65.5"
-                  fill="rgba(56,189,248,0.10)"
-                  stroke="#38bdf8"
-                  strokeWidth="1.4"
+                  points="0,108 56,140 56,204 0,236 -56,204 -56,140"
+                  fill="rgba(56,189,248,0.04)"
+                  stroke="rgba(56,189,248,0.26)"
+                  strokeWidth="1.3"
                 />
                 <polygon
-                  points="56,50.5 82,65.5 82,95.5 56,110.5 30,95.5 30,65.5"
-                  fill="rgba(56,189,248,0.10)"
-                  stroke="#38bdf8"
-                  strokeWidth="1.4"
+                  points="120,108 176,140 176,204 120,236 64,204 64,140"
+                  fill="rgba(56,189,248,0.04)"
+                  stroke="rgba(56,189,248,0.26)"
+                  strokeWidth="1.3"
                 />
               </pattern>
             </defs>
